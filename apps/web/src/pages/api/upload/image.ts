@@ -51,9 +51,11 @@ export default withRateLimit(
           }
         : undefined;
 
+    const publicEndpoint = process.env.S3_PUBLIC_ENDPOINT || env.S3_ENDPOINT;
+
     const client = new S3Client({
       region: env.S3_REGION ?? "",
-      endpoint: env.S3_ENDPOINT ?? "",
+      endpoint: publicEndpoint ?? "",
       forcePathStyle: env.S3_FORCE_PATH_STYLE === "true",
       credentials,
     });

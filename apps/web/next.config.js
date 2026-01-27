@@ -33,15 +33,8 @@ const config = {
 
   images: {
     remotePatterns: (() => {
-      /** @type {Array<{protocol: "http" | "https", hostname: string}>} */
+      /** @type {Array<{protocol: "http" | "https", hostname: string, pathname?: string}>} */
       const patterns = [
-        {
-          protocol: "https",
-          hostname:
-            env("S3_FORCE_PATH_STYLE") === "true"
-              ? `${env("NEXT_PUBLIC_STORAGE_DOMAIN")}`
-              : `*.${env("NEXT_PUBLIC_STORAGE_DOMAIN")}`,
-        },
         {
           protocol: "http",
           hostname: "localhost",
@@ -51,13 +44,35 @@ const config = {
           hostname: "*.googleusercontent.com",
         },
         {
-          protocol: 'https',
-          hostname: 'cdn.discordapp.com',
-          pathname: '/avatars/**',
+          protocol: "https",
+          hostname: "cdn.discordapp.com",
+          pathname: "/avatars/**",
         },
       ];
 
-      // Extract root domain from S3_ENDPOINT and add wildcard pattern
+      const storageDomain = env("NEXT_PUBLIC_STORAGE_DOMAIN");
+      if (storageDomain) {
+        patterns.push({
+          protocol: "https",
+          hostname:
+            env("S3_FORCE_PATH_STYLE") === "true"
+              ? storageDomain
+              : `*.${storageDomain}`,
+        });
+      }
+
+      const storageUrl = env("NEXT_PUBLIC_STORAGE_URL");
+      if (storageUrl) {
+        try {
+          const url = new URL(storageUrl);
+          patterns.push({
+            protocol: url.protocol.replace(":", ""),
+            hostname: url.hostname,
+          });
+        } catch {
+        }
+      }
+
       const s3Endpoint = env("S3_ENDPOINT");
       if (s3Endpoint) {
         try {
@@ -65,7 +80,6 @@ const config = {
           const hostname = url.hostname;
           const protocol = url.protocol.replace(":", "");
 
-          // Extract root domain (last 2 parts: e.g. cloudflarestorage.com)
           const parts = hostname.split(".");
           if (parts.length >= 2) {
             const rootDomain = parts.slice(-2).join(".");
@@ -75,7 +89,6 @@ const config = {
             });
           }
         } catch {
-          // If S3_ENDPOINT is not a valid URL, ignore it
         }
       }
 

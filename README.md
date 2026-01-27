@@ -167,7 +167,8 @@ pnpm dev
 | `TRELLO_APP_API_KEY`                      | Trello app API key                                        | For Trello import                     | `xxx`                                                       |
 | `TRELLO_APP_API_SECRET`                   | Trello app API secret                                     | For Trello import                     | `xxx`                                                       |
 | `S3_REGION`                               | S3 storage region                                         | For file uploads                      | `WEUR`                                                      |
-| `S3_ENDPOINT`                             | S3 endpoint URL                                           | For file uploads                      | `https://xxx.r2.cloudflarestorage.com`                      |
+| `S3_ENDPOINT`                             | S3 internal endpoint URL (for backend)                    | For file uploads                      | `http://minio:9000`                                         |
+| `S3_PUBLIC_ENDPOINT`                      | S3 public endpoint for presigned URLs (browser-accessible)| For file uploads                      | `https://storage.example.com`                               |
 | `S3_ACCESS_KEY_ID`                        | S3 access key                                             | For file uploads (optional with IRSA) | `xxx`                                                       |
 | `S3_SECRET_ACCESS_KEY`                    | S3 secret key                                             | For file uploads (optional with IRSA) | `xxx`                                                       |
 | `S3_FORCE_PATH_STYLE`                     | Use path-style URLs for S3                                | For file uploads                      | `true`                                                      |

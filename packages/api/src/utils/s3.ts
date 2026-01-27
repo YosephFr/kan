@@ -6,7 +6,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-export function createS3Client() {
+export function createS3Client(usePublicEndpoint = false) {
   const credentials =
     process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY
       ? {
@@ -15,9 +15,13 @@ export function createS3Client() {
         }
       : undefined;
 
+  const endpoint = usePublicEndpoint && process.env.S3_PUBLIC_ENDPOINT
+    ? process.env.S3_PUBLIC_ENDPOINT
+    : process.env.S3_ENDPOINT ?? "";
+
   return new S3Client({
     region: process.env.S3_REGION ?? "",
-    endpoint: process.env.S3_ENDPOINT ?? "",
+    endpoint,
     forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
     credentials,
   });
@@ -29,14 +33,13 @@ export async function generateUploadUrl(
   contentType: string,
   expiresIn = 3600,
 ) {
-  const client = createS3Client();
+  const client = createS3Client(true);
   return getSignedUrl(
     client,
     new PutObjectCommand({
       Bucket: bucket,
       Key: key,
       ContentType: contentType,
-      // Don't set ACL for private files
     }),
     { expiresIn },
   );
@@ -47,7 +50,7 @@ export async function generateDownloadUrl(
   key: string,
   expiresIn = 3600,
 ) {
-  const client = createS3Client();
+  const client = createS3Client(true);
   return getSignedUrl(
     client,
     new GetObjectCommand({
