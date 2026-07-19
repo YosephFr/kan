@@ -7,7 +7,15 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "next-runtime-env";
 
-export function createS3Client() {
+export function resolveS3Endpoint(usePublicEndpoint = false): string {
+  const internalEndpoint = process.env.S3_ENDPOINT ?? "";
+  if (usePublicEndpoint && process.env.S3_PUBLIC_ENDPOINT) {
+    return process.env.S3_PUBLIC_ENDPOINT;
+  }
+  return internalEndpoint;
+}
+
+export function createS3Client(usePublicEndpoint = false) {
   const credentials =
     process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY
       ? {
@@ -24,7 +32,7 @@ export function createS3Client() {
   // S3_REGION explicitly to their bucket's actual region.
   return new S3Client({
     region: process.env.S3_REGION ?? "us-east-1",
-    endpoint: process.env.S3_ENDPOINT ?? "",
+    endpoint: resolveS3Endpoint(usePublicEndpoint),
     forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
     credentials,
   });
@@ -36,7 +44,7 @@ export async function generateUploadUrl(
   contentType: string,
   expiresIn = 3600,
 ) {
-  const client = createS3Client();
+  const client = createS3Client(true);
   return getSignedUrl(
     client,
     new PutObjectCommand({
@@ -54,7 +62,7 @@ export async function generateDownloadUrl(
   key: string,
   expiresIn = 3600,
 ) {
-  const client = createS3Client();
+  const client = createS3Client(true);
   return getSignedUrl(
     client,
     new GetObjectCommand({
@@ -130,4 +138,3 @@ export async function generateAttachmentUrl(
     return null;
   }
 }
-
