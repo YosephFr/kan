@@ -26,12 +26,15 @@ sha256sum "$dump_path" >"$dump_path.sha256"
 
 "${compose[@]}" exec -T minio sh -eu -c '
   mc alias set backup http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
+  workspace_logo_bucket="${NEXT_PUBLIC_WORKSPACE_LOGOS_BUCKET_NAME:-kan-workspace-logos}"
   mc mirror --overwrite --remove \
     "backup/$NEXT_PUBLIC_AVATAR_BUCKET_NAME" \
     "/backup/$NEXT_PUBLIC_AVATAR_BUCKET_NAME"
-  mc mirror --overwrite --remove \
-    "backup/$NEXT_PUBLIC_WORKSPACE_LOGOS_BUCKET_NAME" \
-    "/backup/$NEXT_PUBLIC_WORKSPACE_LOGOS_BUCKET_NAME"
+  if mc stat "backup/$workspace_logo_bucket" >/dev/null 2>&1; then
+    mc mirror --overwrite --remove \
+      "backup/$workspace_logo_bucket" \
+      "/backup/$workspace_logo_bucket"
+  fi
   mc mirror --overwrite --remove \
     "backup/$NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME" \
     "/backup/$NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME"
