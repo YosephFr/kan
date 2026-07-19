@@ -1,0 +1,164 @@
+name: kan-imanleads
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kan}
+      POSTGRES_USER: ${POSTGRES_USER:-kan}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-kan} -d ${POSTGRES_DB:-kan}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    shm_size: 256mb
+    networks:
+      - kan
+
+  redis:
+    image: redis:7.4-alpine
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD}"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'redis-cli -a "$$REDIS_PASSWORD" ping 2>/dev/null | grep -q PONG',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    networks:
+      - kan
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      NEXT_PUBLIC_AVATAR_BUCKET_NAME: ${NEXT_PUBLIC_AVATAR_BUCKET_NAME:-kan-avatars}
+      NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME: ${NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME:-kan-attachments}
+    ports:
+      - "127.0.0.1:3901:9000"
+      - "127.0.0.1:3902:9001"
+    volumes:
+      - minio-data:/data
+      - /home/ubuntu/backups/kan/minio-current:/backup
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    networks:
+      - kan
+
+  minio-init:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    entrypoint: ["/bin/sh", "/opt/kan/init-minio.sh"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}
+      NEXT_PUBLIC_AVATAR_BUCKET_NAME: ${NEXT_PUBLIC_AVATAR_BUCKET_NAME:-kan-avatars}
+      NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME: ${NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME:-kan-attachments}
+    volumes:
+      - ./init-minio.sh:/opt/kan/init-minio.sh:ro
+      - ./minio-policy.json:/opt/kan/minio-policy.json:ro
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - kan
+
+  migrate:
+    image: imanleads/kan-migrate:${KAN_IMAGE_TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+      target: migrate
+    environment:
+      POSTGRES_URL: ${POSTGRES_URL:?POSTGRES_URL is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - kan
+
+  web:
+    image: imanleads/kan-web:${KAN_IMAGE_TAG:-latest}
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+      target: web
+      args:
+        APP_VERSION: ${KAN_IMAGE_TAG:-latest}
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_KAN_ENV: production
+      NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:?NEXT_PUBLIC_BASE_URL is required}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}
+      BETTER_AUTH_TRUSTED_ORIGINS: ${BETTER_AUTH_TRUSTED_ORIGINS:?BETTER_AUTH_TRUSTED_ORIGINS is required}
+      POSTGRES_URL: ${POSTGRES_URL:?POSTGRES_URL is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      KAN_ADMIN_API_KEY: ${KAN_ADMIN_API_KEY:?KAN_ADMIN_API_KEY is required}
+      NEXT_PUBLIC_DISABLE_EMAIL: "${NEXT_PUBLIC_DISABLE_EMAIL:-true}"
+      NEXT_PUBLIC_ALLOW_CREDENTIALS: "${NEXT_PUBLIC_ALLOW_CREDENTIALS:-true}"
+      NEXT_PUBLIC_DISABLE_SIGN_UP: "${NEXT_PUBLIC_DISABLE_SIGN_UP:-false}"
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:?S3_PUBLIC_ENDPOINT is required}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}
+      S3_FORCE_PATH_STYLE: "${S3_FORCE_PATH_STYLE:-true}"
+      S3_AVATAR_UPLOAD_LIMIT: ${S3_AVATAR_UPLOAD_LIMIT:-10485760}
+      NEXT_PUBLIC_STORAGE_URL: ${NEXT_PUBLIC_STORAGE_URL:?NEXT_PUBLIC_STORAGE_URL is required}
+      NEXT_PUBLIC_AVATAR_BUCKET_NAME: ${NEXT_PUBLIC_AVATAR_BUCKET_NAME:-kan-avatars}
+      NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME: ${NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME:-kan-attachments}
+      NEXT_PUBLIC_STORAGE_DOMAIN: ${NEXT_PUBLIC_STORAGE_DOMAIN:?NEXT_PUBLIC_STORAGE_DOMAIN is required}
+      NEXT_PUBLIC_USE_VIRTUAL_HOSTED_URLS: "${NEXT_PUBLIC_USE_VIRTUAL_HOSTED_URLS:-false}"
+      NEXT_PUBLIC_WHITE_LABEL_HIDE_POWERED_BY: "${NEXT_PUBLIC_WHITE_LABEL_HIDE_POWERED_BY:-false}"
+      NEXT_API_BODY_SIZE_LIMIT: ${NEXT_API_BODY_SIZE_LIMIT:-55mb}
+    ports:
+      - "127.0.0.1:3900:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - kan
+
+networks:
+  kan:
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:

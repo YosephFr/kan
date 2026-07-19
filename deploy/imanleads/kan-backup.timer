@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the Kan logical backup daily
+
+[Timer]
+OnCalendar=*-*-* 02:15:00 UTC
+Persistent=true
+RandomizedDelaySec=900
+Unit=kan-backup.service
+
+[Install]
+WantedBy=timers.target
