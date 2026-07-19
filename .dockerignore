@@ -5,6 +5,7 @@
 
 # Docker
 docker-compose*.yml
+deploy/
 .dockerignore
 
 # Dependencies (rebuilt in Docker)
