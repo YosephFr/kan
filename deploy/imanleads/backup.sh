@@ -20,16 +20,15 @@ mv "$dump_path.tmp" "$dump_path"
 pg_restore --list "$dump_path" >/dev/null
 sha256sum "$dump_path" >"$dump_path.sha256"
 
-"${compose[@]}" exec -T minio mc mirror \
-  --overwrite \
-  --remove \
-  "local/${NEXT_PUBLIC_AVATAR_BUCKET_NAME:-kan-avatars}" \
-  "/backup/${NEXT_PUBLIC_AVATAR_BUCKET_NAME:-kan-avatars}"
-"${compose[@]}" exec -T minio mc mirror \
-  --overwrite \
-  --remove \
-  "local/${NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME:-kan-attachments}" \
-  "/backup/${NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME:-kan-attachments}"
+"${compose[@]}" exec -T minio sh -eu -c '
+  mc alias set backup http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
+  mc mirror --overwrite --remove \
+    "backup/$NEXT_PUBLIC_AVATAR_BUCKET_NAME" \
+    "/backup/$NEXT_PUBLIC_AVATAR_BUCKET_NAME"
+  mc mirror --overwrite --remove \
+    "backup/$NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME" \
+    "/backup/$NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME"
+'
 
 find "$postgres_dir" -type f -name 'kan-*.dump' -mtime +30 -delete
 find "$postgres_dir" -type f -name 'kan-*.dump.sha256' -mtime +30 -delete
