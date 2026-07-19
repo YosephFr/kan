@@ -1,5 +1,6 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+
 import { kanRequest } from "../client.js";
 
 export function registerMemberTools(server: McpServer): void {
@@ -20,7 +21,9 @@ export function registerMemberTools(server: McpServer): void {
         `/workspaces/${workspacePublicId}/members/invite`,
         { email, role },
       );
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
     },
   );
 
@@ -36,7 +39,9 @@ export function registerMemberTools(server: McpServer): void {
         "DELETE",
         `/workspaces/${workspacePublicId}/members/${memberPublicId}`,
       );
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
     },
   );
 
@@ -54,7 +59,9 @@ export function registerMemberTools(server: McpServer): void {
         `/workspaces/${workspacePublicId}/members/${memberPublicId}/role`,
         { role },
       );
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
     },
   );
 
@@ -63,8 +70,13 @@ export function registerMemberTools(server: McpServer): void {
     "Get the active invite link for a workspace",
     { workspacePublicId: z.string().describe("The workspace's public ID") },
     async ({ workspacePublicId }) => {
-      const data = await kanRequest("GET", `/workspaces/${workspacePublicId}/invite`);
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      const data = await kanRequest(
+        "GET",
+        `/workspaces/${workspacePublicId}/invite`,
+      );
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
     },
   );
 
@@ -73,8 +85,13 @@ export function registerMemberTools(server: McpServer): void {
     "Create a new invite link for a workspace (7-day expiry)",
     { workspacePublicId: z.string().describe("The workspace's public ID") },
     async ({ workspacePublicId }) => {
-      const data = await kanRequest("POST", `/workspaces/${workspacePublicId}/invites`);
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      const data = await kanRequest(
+        "POST",
+        `/workspaces/${workspacePublicId}/invites`,
+      );
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
     },
   );
 
@@ -83,8 +100,53 @@ export function registerMemberTools(server: McpServer): void {
     "Deactivate all active invite links for a workspace",
     { workspacePublicId: z.string().describe("The workspace's public ID") },
     async ({ workspacePublicId }) => {
-      const data = await kanRequest("DELETE", `/workspaces/${workspacePublicId}/invites`);
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      const data = await kanRequest(
+        "DELETE",
+        `/workspaces/${workspacePublicId}/invites`,
+      );
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
+    },
+  );
+
+  server.registerTool(
+    "get_invite_by_code",
+    {
+      description: "Inspect a workspace invitation before accepting it.",
+      inputSchema: { inviteCode: z.string().min(12) },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ inviteCode }) => {
+      const data = await kanRequest("GET", `/invites/${inviteCode}`);
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
+    },
+  );
+
+  server.registerTool(
+    "accept_workspace_invite",
+    {
+      description: "Accept a workspace invite as the current API-token user.",
+      inputSchema: { inviteCode: z.string().min(12) },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async ({ inviteCode }) => {
+      const data = await kanRequest("POST", "/invites/accept", { inviteCode });
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
     },
   );
 }

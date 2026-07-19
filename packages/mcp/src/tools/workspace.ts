@@ -1,6 +1,8 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+
 import { kanRequest } from "../client.js";
+import { getWorkspaceSummaries } from "../workspaces.js";
 
 export function registerWorkspaceTools(server: McpServer): void {
   server.tool(
@@ -9,7 +11,9 @@ export function registerWorkspaceTools(server: McpServer): void {
     {},
     async () => {
       const data = await kanRequest("GET", "/workspaces");
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
     },
   );
 
@@ -18,7 +22,7 @@ export function registerWorkspaceTools(server: McpServer): void {
     "Find a workspace by its name (case-insensitive). Returns the matching workspace including its publicId. Use this whenever you only know the workspace name and need its publicId.",
     { name: z.string().describe("Workspace name to search for") },
     async ({ name }) => {
-      const workspaces = await kanRequest<{ publicId: string; name: string }[]>("GET", "/workspaces");
+      const workspaces = await getWorkspaceSummaries();
       const match = workspaces.find(
         (w) => w.name.toLowerCase() === name.toLowerCase(),
       );
@@ -33,7 +37,9 @@ export function registerWorkspaceTools(server: McpServer): void {
           ],
         };
       }
-      return { content: [{ type: "text", text: JSON.stringify(match, null, 2) }] };
+      return {
+        content: [{ type: "text", text: JSON.stringify(match, null, 2) }],
+      };
     },
   );
 
@@ -43,7 +49,9 @@ export function registerWorkspaceTools(server: McpServer): void {
     { workspacePublicId: z.string().describe("The workspace's public ID") },
     async ({ workspacePublicId }) => {
       const data = await kanRequest("GET", `/workspaces/${workspacePublicId}`);
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
     },
   );
 
@@ -53,7 +61,9 @@ export function registerWorkspaceTools(server: McpServer): void {
     { workspaceSlug: z.string().describe("The workspace slug") },
     async ({ workspaceSlug }) => {
       const data = await kanRequest("GET", `/workspaces/${workspaceSlug}`);
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
     },
   );
 
@@ -62,11 +72,16 @@ export function registerWorkspaceTools(server: McpServer): void {
     "Create a new workspace",
     {
       name: z.string().describe("Workspace name"),
-      slug: z.string().optional().describe("URL-friendly slug (auto-generated if omitted)"),
+      slug: z
+        .string()
+        .optional()
+        .describe("URL-friendly slug (auto-generated if omitted)"),
     },
     async ({ name, slug }) => {
       const data = await kanRequest("POST", "/workspaces", { name, slug });
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
     },
   );
 
@@ -79,8 +94,13 @@ export function registerWorkspaceTools(server: McpServer): void {
       slug: z.string().optional().describe("New workspace slug"),
     },
     async ({ workspacePublicId, name, slug }) => {
-      const data = await kanRequest("PUT", `/workspaces/${workspacePublicId}`, { name, slug });
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      const data = await kanRequest("PUT", `/workspaces/${workspacePublicId}`, {
+        name,
+        slug,
+      });
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
     },
   );
 
@@ -89,8 +109,13 @@ export function registerWorkspaceTools(server: McpServer): void {
     "Permanently delete a workspace",
     { workspacePublicId: z.string().describe("The workspace's public ID") },
     async ({ workspacePublicId }) => {
-      const data = await kanRequest("DELETE", `/workspaces/${workspacePublicId}`);
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      const data = await kanRequest(
+        "DELETE",
+        `/workspaces/${workspacePublicId}`,
+      );
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
     },
   );
 
@@ -103,8 +128,13 @@ export function registerWorkspaceTools(server: McpServer): void {
     },
     async ({ workspacePublicId, query }) => {
       const params = new URLSearchParams({ query });
-      const data = await kanRequest("GET", `/workspaces/${workspacePublicId}/search?${params}`);
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      const data = await kanRequest(
+        "GET",
+        `/workspaces/${workspacePublicId}/search?${params.toString()}`,
+      );
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
     },
   );
 
@@ -114,8 +144,13 @@ export function registerWorkspaceTools(server: McpServer): void {
     { slug: z.string().describe("Slug to check") },
     async ({ slug }) => {
       const params = new URLSearchParams({ slug });
-      const data = await kanRequest("GET", `/workspaces/check-slug-availability?${params}`);
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      const data = await kanRequest(
+        "GET",
+        `/workspaces/check-slug-availability?${params.toString()}`,
+      );
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
     },
   );
 }

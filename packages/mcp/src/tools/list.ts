@@ -1,5 +1,6 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+
 import { kanRequest } from "../client.js";
 
 export function registerListTools(server: McpServer): void {
@@ -12,7 +13,9 @@ export function registerListTools(server: McpServer): void {
     },
     async ({ boardPublicId, name }) => {
       const data = await kanRequest("POST", "/lists", { boardPublicId, name });
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
     },
   );
 
@@ -25,8 +28,13 @@ export function registerListTools(server: McpServer): void {
       index: z.number().int().optional().describe("New position index"),
     },
     async ({ listPublicId, name, index }) => {
-      const data = await kanRequest("PUT", `/lists/${listPublicId}`, { name, index });
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      const data = await kanRequest("PUT", `/lists/${listPublicId}`, {
+        name,
+        index,
+      });
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
     },
   );
 
@@ -36,7 +44,9 @@ export function registerListTools(server: McpServer): void {
     { listPublicId: z.string().describe("The list's public ID") },
     async ({ listPublicId }) => {
       const data = await kanRequest("DELETE", `/lists/${listPublicId}`);
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      return {
+        content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      };
     },
   );
 }

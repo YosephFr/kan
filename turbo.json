@@ -156,7 +156,8 @@
     "AXIOM_TOKEN",
     "AXIOM_DATASET",
     "KAN_BASE_URL",
-    "KAN_API_TOKEN"
+    "KAN_API_TOKEN",
+    "KAN_REQUEST_TIMEOUT_MS"
   ],
   "globalPassThroughEnv": [
     "NODE_ENV",

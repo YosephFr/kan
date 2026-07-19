@@ -245,12 +245,14 @@ kan-mcp
 
 ### Configuration
 
-The server is configured via two environment variables:
+The server is configured through the following environment variables:
 
-| Variable        | Description                         | Example                        |
-| --------------- | ----------------------------------- | ------------------------------ |
-| `KAN_BASE_URL`  | Base URL of your Kan instance       | `https://your-kan.example.com` |
-| `KAN_API_TOKEN` | API key from your Kan user settings | `kan_xxxxxxxxxxxx`             |
+| Variable                 | Description                                                   | Example                        |
+| ------------------------ | ------------------------------------------------------------- | ------------------------------ |
+| `KAN_BASE_URL`           | Base URL of your Kan instance                                 | `https://your-kan.example.com` |
+| `KAN_API_TOKEN`          | API key from your Kan user settings                           | `kan_xxxxxxxxxxxx`             |
+| `KAN_ADMIN_API_KEY`      | Optional instance admin key used only by administrator tools  | `a-long-random-secret`         |
+| `KAN_REQUEST_TIMEOUT_MS` | Optional request timeout in milliseconds; defaults to `30000` | `30000`                        |
 
 #### GitHub Copilot (VS Code)
 
