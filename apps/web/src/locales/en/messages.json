@@ -2302,6 +2302,18 @@
     ],
     "translation": "Card URL copied to clipboard"
   },
+  "f3cEDO": {
+    "translation": "Change image",
+    "message": "Change image",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/WorkspaceLogoPicker.tsx",
+        85
+      ]
+    ]
+  },
   "VhMDMg": {
     "message": "Change Password",
     "placeholders": {},
@@ -2441,6 +2453,18 @@
       ]
     ],
     "translation": "Choose a plan"
+  },
+  "iIV9st": {
+    "translation": "Choose a PNG, JPG, or WebP image.",
+    "message": "Choose a PNG, JPG, or WebP image.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/WorkspaceLogoPicker.tsx",
+        50
+      ]
+    ]
   },
   "5EMoSo": {
     "message": "Choose plan",
@@ -3245,11 +3269,19 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
+        278
+      ],
+      [
+        "src/components/WorkspaceMenu.tsx",
         227
       ],
       [
         "src/components/WorkspaceMenu.tsx",
-        171
+        228
+      ],
+      [
+        "src/components/WorkspaceMenu.tsx",
+        234
       ]
     ],
     "translation": "Create workspace"
@@ -3666,11 +3698,11 @@
       ],
       [
         "src/views/settings/WorkspaceSettings.tsx",
-        85
+        94
       ],
       [
         "src/views/settings/WorkspaceSettings.tsx",
-        96
+        105
       ]
     ],
     "translation": "Delete workspace"
@@ -3754,6 +3786,18 @@
       ]
     ],
     "translation": "Destination workspace"
+  },
+  "bzSI52": {
+    "translation": "Discard",
+    "message": "Discard",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/WorkspaceLogoPicker.tsx",
+        95
+      ]
+    ]
   },
   "Odv3J6": {
     "message": "Disconnect GitHub",
@@ -4278,7 +4322,7 @@
     "origin": [
       [
         "src/views/settings/WorkspaceSettings.tsx",
-        73
+        82
       ]
     ],
     "translation": "Email visibility"
@@ -7068,7 +7112,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        146
+        187
       ]
     ],
     "translation": "New workspace"
@@ -7352,7 +7396,7 @@
     "origin": [
       [
         "src/views/settings/WorkspaceSettings.tsx",
-        88
+        97
       ]
     ],
     "translation": "Once you delete your workspace, there is no going back. This action cannot be undone."
@@ -7364,7 +7408,7 @@
     "origin": [
       [
         "src/components/WorkspaceMenu.tsx",
-        37
+        56
       ]
     ],
     "translation": "Open command menu"
@@ -7908,7 +7952,7 @@
       ],
       [
         "src/components/NewWorkspaceForm.tsx",
-        110
+        151
       ],
       [
         "src/views/board/components/BoardDropdown.tsx",
@@ -8079,6 +8123,14 @@
         64
       ],
       [
+        "src/views/settings/components/UpdateWorkspaceLogoForm.tsx",
+        64
+      ],
+      [
+        "src/views/settings/components/UpdateWorkspaceLogoForm.tsx",
+        93
+      ],
+      [
         "src/views/settings/components/UpdateWorkspaceNameForm.tsx",
         59
       ],
@@ -8152,6 +8204,18 @@
       ]
     ],
     "translation": "Please try again."
+  },
+  "xsRUI3": {
+    "translation": "PNG, JPG, or WebP. Square images work best.",
+    "message": "PNG, JPG, or WebP. Square images work best.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/WorkspaceLogoPicker.tsx",
+        112
+      ]
+    ]
   },
   "nYNMZZ": {
     "message": "Position in list (0 = first, leave empty for end)",
@@ -8418,6 +8482,10 @@
     "placeholders": {},
     "comments": [],
     "origin": [
+      [
+        "src/components/WorkspaceLogoPicker.tsx",
+        107
+      ],
       [
         "src/views/members/components/DeleteMemberConfirmation.tsx",
         58
@@ -8812,6 +8880,18 @@
     ],
     "translation": "Save changes"
   },
+  "uKAEhd": {
+    "translation": "Save image",
+    "message": "Save image",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/components/UpdateWorkspaceLogoForm.tsx",
+        121
+      ]
+    ]
+  },
   "MdwUGG": {
     "message": "Save time with reusable board templates.",
     "placeholders": {},
@@ -8835,6 +8915,18 @@
       ]
     ],
     "translation": "Screening"
+  },
+  "A1taO8": {
+    "translation": "Search",
+    "message": "Search",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/WorkspaceMenu.tsx",
+        149
+      ]
+    ]
   },
   "SkCNhl": {
     "message": "Search boards and cards...",
@@ -9235,7 +9327,7 @@
     "origin": [
       [
         "src/views/settings/WorkspaceSettings.tsx",
-        32
+        31
       ]
     ],
     "translation": "Settings | Workspace"
@@ -9251,6 +9343,22 @@
       ]
     ],
     "translation": "Shortcuts"
+  },
+  "fMPkxb": {
+    "translation": "Show more",
+    "message": "Show more",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/WorkspaceMenu.tsx",
+        179
+      ],
+      [
+        "src/components/WorkspaceMenu.tsx",
+        191
+      ]
+    ]
   },
   "5lWFkC": {
     "message": "Sign in",
@@ -9577,7 +9685,6 @@
     "translation": "Status"
   },
   "hQRttt": {
-    "translation": "Submit",
     "message": "Submit",
     "placeholders": {},
     "comments": [],
@@ -9586,7 +9693,8 @@
         "src/views/card/components/NewCommentForm.tsx",
         60
       ]
-    ]
+    ],
+    "translation": "Submit"
   },
   "WYDptz": {
     "message": "Subscription Required",
@@ -10064,6 +10172,30 @@
     ],
     "translation": "The visibility of your board has been set to {0}."
   },
+  "o6c6bT": {
+    "translation": "The workspace image is now visible to its members.",
+    "message": "The workspace image is now visible to its members.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/components/UpdateWorkspaceLogoForm.tsx",
+        58
+      ]
+    ]
+  },
+  "Tdj/d0": {
+    "translation": "The workspace will use its initial instead.",
+    "message": "The workspace will use its initial instead.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/components/UpdateWorkspaceLogoForm.tsx",
+        87
+      ]
+    ]
+  },
   "FEr96N": {
     "message": "Theme",
     "placeholders": {},
@@ -10255,7 +10387,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        190
+        240
       ]
     ],
     "translation": "This workspace URL has already been taken"
@@ -10267,7 +10399,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        192
+        242
       ]
     ],
     "translation": "This workspace URL is reserved"
@@ -10591,7 +10723,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        109
+        150
       ],
       [
         "src/views/onboarding/workspace-details/index.tsx",
@@ -10723,6 +10855,18 @@
       ]
     ],
     "translation": "Unable to remove member"
+  },
+  "Zt1aIq": {
+    "translation": "Unable to remove workspace image",
+    "message": "Unable to remove workspace image",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/components/UpdateWorkspaceLogoForm.tsx",
+        92
+      ]
+    ]
   },
   "YKeYae": {
     "message": "Unable to reorder checklist item",
@@ -10967,6 +11111,30 @@
       ]
     ],
     "translation": "Unable to update webhook"
+  },
+  "LF62IN": {
+    "translation": "Unable to update workspace image",
+    "message": "Unable to update workspace image",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/components/UpdateWorkspaceLogoForm.tsx",
+        63
+      ]
+    ]
+  },
+  "QlyLyb": {
+    "translation": "Unable to use this image",
+    "message": "Unable to use this image",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/WorkspaceLogoPicker.tsx",
+        49
+      ]
+    ]
   },
   "It4/FS": {
     "message": "Unarchive board",
@@ -11384,6 +11552,18 @@
     ],
     "translation": "Upload failed"
   },
+  "6MxxvO": {
+    "translation": "Upload image",
+    "message": "Upload image",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/WorkspaceLogoPicker.tsx",
+        85
+      ]
+    ]
+  },
   "BBUDfW": {
     "message": "Urgent",
     "placeholders": {},
@@ -11423,7 +11603,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        31
+        32
       ],
       [
         "src/views/settings/components/UpdateWorkspaceUrlForm.tsx",
@@ -11451,7 +11631,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        29
+        30
       ],
       [
         "src/views/settings/components/UpdateWorkspaceUrlForm.tsx",
@@ -11467,7 +11647,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        27
+        28
       ],
       [
         "src/views/settings/components/UpdateWorkspaceUrlForm.tsx",
@@ -11819,7 +11999,7 @@
     "origin": [
       [
         "src/views/settings/WorkspaceSettings.tsx",
-        64
+        73
       ]
     ],
     "translation": "Week start day"
@@ -11894,6 +12074,10 @@
         47
       ],
       [
+        "src/components/WorkspaceLogoPicker.tsx",
+        64
+      ],
+      [
         "src/views/board/index.tsx",
         538
       ],
@@ -11929,6 +12113,18 @@
     "translation": "Workspace created successfully. You can upgrade later in settings.",
     "obsolete": true
   },
+  "9ahTaL": {
+    "translation": "Workspace created without image",
+    "message": "Workspace created without image",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/NewWorkspaceForm.tsx",
+        123
+      ]
+    ]
+  },
   "UlhdTP": {
     "message": "Workspace deleted",
     "placeholders": {},
@@ -11952,7 +12148,7 @@
       ],
       [
         "src/views/settings/WorkspaceSettings.tsx",
-        55
+        64
       ]
     ],
     "translation": "Workspace description"
@@ -11993,6 +12189,42 @@
     ],
     "translation": "Workspace description updated"
   },
+  "kfO+IG": {
+    "translation": "Workspace image",
+    "message": "Workspace image",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/WorkspaceSettings.tsx",
+        44
+      ]
+    ]
+  },
+  "EAzSVW": {
+    "translation": "Workspace image removed",
+    "message": "Workspace image removed",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/components/UpdateWorkspaceLogoForm.tsx",
+        86
+      ]
+    ]
+  },
+  "wBSSs7": {
+    "translation": "Workspace image updated",
+    "message": "Workspace image updated",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/components/UpdateWorkspaceLogoForm.tsx",
+        57
+      ]
+    ]
+  },
   "wtxjAY": {
     "message": "Workspace members",
     "placeholders": {},
@@ -12020,7 +12252,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        165
+        206
       ],
       [
         "src/views/onboarding/workspace-details/index.tsx",
@@ -12028,7 +12260,7 @@
       ],
       [
         "src/views/settings/WorkspaceSettings.tsx",
-        36
+        35
       ]
     ],
     "translation": "Workspace name"
@@ -12040,7 +12272,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        23
+        24
       ],
       [
         "src/views/settings/components/UpdateWorkspaceNameForm.tsx",
@@ -12056,7 +12288,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        22
+        23
       ]
     ],
     "translation": "Workspace name is required"
@@ -12116,7 +12348,7 @@
     "origin": [
       [
         "src/views/settings/WorkspaceSettings.tsx",
-        45
+        54
       ]
     ],
     "translation": "Workspace URL"
@@ -12140,10 +12372,22 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        179
+        229
       ]
     ],
     "translation": "workspace-url"
+  },
+  "pmt7u4": {
+    "translation": "Workspaces",
+    "message": "Workspaces",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/WorkspaceMenu.tsx",
+        143
+      ]
+    ]
   },
   "4kJRen": {
     "message": "Writing",
@@ -12244,6 +12488,18 @@
       ]
     ],
     "translation": "You can self-host by following the instructions in our <0>repo</0>."
+  },
+  "j+hcqf": {
+    "translation": "You can upload the workspace image from settings.",
+    "message": "You can upload the workspace image from settings.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/NewWorkspaceForm.tsx",
+        124
+      ]
+    ]
   },
   "tUL16u": {
     "message": "You don't have any other workspaces to move this board to.",

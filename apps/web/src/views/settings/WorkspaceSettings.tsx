@@ -1,7 +1,5 @@
 import { t } from "@lingui/core/macro";
 
-import type { Subscription } from "@kan/shared/utils";
-
 import Button from "~/components/Button";
 import FeedbackModal from "~/components/FeedbackModal";
 import Modal from "~/components/modal";
@@ -15,6 +13,7 @@ import { DeleteWorkspaceConfirmation } from "./components/DeleteWorkspaceConfirm
 import UpdateWeekStartDayForm from "./components/UpdateWeekStartDayForm";
 import UpdateWorkspaceDescriptionForm from "./components/UpdateWorkspaceDescriptionForm";
 import UpdateWorkspaceEmailVisibilityForm from "./components/UpdateWorkspaceEmailVisibilityForm";
+import UpdateWorkspaceLogoForm from "./components/UpdateWorkspaceLogoForm";
 import UpdateWorkspaceNameForm from "./components/UpdateWorkspaceNameForm";
 import UpdateWorkspaceUrlForm from "./components/UpdateWorkspaceUrlForm";
 
@@ -38,6 +37,16 @@ export default function WorkspaceSettings() {
         <UpdateWorkspaceNameForm
           workspacePublicId={workspace.publicId}
           workspaceName={workspace.name}
+          disabled={!canEditWorkspace}
+        />
+
+        <h2 className="mb-4 mt-8 text-[14px] font-bold text-neutral-900 dark:text-dark-1000">
+          {t`Workspace image`}
+        </h2>
+        <UpdateWorkspaceLogoForm
+          workspacePublicId={workspace.publicId}
+          workspaceName={workspace.name}
+          workspaceLogo={workspaceData?.logo}
           disabled={!canEditWorkspace}
         />
 

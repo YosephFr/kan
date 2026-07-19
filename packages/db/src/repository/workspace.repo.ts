@@ -92,6 +92,7 @@ export const create = async (
       name: workspaces.name,
       slug: workspaces.slug,
       description: workspaces.description,
+      logo: workspaces.logo,
       plan: workspaces.plan,
       cardPrefix: workspaces.cardPrefix,
     });
@@ -139,6 +140,7 @@ export const update = async (
     slug?: string;
     plan?: "free" | "team" | "pro" | "enterprise";
     description?: string;
+    logo?: string | null;
     showEmailsToMembers?: boolean;
     weekStartDay?: number;
   },
@@ -150,6 +152,7 @@ export const update = async (
       slug: workspaceInput.slug,
       plan: workspaceInput.plan,
       description: workspaceInput.description,
+      logo: workspaceInput.logo,
       showEmailsToMembers: workspaceInput.showEmailsToMembers,
       weekStartDay: workspaceInput.weekStartDay,
     })
@@ -160,6 +163,7 @@ export const update = async (
       name: workspaces.name,
       slug: workspaces.slug,
       description: workspaces.description,
+      logo: workspaces.logo,
       plan: workspaces.plan,
       showEmailsToMembers: workspaces.showEmailsToMembers,
       weekStartDay: workspaces.weekStartDay,
@@ -176,6 +180,7 @@ export const getByPublicId = (db: dbClient, workspacePublicId: string) => {
       name: true,
       plan: true,
       slug: true,
+      logo: true,
       deletedAt: true,
       createdBy: true,
     },
@@ -191,6 +196,7 @@ export const getById = (db: dbClient, workspaceId: number) => {
       name: true,
       plan: true,
       slug: true,
+      logo: true,
     },
     where: eq(workspaces.id, workspaceId),
   });
@@ -206,6 +212,7 @@ export const getByPublicIdWithMembers = (
       publicId: true,
       name: true,
       slug: true,
+      logo: true,
       showEmailsToMembers: true,
       weekStartDay: true,
     },
@@ -261,6 +268,7 @@ export const getBySlugWithBoards = (db: dbClient, workspaceSlug: string) => {
       publicId: true,
       name: true,
       description: true,
+      logo: true,
       slug: true,
     },
     with: {
@@ -296,6 +304,7 @@ export const getAllByUserId = async (db: dbClient, userId: string) => {
           publicId: true,
           name: true,
           description: true,
+          logo: true,
           slug: true,
           plan: true,
           weekStartDay: true,
@@ -396,8 +405,10 @@ const parseTicketId = (
   query: string,
 ): { prefix: string; number: number } | null => {
   const match = /^([A-Za-z0-9]{1,10})-(\d+)$/.exec(query);
-  if (!match) return null;
-  return { prefix: match[1]!.toUpperCase(), number: parseInt(match[2]!, 10) };
+  const prefix = match?.[1];
+  const number = match?.[2];
+  if (!prefix || !number) return null;
+  return { prefix: prefix.toUpperCase(), number: parseInt(number, 10) };
 };
 
 export const searchBoardsAndCards = async (

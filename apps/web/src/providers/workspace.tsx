@@ -15,6 +15,7 @@ interface WorkspaceContextProps {
 interface Workspace {
   name: string;
   description: string | null | undefined;
+  logo: string | null | undefined;
   publicId: string;
   slug: string | undefined;
   plan: "free" | "team" | "pro" | "enterprise" | undefined;
@@ -26,6 +27,7 @@ interface Workspace {
 const initialWorkspace: Workspace = {
   name: "",
   description: null,
+  logo: null,
   publicId: "",
   slug: "",
   plan: "free" as const,
@@ -93,6 +95,7 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({
         name: workspace.name,
         slug: workspace.slug,
         description: workspace.description,
+        logo: workspace.logo,
         plan: workspace.plan,
         weekStartDay: workspace.weekStartDay,
         cardPrefix: workspace.cardPrefix,
@@ -130,6 +133,7 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({
           slug: selectedWorkspace.workspace.slug,
           plan: selectedWorkspace.workspace.plan,
           description: selectedWorkspace.workspace.description,
+          logo: selectedWorkspace.workspace.logo,
           role: selectedWorkspace.role as "admin" | "member" | "guest",
           weekStartDay: selectedWorkspace.workspace.weekStartDay as 0 | 1 | 6,
           cardPrefix: selectedWorkspace.workspace.cardPrefix,
@@ -156,6 +160,7 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({
       slug: primaryWorkspace.slug,
       plan: primaryWorkspace.plan,
       description: primaryWorkspace.description,
+      logo: primaryWorkspace.logo,
       role: primaryWorkspaceRole as "admin" | "member" | "guest",
       weekStartDay: primaryWorkspace.weekStartDay as 0 | 1 | 6,
       cardPrefix: primaryWorkspace.cardPrefix,

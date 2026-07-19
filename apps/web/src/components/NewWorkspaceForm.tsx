@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { t } from "@lingui/core/macro";
 import { env } from "next-runtime-env";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { HiCheck, HiXMark } from "react-icons/hi2";
 import { twMerge } from "tailwind-merge";
@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import Button from "~/components/Button";
 import Input from "~/components/Input";
+import { WorkspaceLogoPicker } from "~/components/WorkspaceLogoPicker";
 import { useDebounce } from "~/hooks/useDebounce";
 import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
@@ -56,10 +57,13 @@ export function NewWorkspaceForm() {
     mode: "onSubmit",
   });
   const utils = api.useUtils();
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
   const hasAvailableWorkspaces = availableWorkspaces.length > 0;
 
   const slug = watch("slug");
+  const workspaceName = watch("name");
   const [debouncedSlug] = useDebounce(slug, 500);
   const isTyping = slug !== debouncedSlug;
 
@@ -87,13 +91,50 @@ export function NewWorkspaceForm() {
   const isWorkspaceSlugAvailable = checkWorkspaceSlugAvailability.data;
 
   const createWorkspace = api.workspace.create.useMutation({
-    onSuccess: (values) => {
+    onSuccess: async (values) => {
       if (values.publicId && values.name) {
-        void utils.workspace.all.invalidate();
+        let logo = values.logo;
+
+        if (logoFile) {
+          setIsUploadingLogo(true);
+          try {
+            const response = await fetch(
+              `/api/upload/workspace-logo?workspacePublicId=${encodeURIComponent(values.publicId)}`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": logoFile.type,
+                  "x-original-filename": encodeURIComponent(logoFile.name),
+                },
+                body: logoFile,
+              },
+            );
+
+            if (!response.ok) {
+              throw new Error("Unable to upload workspace logo");
+            }
+
+            const payload = (await response.json()) as {
+              logo: string | null;
+            };
+            logo = payload.logo;
+          } catch {
+            showPopup({
+              header: t`Workspace created without image`,
+              message: t`You can upload the workspace image from settings.`,
+              icon: "error",
+            });
+          } finally {
+            setIsUploadingLogo(false);
+          }
+        }
+
+        await utils.workspace.all.invalidate();
         switchWorkspace({
           publicId: values.publicId,
           name: values.name,
           description: values.description,
+          logo,
           slug: values.slug,
           plan: values.plan,
           cardPrefix: values.cardPrefix,
@@ -136,7 +177,7 @@ export function NewWorkspaceForm() {
   const isSlugAvailable =
     isValidSlug &&
     isWorkspaceSlugAvailable?.isAvailable &&
-    !isWorkspaceSlugAvailable?.isReserved;
+    !isWorkspaceSlugAvailable.isReserved;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
@@ -174,6 +215,15 @@ export function NewWorkspaceForm() {
         />
 
         <div className="mt-4">
+          <WorkspaceLogoPicker
+            workspaceName={workspaceName}
+            selectedFile={logoFile}
+            onFileSelect={setLogoFile}
+            disabled={createWorkspace.isPending || isUploadingLogo}
+          />
+        </div>
+
+        <div className="mt-4">
           <Input
             id="workspace-slug"
             placeholder={t`workspace-url`}
@@ -186,7 +236,7 @@ export function NewWorkspaceForm() {
             errorMessage={
               errors.slug?.message ??
               (isWorkspaceSlugAvailable?.isAvailable === false &&
-              isWorkspaceSlugAvailable?.isReserved === false
+              isWorkspaceSlugAvailable.isReserved === false
                 ? t`This workspace URL has already been taken`
                 : isWorkspaceSlugAvailable?.isReserved
                   ? t`This workspace URL is reserved`
@@ -215,9 +265,10 @@ export function NewWorkspaceForm() {
         <div>
           <Button
             type="submit"
-            isLoading={createWorkspace.isPending}
+            isLoading={createWorkspace.isPending || isUploadingLogo}
             disabled={
               createWorkspace.isPending ||
+              isUploadingLogo ||
               (!!slug &&
                 (checkWorkspaceSlugAvailability.isPending ||
                   isWorkspaceSlugAvailable?.isAvailable === false ||

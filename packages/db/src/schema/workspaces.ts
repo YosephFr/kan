@@ -46,6 +46,7 @@ export const workspaces = pgTable(
     publicId: varchar("publicId", { length: 12 }).notNull().unique(),
     name: varchar("name", { length: 255 }).notNull(),
     description: text("description"),
+    logo: text("logo"),
     slug: varchar("slug", { length: 255 }).notNull().unique(),
     plan: workspacePlanEnum("plan").notNull().default("free"),
     showEmailsToMembers: boolean("showEmailsToMembers").notNull().default(true),

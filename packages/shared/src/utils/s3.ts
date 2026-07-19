@@ -114,6 +114,30 @@ export async function generateAvatarUrl(
   }
 }
 
+export async function generateWorkspaceLogoUrl(
+  imageKey: string | null | undefined,
+  expiresIn = 86400,
+): Promise<string | null> {
+  if (!imageKey) {
+    return null;
+  }
+
+  if (imageKey.startsWith("http://") || imageKey.startsWith("https://")) {
+    return imageKey;
+  }
+
+  const bucket = env("NEXT_PUBLIC_WORKSPACE_LOGOS_BUCKET_NAME");
+  if (!bucket) {
+    return null;
+  }
+
+  try {
+    return await generateDownloadUrl(bucket, imageKey, expiresIn);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Generate presigned URL for an attachment
  * Returns null if attachment key is missing, bucket is not configured, or URL generation fails

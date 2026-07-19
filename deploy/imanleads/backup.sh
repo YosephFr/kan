@@ -9,7 +9,11 @@ stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 dump_path="$postgres_dir/kan-$stamp.dump"
 compose=(docker compose --env-file "$repo_dir/.env" -f "$repo_dir/deploy/imanleads/compose.yaml")
 
-mkdir -p "$postgres_dir" "$minio_dir/kan-avatars" "$minio_dir/kan-attachments"
+mkdir -p \
+  "$postgres_dir" \
+  "$minio_dir/kan-avatars" \
+  "$minio_dir/kan-workspace-logos" \
+  "$minio_dir/kan-attachments"
 chmod 700 "$backup_root" "$postgres_dir" "$minio_dir"
 
 "${compose[@]}" exec -T postgres pg_dump \
@@ -25,6 +29,9 @@ sha256sum "$dump_path" >"$dump_path.sha256"
   mc mirror --overwrite --remove \
     "backup/$NEXT_PUBLIC_AVATAR_BUCKET_NAME" \
     "/backup/$NEXT_PUBLIC_AVATAR_BUCKET_NAME"
+  mc mirror --overwrite --remove \
+    "backup/$NEXT_PUBLIC_WORKSPACE_LOGOS_BUCKET_NAME" \
+    "/backup/$NEXT_PUBLIC_WORKSPACE_LOGOS_BUCKET_NAME"
   mc mirror --overwrite --remove \
     "backup/$NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME" \
     "/backup/$NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME"

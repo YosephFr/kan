@@ -78,6 +78,7 @@ export const env = createEnv({
     S3_ENDPOINT: z.string().optional(),
     S3_PUBLIC_ENDPOINT: z.string().url().optional().or(z.literal("")),
     S3_FORCE_PATH_STYLE: z.string().optional(),
+    S3_AVATAR_UPLOAD_LIMIT: z.string().optional(),
     EMAIL_FROM: z.string().optional(),
     REDIS_URL: z.string().url().optional().or(z.literal("")),
   },
@@ -95,6 +96,7 @@ export const env = createEnv({
     NEXT_PUBLIC_BASE_URL: z.string().url().optional(),
     NEXT_PUBLIC_STORAGE_URL: z.string().url().optional(),
     NEXT_PUBLIC_AVATAR_BUCKET_NAME: z.string().optional(),
+    NEXT_PUBLIC_WORKSPACE_LOGOS_BUCKET_NAME: z.string().optional(),
     NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME: z.string().optional(),
     NEXT_PUBLIC_STORAGE_DOMAIN: z.string().optional(),
     NEXT_PUBLIC_USE_VIRTUAL_HOSTED_URLS: z
@@ -139,6 +141,8 @@ export const env = createEnv({
     NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
     NEXT_PUBLIC_STORAGE_URL: process.env.NEXT_PUBLIC_STORAGE_URL,
     NEXT_PUBLIC_AVATAR_BUCKET_NAME: process.env.NEXT_PUBLIC_AVATAR_BUCKET_NAME,
+    NEXT_PUBLIC_WORKSPACE_LOGOS_BUCKET_NAME:
+      process.env.NEXT_PUBLIC_WORKSPACE_LOGOS_BUCKET_NAME,
     NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME:
       process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME,
     NEXT_PUBLIC_STORAGE_DOMAIN: process.env.NEXT_PUBLIC_STORAGE_DOMAIN,

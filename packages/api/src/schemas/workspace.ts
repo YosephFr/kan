@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import { userSchema } from "./common";
-
 // ─── workspace.all ───────────────────────────────────────────
 export const workspaceListItemSchema = z.object({
   role: z.string(),
@@ -9,6 +7,7 @@ export const workspaceListItemSchema = z.object({
     publicId: z.string(),
     name: z.string(),
     description: z.string().nullable(),
+    logo: z.string().nullable(),
     slug: z.string(),
     plan: z.enum(["free", "team", "pro", "enterprise"]),
     weekStartDay: z.number().nullable(),
@@ -48,6 +47,7 @@ export const workspaceDetailSchema = z.object({
   publicId: z.string(),
   name: z.string(),
   slug: z.string(),
+  logo: z.string().nullable(),
   showEmailsToMembers: z.boolean().nullable(),
   weekStartDay: z.number().nullable(),
   members: z.array(workspaceMemberDetailSchema),
@@ -59,6 +59,7 @@ export const workspaceWithBoardsSchema = z.object({
   publicId: z.string(),
   name: z.string(),
   description: z.string().nullable(),
+  logo: z.string().nullable(),
   slug: z.string(),
   boards: z.array(
     z.object({
@@ -75,6 +76,7 @@ export const workspaceCreateResponseSchema = z.object({
   name: z.string(),
   slug: z.string(),
   description: z.string().nullable(),
+  logo: z.string().nullable(),
   plan: z.enum(["free", "team", "pro", "enterprise"]),
   cardPrefix: z.string(),
 });
@@ -85,6 +87,7 @@ export const workspaceUpdateResponseSchema = z.object({
   name: z.string(),
   slug: z.string(),
   description: z.string().nullable(),
+  logo: z.string().nullable(),
   plan: z.enum(["free", "team", "pro", "enterprise"]),
   showEmailsToMembers: z.boolean().nullable(),
   weekStartDay: z.number().nullable(),

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { resolveS3Endpoint } from "./s3";
+import { generateWorkspaceLogoUrl, resolveS3Endpoint } from "./s3";
 
 const originalInternalEndpoint = process.env.S3_ENDPOINT;
 const originalPublicEndpoint = process.env.S3_PUBLIC_ENDPOINT;
@@ -30,5 +30,17 @@ describe("resolveS3Endpoint", () => {
     delete process.env.S3_PUBLIC_ENDPOINT;
 
     expect(resolveS3Endpoint(true)).toBe("https://s3.example.com");
+  });
+});
+
+describe("generateWorkspaceLogoUrl", () => {
+  it("preserves external workspace logo URLs", async () => {
+    await expect(
+      generateWorkspaceLogoUrl("https://cdn.example.com/workspace.png"),
+    ).resolves.toBe("https://cdn.example.com/workspace.png");
+  });
+
+  it("returns null when a workspace has no logo", async () => {
+    await expect(generateWorkspaceLogoUrl(null)).resolves.toBeNull();
   });
 });

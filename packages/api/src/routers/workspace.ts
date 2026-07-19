@@ -6,7 +6,13 @@ import type { WorkspacePlan } from "@kan/db/schema";
 import * as subscriptionRepo from "@kan/db/repository/subscription.repo";
 import * as workspaceRepo from "@kan/db/repository/workspace.repo";
 import * as workspaceSlugRepo from "@kan/db/repository/workspaceSlug.repo";
-import { generateAvatarUrl, generateUID } from "@kan/shared/utils";
+import { createLogger } from "@kan/logger";
+import {
+  deleteObject,
+  generateAvatarUrl,
+  generateUID,
+  generateWorkspaceLogoUrl,
+} from "@kan/shared/utils";
 
 import {
   workspaceCreateResponseSchema,
@@ -18,6 +24,8 @@ import {
 } from "../schemas";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { assertPermission } from "../utils/permissions";
+
+const logger = createLogger("workspace-router");
 
 export const workspaceRouter = createTRPCRouter({
   all: protectedProcedure
@@ -44,7 +52,15 @@ export const workspaceRouter = createTRPCRouter({
 
       const result = await workspaceRepo.getAllByUserId(ctx.db, userId);
 
-      return result;
+      return Promise.all(
+        result.map(async (membership) => ({
+          ...membership,
+          workspace: {
+            ...membership.workspace,
+            logo: await generateWorkspaceLogoUrl(membership.workspace.logo),
+          },
+        })),
+      );
     }),
   byId: protectedProcedure
     .meta({
@@ -106,6 +122,7 @@ export const workspaceRouter = createTRPCRouter({
           };
         }),
       );
+      const logo = await generateWorkspaceLogoUrl(result.logo);
 
       // If emails should be hidden, filter them out
       if (!shouldShowEmails) {
@@ -137,12 +154,14 @@ export const workspaceRouter = createTRPCRouter({
 
         return {
           ...result,
+          logo,
           members: sanitizedMembers,
         };
       }
 
       return {
         ...result,
+        logo,
         members: membersWithAvatarUrls,
       };
     }),
@@ -188,7 +207,10 @@ export const workspaceRouter = createTRPCRouter({
         });
       await assertPermission(ctx.db, userId, result.id, "workspace:view");
 
-      return result;
+      return {
+        ...result,
+        logo: await generateWorkspaceLogoUrl(result.logo),
+      };
     }),
   create: protectedProcedure
     .meta({
@@ -266,7 +288,13 @@ export const workspaceRouter = createTRPCRouter({
         ...(input.description && { description: input.description }),
       });
 
-      if (!result.publicId)
+      if (
+        !result.publicId ||
+        result.name === undefined ||
+        result.slug === undefined ||
+        result.plan === undefined ||
+        result.cardPrefix === undefined
+      )
         throw new TRPCError({
           message: `Unable to create workspace`,
           code: "INTERNAL_SERVER_ERROR",
@@ -279,7 +307,7 @@ export const workspaceRouter = createTRPCRouter({
       if (env("NEXT_PUBLIC_KAN_ENV") === "cloud") {
         const memberships = await workspaceRepo.getAllByUserId(ctx.db, userId);
         const otherWorkspaceIds = memberships
-          .map((m) => m.workspace?.publicId)
+          .map((m) => m.workspace.publicId)
           .filter((id): id is string => !!id && id !== workspacePublicId);
 
         const partnerSub = otherWorkspaceIds.length
@@ -309,11 +337,12 @@ export const workspaceRouter = createTRPCRouter({
 
       return {
         publicId: result.publicId,
-        name: result.name!,
-        slug: result.slug!,
+        name: result.name,
+        slug: result.slug,
         description: result.description ?? null,
-        plan: (unlinkedSlot?.plan ?? result.plan!) as WorkspacePlan,
-        cardPrefix: result.cardPrefix!,
+        logo: null,
+        plan: (unlinkedSlot?.plan ?? result.plan) as WorkspacePlan,
+        cardPrefix: result.cardPrefix,
       };
     }),
   update: protectedProcedure
@@ -413,7 +442,10 @@ export const workspaceRouter = createTRPCRouter({
           code: "INTERNAL_SERVER_ERROR",
         });
 
-      return result;
+      return {
+        ...result,
+        logo: await generateWorkspaceLogoUrl(result.logo),
+      };
     }),
   delete: protectedProcedure
     .meta({
@@ -464,6 +496,18 @@ export const workspaceRouter = createTRPCRouter({
       }
 
       await workspaceRepo.hardDelete(ctx.db, input.workspacePublicId);
+
+      const logoBucket = env("NEXT_PUBLIC_WORKSPACE_LOGOS_BUCKET_NAME");
+      if (logoBucket && workspace.logo && !workspace.logo.startsWith("http")) {
+        try {
+          await deleteObject(logoBucket, workspace.logo);
+        } catch (error) {
+          logger.warn(
+            { error, workspacePublicId: input.workspacePublicId },
+            "Unable to remove deleted workspace logo",
+          );
+        }
+      }
 
       return { success: true };
     }),
@@ -622,7 +666,7 @@ export const workspaceRouter = createTRPCRouter({
 
       const memberships = await workspaceRepo.getAllByUserId(ctx.db, userId);
       const workspaceIds = memberships
-        .map((m) => m.workspace?.publicId)
+        .map((m) => m.workspace.publicId)
         .filter((id): id is string => !!id);
 
       if (!workspaceIds.length) return false;
