@@ -46,10 +46,10 @@ import { CardContextMembersModal } from "./components/CardContextMembersModal";
 import { CardContextMenu } from "./components/CardContextMenu";
 import { CardContextMoveListModal } from "./components/CardContextMoveListModal";
 import { DeleteBoardConfirmation } from "./components/DeleteBoardConfirmation";
-import { MoveBoardForm } from "./components/MoveBoardForm";
 import { DeleteListConfirmation } from "./components/DeleteListConfirmation";
 import Filters from "./components/Filters";
 import List from "./components/List";
+import { MoveBoardForm } from "./components/MoveBoardForm";
 import { NewCardForm } from "./components/NewCardForm";
 import { NewListForm } from "./components/NewListForm";
 import { NewTemplateForm } from "./components/NewTemplateForm";
@@ -582,11 +582,15 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
                   workspaceSlug={workspace.slug ?? ""}
                   boardSlug={boardData?.slug ?? ""}
                   boardPublicId={boardId ?? ""}
-                  visibility={boardData?.visibility ?? "private"}
+                  visibility={
+                    boardData?.visibility === "public" ? "public" : "private"
+                  }
                   canEdit={canEditBoard}
                 />
                 <VisibilityButton
-                  visibility={boardData?.visibility ?? "private"}
+                  visibility={
+                    boardData?.visibility === "public" ? "public" : "private"
+                  }
                   boardPublicId={boardId ?? ""}
                   boardSlug={boardData?.slug ?? ""}
                   queryParams={queryParams}

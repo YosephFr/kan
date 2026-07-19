@@ -62,7 +62,7 @@
       "0": ["labelPublicIds.length"]
     },
     "comments": [],
-    "origin": [["src/views/board/components/NewCardForm.tsx", 462]],
+    "origin": [["src/views/board/components/NewCardForm.tsx", 459]],
     "translation": "{0} метки"
   },
   "9x4DAL": {
@@ -173,7 +173,7 @@
     "message": "Account",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/SettingsLayout.tsx", 41]],
+    "origin": [["src/components/SettingsLayout.tsx", 45]],
     "translation": "Аккаунт"
   },
   "TKFUnX": {
@@ -443,6 +443,13 @@
     "origin": [["src/views/settings/components/Avatar.tsx", 256]],
     "translation": "Отрегулируйте квадратную обрезку для вашего аватара."
   },
+  "PWtCt+": {
+    "message": "Adjust workspace image",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/WorkspaceLogoPicker.tsx", 122]],
+    "translation": ""
+  },
   "U3pytU": {
     "message": "Admin",
     "placeholders": {},
@@ -592,7 +599,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/SettingsLayout.tsx", 65],
+      ["src/components/SettingsLayout.tsx", 69],
       ["src/views/pricing/components/FeatureComparisonTable.tsx", 237]
     ],
     "translation": "API"
@@ -862,7 +869,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/SettingsLayout.tsx", 58],
+      ["src/components/SettingsLayout.tsx", 62],
       ["src/views/boards/components/TemplateBoards.tsx", 68],
       ["src/views/settings/BillingSettings.tsx", 88]
     ],
@@ -1006,7 +1013,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/SideNavigation.tsx", 97],
+      ["src/components/SideNavigation.tsx", 98],
       ["src/views/pricing/components/FeatureComparisonTable.tsx", 73]
     ],
     "translation": "Доски"
@@ -1024,6 +1031,44 @@
     "comments": [],
     "origin": [["src/views/boards/components/TemplateBoards.tsx", 42]],
     "translation": "Мозговой штурм"
+  },
+  "GSljFb": {
+    "message": "Brand identity",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 155]],
+    "translation": ""
+  },
+  "rtu6aD": {
+    "message": "Brand logo",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/settings/WhitelabelSettings.tsx", 173],
+      ["src/views/settings/WhitelabelSettings.tsx", 180]
+    ],
+    "translation": ""
+  },
+  "pjaNRX": {
+    "message": "Brand logo removed",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 126]],
+    "translation": ""
+  },
+  "7C7tMy": {
+    "message": "Brand name",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 162]],
+    "translation": ""
+  },
+  "iP5UYt": {
+    "message": "Branding updated",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 103]],
+    "translation": ""
   },
   "vXemf6": {
     "message": "Bug",
@@ -1285,6 +1330,7 @@
     "comments": [],
     "origin": [
       ["src/components/DeleteLabelConfirmation.tsx", 49],
+      ["src/components/SquareImageCropModal.tsx", 183],
       ["src/components/YouTubeEmbed/EditYouTubeModal.tsx", 176],
       ["src/views/board/components/CardContextDuplicateModal.tsx", 267],
       ["src/views/board/components/DeleteBoardConfirmation.tsx", 44],
@@ -1353,7 +1399,7 @@
     "message": "Card title",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/components/NewCardForm.tsx", 328]],
+    "origin": [["src/views/board/components/NewCardForm.tsx", 325]],
     "translation": "Название карточки"
   },
   "rQXTmd": {
@@ -1368,11 +1414,18 @@
     "translation": "URL карточки скопирован в буфер обмена"
   },
   "f3cEDO": {
-    "translation": "",
     "message": "Change image",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/WorkspaceLogoPicker.tsx", 85]]
+    "origin": [["src/components/WorkspaceLogoPicker.tsx", 88]],
+    "translation": ""
+  },
+  "pGY3w3": {
+    "message": "Change logo",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 209]],
+    "translation": ""
   },
   "VhMDMg": {
     "message": "Change Password",
@@ -1425,7 +1478,7 @@
     "comments": [],
     "origin": [
       ["src/pages/partner/activate.tsx", 56],
-      ["src/views/auth/login/index.tsx", 43],
+      ["src/views/auth/login/index.tsx", 46],
       ["src/views/auth/signup/index.tsx", 71]
     ],
     "translation": "Проверьте свой почтовый ящик"
@@ -1455,11 +1508,14 @@
     "translation": "Выберите тариф"
   },
   "iIV9st": {
-    "translation": "",
     "message": "Choose a PNG, JPG, or WebP image.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/WorkspaceLogoPicker.tsx", 50]]
+    "origin": [
+      ["src/components/WorkspaceLogoPicker.tsx", 52],
+      ["src/views/settings/WhitelabelSettings.tsx", 61]
+    ],
+    "translation": ""
   },
   "5EMoSo": {
     "message": "Choose plan",
@@ -1517,7 +1573,7 @@
     },
     "comments": [],
     "origin": [
-      ["src/views/auth/login/index.tsx", 48],
+      ["src/views/auth/login/index.tsx", 57],
       ["src/views/auth/signup/index.tsx", 76]
     ],
     "translation": "Перейдите по ссылке, которую мы отправили на {magicLinkRecipient}, чтобы войти."
@@ -1847,7 +1903,7 @@
     "comments": [],
     "origin": [
       ["src/components/LabelForm.tsx", 213],
-      ["src/views/board/components/NewCardForm.tsx", 527],
+      ["src/views/board/components/NewCardForm.tsx", 524],
       ["src/views/board/components/NewListForm.tsx", 141]
     ],
     "translation": "Создать ещё одну"
@@ -1863,7 +1919,7 @@
     "message": "Create card",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/components/NewCardForm.tsx", 537]],
+    "origin": [["src/views/board/components/NewCardForm.tsx", 534]],
     "translation": "Создать карточку"
   },
   "d33Usy": {
@@ -1918,7 +1974,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/components/NewCardForm.tsx", 424],
+      ["src/views/board/components/NewCardForm.tsx", 421],
       ["src/views/card/components/LabelSelector.tsx", 101]
     ],
     "translation": "Создать новую метку"
@@ -1929,7 +1985,7 @@
     "comments": [],
     "origin": [
       ["src/views/board/index.tsx", 93],
-      ["src/views/board/index.tsx", 679]
+      ["src/views/board/index.tsx", 683]
     ],
     "translation": "Создать новый список"
   },
@@ -1952,10 +2008,9 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/NewWorkspaceForm.tsx", 278],
-      ["src/components/WorkspaceMenu.tsx", 227],
-      ["src/components/WorkspaceMenu.tsx", 228],
-      ["src/components/WorkspaceMenu.tsx", 234]
+      ["src/components/NewWorkspaceForm.tsx", 280],
+      ["src/components/WorkspaceMenu.tsx", 278],
+      ["src/components/WorkspaceMenu.tsx", 285]
     ],
     "translation": "Создать рабочее пространство"
   },
@@ -2250,11 +2305,14 @@
     "translation": "Рабочее пространство назначения"
   },
   "bzSI52": {
-    "translation": "",
     "message": "Discard",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/WorkspaceLogoPicker.tsx", 95]]
+    "origin": [
+      ["src/components/WorkspaceLogoPicker.tsx", 98],
+      ["src/views/settings/WhitelabelSettings.tsx", 219]
+    ],
+    "translation": ""
   },
   "Odv3J6": {
     "message": "Disconnect GitHub",
@@ -2351,7 +2409,7 @@
     "message": "Don't have an account? <0><1>Sign up</1></0>",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/auth/login/index.tsx", 63]],
+    "origin": [["src/views/auth/login/index.tsx", 72]],
     "translation": "Нет аккаунта? <0><1>Зарегистрируйтесь</1></0>"
   },
   "DPfwMq": {
@@ -2378,13 +2436,20 @@
     "origin": [["src/views/card/components/AttachmentThumbnails.tsx", 142]],
     "translation": "Не удалось загрузить"
   },
+  "xlyIHp": {
+    "message": "Drag workspace",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/WorkspaceMenu.tsx", 176]],
+    "translation": ""
+  },
   "XicmhT": {
     "message": "Due date",
     "placeholders": {},
     "comments": [],
     "origin": [
       ["src/views/board/components/Filters.tsx", 171],
-      ["src/views/board/components/NewCardForm.tsx", 479],
+      ["src/views/board/components/NewCardForm.tsx", 476],
       ["src/views/card/index.tsx", 153]
     ],
     "translation": "Срок выполнения"
@@ -3148,7 +3213,7 @@
     "message": "Get started by creating a new list",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/index.tsx", 664]],
+    "origin": [["src/views/board/index.tsx", 668]],
     "translation": "Начните с создания нового списка"
   },
   "oW13KZ": {
@@ -3225,7 +3290,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/SideNavigation.tsx", 105],
+      ["src/components/SideNavigation.tsx", 106],
       ["src/pages/404.tsx", 44]
     ],
     "translation": "Перейти к доскам"
@@ -3241,21 +3306,21 @@
     "message": "Go to members",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/SideNavigation.tsx", 129]],
+    "origin": [["src/components/SideNavigation.tsx", 130]],
     "translation": "Перейти к участникам"
   },
   "1WuwiM": {
     "message": "Go to settings",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/SideNavigation.tsx", 141]],
+    "origin": [["src/components/SideNavigation.tsx", 142]],
     "translation": "Перейти к настройкам"
   },
   "csFbe+": {
     "message": "Go to templates",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/SideNavigation.tsx", 117]],
+    "origin": [["src/components/SideNavigation.tsx", 118]],
     "translation": "Перейти к шаблонам"
   },
   "SUvm1Y": {
@@ -3401,6 +3466,13 @@
     "origin": [["src/components/FeedbackModal.tsx", 75]],
     "translation": "Идеи по улучшению этой страницы..."
   },
+  "12fNS3": {
+    "message": "Image to crop",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/SquareImageCropModal.tsx", 164]],
+    "translation": ""
+  },
   "l3s5ri": {
     "message": "Import",
     "placeholders": {},
@@ -3504,7 +3576,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/SettingsLayout.tsx", 77],
+      ["src/components/SettingsLayout.tsx", 81],
       ["src/views/home/components/Features.tsx", 121]
     ],
     "translation": "Интеграции"
@@ -3664,7 +3736,7 @@
     "origin": [
       ["src/views/board/components/CardContextLabelsModal.tsx", 31],
       ["src/views/board/components/Filters.tsx", 155],
-      ["src/views/board/components/NewCardForm.tsx", 428],
+      ["src/views/board/components/NewCardForm.tsx", 425],
       ["src/views/card/index.tsx", 133]
     ],
     "translation": "Метки"
@@ -3737,6 +3809,13 @@
     "comments": [],
     "origin": [["src/views/boards/components/TemplateBoards.tsx", 96]],
     "translation": "Обучение"
+  },
+  "CtPNK5": {
+    "message": "Leave either field blank to use the standard sign-in copy.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 247]],
+    "translation": ""
   },
   "vifyyw": {
     "message": "Legal",
@@ -3842,12 +3921,20 @@
     "origin": [["src/views/card/components/ActivityList.tsx", 579]],
     "translation": "Загрузка..."
   },
+  "z0t9bb": {
+    "message": "Login",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/auth/login/index.tsx", 37]],
+    "translation": ""
+  },
   "N/bcWA": {
     "message": "Login | kan.bn",
     "placeholders": {},
     "comments": [],
     "origin": [["src/views/auth/login/index.tsx", 33]],
-    "translation": "Вход | kan.bn"
+    "translation": "Вход | kan.bn",
+    "obsolete": true
   },
   "nOhz3x": {
     "message": "Logout",
@@ -3968,9 +4055,9 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/SideNavigation.tsx", 121],
+      ["src/components/SideNavigation.tsx", 122],
       ["src/views/board/components/Filters.tsx", 147],
-      ["src/views/board/components/NewCardForm.tsx", 386],
+      ["src/views/board/components/NewCardForm.tsx", 383],
       ["src/views/card/index.tsx", 143],
       ["src/views/members/index.tsx", 283],
       ["src/views/pricing/components/FeatureComparisonTable.tsx", 81]
@@ -4021,6 +4108,13 @@
     "comments": [],
     "origin": [["src/views/members/components/InviteMemberForm.tsx", 170]],
     "translation": "ежемесячная оплата"
+  },
+  "mR0tVq": {
+    "message": "Move and resize the square crop before using the image.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/WorkspaceLogoPicker.tsx", 123]],
+    "translation": ""
   },
   "sZ/WDz": {
     "message": "Move board",
@@ -4138,7 +4232,7 @@
     "message": "New card",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/components/NewCardForm.tsx", 311]],
+    "origin": [["src/views/board/components/NewCardForm.tsx", 308]],
     "translation": "Новая карточка"
   },
   "cWcxrL": {
@@ -4168,7 +4262,7 @@
     "comments": [],
     "origin": [
       ["src/views/board/components/NewListForm.tsx", 113],
-      ["src/views/board/index.tsx", 628]
+      ["src/views/board/index.tsx", 632]
     ],
     "translation": "Новый список"
   },
@@ -4215,7 +4309,7 @@
     "message": "New workspace",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/NewWorkspaceForm.tsx", 187]],
+    "origin": [["src/components/NewWorkspaceForm.tsx", 189]],
     "translation": "Новый рабочий пространство"
   },
   "5ACX4z": {
@@ -4301,14 +4395,14 @@
     "message": "No lists",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/index.tsx", 660]],
+    "origin": [["src/views/board/index.tsx", 664]],
     "translation": "Нет списков"
   },
   "fvLNDy": {
     "message": "No lists have been created yet",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/index.tsx", 665]],
+    "origin": [["src/views/board/index.tsx", 669]],
     "translation": "Списки ещё не созданы"
   },
   "i30J2U": {
@@ -4389,7 +4483,7 @@
     "message": "Open command menu",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/WorkspaceMenu.tsx", 56]],
+    "origin": [["src/components/WorkspaceMenu.tsx", 139]],
     "translation": "Открыть командное меню"
   },
   "cFQEU/": {
@@ -4592,7 +4686,7 @@
     "message": "Permissions",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/SettingsLayout.tsx", 53]],
+    "origin": [["src/components/SettingsLayout.tsx", 57]],
     "translation": "Разрешения"
   },
   "Jgaz7E": {
@@ -4627,6 +4721,16 @@
     "comments": [],
     "origin": [["src/views/onboarding/select-plan/index.tsx", 152]],
     "translation": "Выберите тариф, чтобы начать. Все платные тарифы включают 14-дневный бесплатный пробный период."
+  },
+  "17/eSE": {
+    "message": "Pin workspace",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/components/WorkspaceMenu.tsx", 237],
+      ["src/components/WorkspaceMenu.tsx", 242]
+    ],
+    "translation": ""
   },
   "GdgCoi": {
     "message": "Plan",
@@ -4722,9 +4826,9 @@
     "origin": [
       ["src/components/DeleteLabelConfirmation.tsx", 26],
       ["src/components/FeedbackModal.tsx", 41],
-      ["src/components/NewWorkspaceForm.tsx", 151],
+      ["src/components/NewWorkspaceForm.tsx", 153],
       ["src/views/board/components/BoardDropdown.tsx", 69],
-      ["src/views/board/components/NewCardForm.tsx", 193],
+      ["src/views/board/components/NewCardForm.tsx", 190],
       ["src/views/board/components/NewListForm.tsx", 79],
       ["src/views/board/components/NewTemplateForm.tsx", 61],
       ["src/views/board/components/NewTemplateForm.tsx", 77],
@@ -4789,6 +4893,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
+      ["src/components/WorkspaceMenu.tsx", 61],
       ["src/views/board/components/CardContextDuplicateModal.tsx", 76],
       ["src/views/board/components/CardContextMoveListModal.tsx", 42],
       ["src/views/board/index.tsx", 316],
@@ -4796,16 +4901,32 @@
       ["src/views/card/components/Dropdown.tsx", 81],
       ["src/views/card/components/Dropdown.tsx", 100],
       ["src/views/public/board/CardModal.tsx", 45],
-      ["src/views/public/board/index.tsx", 86]
+      ["src/views/public/board/index.tsx", 86],
+      ["src/views/settings/WhitelabelSettings.tsx", 110],
+      ["src/views/settings/WhitelabelSettings.tsx", 133]
     ],
     "translation": "Пожалуйста, попробуйте ещё раз."
   },
-  "xsRUI3": {
+  "EsSrMh": {
     "translation": "",
+    "message": "Please try another image.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/SquareImageCropModal.tsx", 136]]
+  },
+  "xsRUI3": {
     "message": "PNG, JPG, or WebP. Square images work best.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/WorkspaceLogoPicker.tsx", 112]]
+    "origin": [["src/components/WorkspaceLogoPicker.tsx", 115]],
+    "translation": ""
+  },
+  "IVlu7P": {
+    "message": "PNG, JPG, or WebP. Wide transparent images work best.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 236]],
+    "translation": ""
   },
   "nYNMZZ": {
     "message": "Position in list (0 = first, leave empty for end)",
@@ -4959,8 +5080,9 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/WorkspaceLogoPicker.tsx", 107],
-      ["src/views/members/components/DeleteMemberConfirmation.tsx", 58]
+      ["src/components/WorkspaceLogoPicker.tsx", 110],
+      ["src/views/members/components/DeleteMemberConfirmation.tsx", 58],
+      ["src/views/settings/WhitelabelSettings.tsx", 231]
     ],
     "translation": "Удалить"
   },
@@ -5189,17 +5311,20 @@
     "message": "Save changes",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/settings/components/NewWebhookModal.tsx", 344]],
+    "origin": [
+      ["src/views/settings/components/NewWebhookModal.tsx", 344],
+      ["src/views/settings/WhitelabelSettings.tsx", 279]
+    ],
     "translation": "Сохранить изменения"
   },
   "uKAEhd": {
-    "translation": "",
     "message": "Save image",
     "placeholders": {},
     "comments": [],
     "origin": [
       ["src/views/settings/components/UpdateWorkspaceLogoForm.tsx", 121]
-    ]
+    ],
+    "translation": ""
   },
   "MdwUGG": {
     "message": "Save time with reusable board templates.",
@@ -5216,11 +5341,11 @@
     "translation": "Скрининг"
   },
   "A1taO8": {
-    "translation": "",
     "message": "Search",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/WorkspaceMenu.tsx", 149]]
+    "origin": [["src/components/WorkspaceMenu.tsx", 294]],
+    "translation": ""
   },
   "SkCNhl": {
     "message": "Search boards and cards...",
@@ -5407,8 +5532,8 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/SettingsLayout.tsx", 102],
-      ["src/components/SideNavigation.tsx", 133]
+      ["src/components/SettingsLayout.tsx", 112],
+      ["src/components/SideNavigation.tsx", 134]
     ],
     "translation": "Настройки"
   },
@@ -5454,6 +5579,13 @@
     "origin": [["src/views/settings/WebhookSettings.tsx", 24]],
     "translation": "Настройки | Вебхуки"
   },
+  "jTElD4": {
+    "message": "Settings | Whitelabel",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 148]],
+    "translation": ""
+  },
   "Ci/KUX": {
     "message": "Settings | Workspace",
     "placeholders": {},
@@ -5469,14 +5601,14 @@
     "translation": "Горячие клавиши"
   },
   "fMPkxb": {
-    "translation": "",
     "message": "Show more",
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/WorkspaceMenu.tsx", 179],
-      ["src/components/WorkspaceMenu.tsx", 191]
-    ]
+      ["src/components/WorkspaceMenu.tsx", 362],
+      ["src/components/WorkspaceMenu.tsx", 374]
+    ],
+    "translation": ""
   },
   "5lWFkC": {
     "message": "Sign in",
@@ -5555,6 +5687,13 @@
     "comments": [],
     "origin": [["src/components/AuthForm.tsx", 442]],
     "translation": "Зарегистрироваться через "
+  },
+  "M3102h": {
+    "message": "Sign-in experience",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 244]],
+    "translation": ""
   },
   "m2nk0i": {
     "message": "Simple pricing",
@@ -5654,9 +5793,9 @@
     "placeholders": {},
     "comments": [],
     "origin": [
+      ["src/components/SideNavigation.tsx", 224],
       ["src/components/SideNavigation.tsx", 225],
-      ["src/components/SideNavigation.tsx", 226],
-      ["src/components/SideNavigation.tsx", 236]
+      ["src/components/SideNavigation.tsx", 235]
     ],
     "translation": "Начать бесплатный пробный период"
   },
@@ -5812,7 +5951,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/SideNavigation.tsx", 109],
+      ["src/components/SideNavigation.tsx", 110],
       ["src/views/home/components/Features.tsx", 115]
     ],
     "translation": "Шаблоны"
@@ -5905,6 +6044,13 @@
     "origin": [["src/views/board/components/BoardDropdown.tsx", 50]],
     "translation": "Доска была восстановлена из архива."
   },
+  "ZA8ghD": {
+    "message": "The brand name will be shown as text.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 127]],
+    "translation": ""
+  },
   "nKBUeF": {
     "message": "The card has been duplicated.",
     "placeholders": {},
@@ -5961,6 +6107,13 @@
     "origin": [["src/pages/404.tsx", 29]],
     "translation": "Страница, которую вы ищете, не существует или была перемещена."
   },
+  "T0SblI": {
+    "message": "The sidebar and sign-in page now use these settings.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 104]],
+    "translation": ""
+  },
   "fQCrjt": {
     "message": "The visibility of your board has been set to {0}.",
     "placeholders": {
@@ -5971,22 +6124,22 @@
     "translation": "Видимость вашей доски установлена на {0}."
   },
   "o6c6bT": {
-    "translation": "",
     "message": "The workspace image is now visible to its members.",
     "placeholders": {},
     "comments": [],
     "origin": [
       ["src/views/settings/components/UpdateWorkspaceLogoForm.tsx", 58]
-    ]
+    ],
+    "translation": ""
   },
   "Tdj/d0": {
-    "translation": "",
     "message": "The workspace will use its initial instead.",
     "placeholders": {},
     "comments": [],
     "origin": [
       ["src/views/settings/components/UpdateWorkspaceLogoForm.tsx", 87]
-    ]
+    ],
+    "translation": ""
   },
   "FEr96N": {
     "message": "Theme",
@@ -6109,14 +6262,14 @@
     "message": "This workspace URL has already been taken",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/NewWorkspaceForm.tsx", 240]],
+    "origin": [["src/components/NewWorkspaceForm.tsx", 242]],
     "translation": "Этот URL рабочего пространства уже занят"
   },
   "bJtM0P": {
     "message": "This workspace URL is reserved",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/NewWorkspaceForm.tsx", 242]],
+    "origin": [["src/components/NewWorkspaceForm.tsx", 244]],
     "translation": "Этот URL рабочей области зарезервирован"
   },
   "kp6L3T": {
@@ -6127,6 +6280,13 @@
       ["src/views/settings/components/UpdateWorkspaceUrlForm.tsx", 125]
     ],
     "translation": "Это имя пользователя рабочей области уже занято"
+  },
+  "YuL6pN": {
+    "message": "Three workspaces are already pinned",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/WorkspaceMenu.tsx", 110]],
+    "translation": ""
   },
   "pEb95p": {
     "message": "Ticket ID copied to clipboard",
@@ -6271,7 +6431,7 @@
     "message": "Unable to create card",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/components/NewCardForm.tsx", 190]],
+    "origin": [["src/views/board/components/NewCardForm.tsx", 187]],
     "translation": "Не удалось создать карточку"
   },
   "mHhffx": {
@@ -6310,10 +6470,17 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/NewWorkspaceForm.tsx", 150],
+      ["src/components/NewWorkspaceForm.tsx", 152],
       ["src/views/onboarding/workspace-details/index.tsx", 120]
     ],
     "translation": "Не удалось создать рабочую область"
+  },
+  "VL2rAP": {
+    "translation": "",
+    "message": "Unable to crop image",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/SquareImageCropModal.tsx", 135]]
   },
   "WHHLh9": {
     "message": "Unable to delete attachment",
@@ -6385,6 +6552,13 @@
     "origin": [["src/views/board/components/CardContextMoveListModal.tsx", 41]],
     "translation": "Невозможно переместить карточку"
   },
+  "KOX/pP": {
+    "message": "Unable to remove brand logo",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 132]],
+    "translation": ""
+  },
   "8yFGGF": {
     "message": "Unable to remove member",
     "placeholders": {},
@@ -6395,13 +6569,13 @@
     "translation": "Не удалось удалить участника"
   },
   "Zt1aIq": {
-    "translation": "",
     "message": "Unable to remove workspace image",
     "placeholders": {},
     "comments": [],
     "origin": [
       ["src/views/settings/components/UpdateWorkspaceLogoForm.tsx", 92]
-    ]
+    ],
+    "translation": ""
   },
   "YKeYae": {
     "message": "Unable to reorder checklist item",
@@ -6418,6 +6592,13 @@
       ["src/views/members/components/EditMemberPermissionsModal.tsx", 92]
     ],
     "translation": "Не удалось сбросить разрешения"
+  },
+  "NTsBMW": {
+    "message": "Unable to save workspace order",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/WorkspaceMenu.tsx", 60]],
+    "translation": ""
   },
   "A8jqN7": {
     "message": "Unable to send feedback",
@@ -6463,6 +6644,13 @@
     "comments": [],
     "origin": [["src/views/board/components/VisibilityButton.tsx", 56]],
     "translation": "Не удалось обновить видимость доски"
+  },
+  "PblfIC": {
+    "message": "Unable to update branding",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 109]],
+    "translation": ""
   },
   "o9WLwO": {
     "message": "Unable to update card",
@@ -6551,20 +6739,23 @@
     "translation": "Не удалось обновить вебхук"
   },
   "LF62IN": {
-    "translation": "",
     "message": "Unable to update workspace image",
     "placeholders": {},
     "comments": [],
     "origin": [
       ["src/views/settings/components/UpdateWorkspaceLogoForm.tsx", 63]
-    ]
+    ],
+    "translation": ""
   },
   "QlyLyb": {
-    "translation": "",
     "message": "Unable to use this image",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/WorkspaceLogoPicker.tsx", 49]]
+    "origin": [
+      ["src/components/WorkspaceLogoPicker.tsx", 51],
+      ["src/views/settings/WhitelabelSettings.tsx", 60]
+    ],
+    "translation": ""
   },
   "It4/FS": {
     "message": "Unarchive board",
@@ -6700,6 +6891,23 @@
     "origin": [["src/views/pricing/components/PricingTiers.tsx", 75]],
     "translation": "Неограниченное количество мест и расширенные функции для развивающихся команд."
   },
+  "OKO4YF": {
+    "message": "Unpin one before pinning another.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/WorkspaceMenu.tsx", 111]],
+    "translation": ""
+  },
+  "X12iRx": {
+    "message": "Unpin workspace",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/components/WorkspaceMenu.tsx", 236],
+      ["src/components/WorkspaceMenu.tsx", 241]
+    ],
+    "translation": ""
+  },
   "SMaFdc": {
     "message": "Unsubscribe",
     "placeholders": {},
@@ -6801,11 +7009,18 @@
     "translation": "Ошибка загрузки"
   },
   "6MxxvO": {
-    "translation": "",
     "message": "Upload image",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/WorkspaceLogoPicker.tsx", 85]]
+    "origin": [["src/components/WorkspaceLogoPicker.tsx", 88]],
+    "translation": ""
+  },
+  "QfiWpJ": {
+    "message": "Upload logo",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 209]],
+    "translation": ""
   },
   "BBUDfW": {
     "message": "Urgent",
@@ -6864,12 +7079,26 @@
     ],
     "translation": "URL должен содержать не менее 3 символов"
   },
+  "PTd/zR": {
+    "message": "Use image",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/SquareImageCropModal.tsx", 191]],
+    "translation": ""
+  },
   "QNtP5M": {
     "message": "Use template",
     "placeholders": {},
     "comments": [],
     "origin": [["src/views/boards/components/NewBoardForm.tsx", 154]],
     "translation": "Использовать шаблон"
+  },
+  "23LmLO": {
+    "message": "Used in the main navigation and on the sign-in page.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 158]],
+    "translation": ""
   },
   "n6EWYz": {
     "message": "Used to sign webhook payloads for verification. Leave blank to keep existing secret.",
@@ -7060,7 +7289,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/SettingsLayout.tsx", 71],
+      ["src/components/SettingsLayout.tsx", 75],
       ["src/views/settings/WebhookSettings.tsx", 28]
     ],
     "translation": "Вебхуки"
@@ -7076,8 +7305,25 @@
     "message": "Welcome back",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/auth/login/index.tsx", 43]],
+    "origin": [
+      ["src/views/auth/login/index.tsx", 47],
+      ["src/views/settings/WhitelabelSettings.tsx", 257]
+    ],
     "translation": "С возвращением"
+  },
+  "/IAPcI": {
+    "message": "Welcome message",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 262]],
+    "translation": ""
+  },
+  "D/tFLm": {
+    "message": "Welcome title",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 251]],
+    "translation": ""
   },
   "xEbBrW": {
     "message": "What license are you using?",
@@ -7100,6 +7346,13 @@
     "origin": [["src/views/home/components/Faqs.tsx", 25]],
     "translation": "Когда Trello появился в 2011 году, он поразил всех своей продуманной простотой, но со временем утратил свою магию и стал чем-то вроде \"Jira Lite\". Этот проект — наша попытка вернуть ту самую магию простоты Trello, но в формате open source."
   },
+  "rT7VuT": {
+    "message": "Whitelabel",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/SettingsLayout.tsx", 87]],
+    "translation": ""
+  },
   "SFnH1j": {
     "message": "Why make an open source Trello?",
     "placeholders": {},
@@ -7112,8 +7365,8 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/SettingsLayout.tsx", 47],
-      ["src/components/WorkspaceLogoPicker.tsx", 64],
+      ["src/components/SettingsLayout.tsx", 51],
+      ["src/components/WorkspaceLogoPicker.tsx", 67],
       ["src/views/board/index.tsx", 538],
       ["src/views/boards/index.tsx", 48],
       ["src/views/members/index.tsx", 278],
@@ -7131,11 +7384,11 @@
     "obsolete": true
   },
   "9ahTaL": {
-    "translation": "",
     "message": "Workspace created without image",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/NewWorkspaceForm.tsx", 123]]
+    "origin": [["src/components/NewWorkspaceForm.tsx", 123]],
+    "translation": ""
   },
   "UlhdTP": {
     "message": "Workspace deleted",
@@ -7184,29 +7437,29 @@
     "translation": "Описание рабочего пространства обновлено"
   },
   "kfO+IG": {
-    "translation": "",
     "message": "Workspace image",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/settings/WorkspaceSettings.tsx", 44]]
+    "origin": [["src/views/settings/WorkspaceSettings.tsx", 44]],
+    "translation": ""
   },
   "EAzSVW": {
-    "translation": "",
     "message": "Workspace image removed",
     "placeholders": {},
     "comments": [],
     "origin": [
       ["src/views/settings/components/UpdateWorkspaceLogoForm.tsx", 86]
-    ]
+    ],
+    "translation": ""
   },
   "wBSSs7": {
-    "translation": "",
     "message": "Workspace image updated",
     "placeholders": {},
     "comments": [],
     "origin": [
       ["src/views/settings/components/UpdateWorkspaceLogoForm.tsx", 57]
-    ]
+    ],
+    "translation": ""
   },
   "wtxjAY": {
     "message": "Workspace members",
@@ -7224,7 +7477,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/NewWorkspaceForm.tsx", 206],
+      ["src/components/NewWorkspaceForm.tsx", 208],
       ["src/views/onboarding/workspace-details/index.tsx", 208],
       ["src/views/settings/WorkspaceSettings.tsx", 35]
     ],
@@ -7299,15 +7552,15 @@
     "message": "workspace-url",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/NewWorkspaceForm.tsx", 229]],
+    "origin": [["src/components/NewWorkspaceForm.tsx", 231]],
     "translation": "workspace-url"
   },
   "pmt7u4": {
-    "translation": "",
     "message": "Workspaces",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/WorkspaceMenu.tsx", 143]]
+    "origin": [["src/components/WorkspaceMenu.tsx", 275]],
+    "translation": ""
   },
   "4kJRen": {
     "message": "Writing",
@@ -7369,11 +7622,11 @@
     "translation": "Вы можете развернуть сервис самостоятельно, следуя инструкциям в нашем <0>репозитории</0>."
   },
   "j+hcqf": {
-    "translation": "",
     "message": "You can upload the workspace image from settings.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/NewWorkspaceForm.tsx", 124]]
+    "origin": [["src/components/NewWorkspaceForm.tsx", 124]],
+    "translation": ""
   },
   "tUL16u": {
     "message": "You don't have any other workspaces to move this board to.",
@@ -7390,8 +7643,8 @@
       ["src/views/board/components/List.tsx", 117],
       ["src/views/board/components/UpdateBoardSlugButton.tsx", 58],
       ["src/views/board/components/VisibilityButton.tsx", 72],
-      ["src/views/board/index.tsx", 612],
-      ["src/views/board/index.tsx", 670],
+      ["src/views/board/index.tsx", 616],
+      ["src/views/board/index.tsx", 674],
       ["src/views/boards/components/BoardsList.tsx", 71],
       ["src/views/boards/index.tsx", 59],
       ["src/views/boards/index.tsx", 80]

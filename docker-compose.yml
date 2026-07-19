@@ -42,6 +42,7 @@ services:
 
       # Admin API key (optional)
       - KAN_ADMIN_API_KEY=${KAN_ADMIN_API_KEY}
+      - INSTANCE_ADMIN_EMAILS=${INSTANCE_ADMIN_EMAILS}
 
       # SMTP (optional)
       - SMTP_HOST=${SMTP_HOST}

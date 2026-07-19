@@ -24,6 +24,7 @@ import settingsIconDark from "~/assets/settings-dark.json";
 import settingsIconLight from "~/assets/settings-light.json";
 import templatesIconDark from "~/assets/templates-dark.json";
 import templatesIconLight from "~/assets/templates-light.json";
+import { BrandMark } from "~/components/BrandMark";
 import ButtonComponent from "~/components/Button";
 import ReactiveButton from "~/components/ReactiveButton";
 import UserMenu from "~/components/UserMenu";
@@ -100,7 +101,7 @@ export default function SideNavigation({
       keyboardShortcut: {
         type: "SEQUENCE",
         strokes: [{ key: "G" }, { key: "B" }],
-        action: () => router.push("/boards"),
+        action: () => void router.push("/boards"),
         group: "NAVIGATION",
         description: t`Go to boards`,
       },
@@ -112,7 +113,7 @@ export default function SideNavigation({
       keyboardShortcut: {
         type: "SEQUENCE",
         strokes: [{ key: "G" }, { key: "T" }],
-        action: () => router.push("/templates"),
+        action: () => void router.push("/templates"),
         group: "NAVIGATION",
         description: t`Go to templates`,
       },
@@ -124,7 +125,7 @@ export default function SideNavigation({
       keyboardShortcut: {
         type: "SEQUENCE",
         strokes: [{ key: "G" }, { key: "M" }],
-        action: () => router.push("/members"),
+        action: () => void router.push("/members"),
         group: "NAVIGATION",
         description: t`Go to members`,
       },
@@ -136,7 +137,7 @@ export default function SideNavigation({
       keyboardShortcut: {
         type: "SEQUENCE",
         strokes: [{ key: "G" }, { key: "S" }],
-        action: () => router.push("/settings"),
+        action: () => void router.push("/settings"),
         group: "NAVIGATION",
         description: t`Go to settings`,
       },
@@ -159,9 +160,7 @@ export default function SideNavigation({
           <div className="hidden h-[45px] items-center justify-between pb-3 md:flex">
             {!isCollapsed && (
               <Link href="/" className="block">
-                <h1 className="pl-2 text-[16px] font-bold tracking-tight text-neutral-900 dark:text-dark-1000">
-                  kan.bn
-                </h1>
+                <BrandMark className="ml-2" />
               </Link>
             )}
             <Button

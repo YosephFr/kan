@@ -297,6 +297,8 @@ export const getAllByUserId = async (db: dbClient, userId: string) => {
   const result = await db.query.workspaceMembers.findMany({
     columns: {
       role: true,
+      sidebarPosition: true,
+      sidebarPinned: true,
     },
     with: {
       workspace: {
@@ -320,9 +322,82 @@ export const getAllByUserId = async (db: dbClient, userId: string) => {
       eq(workspaceMembers.status, "active"),
       isNull(workspaceMembers.deletedAt),
     ),
+    orderBy: [
+      desc(workspaceMembers.sidebarPinned),
+      asc(workspaceMembers.sidebarPosition),
+      asc(workspaceMembers.createdAt),
+    ],
   });
 
   return result.filter((member) => !member.workspace.deletedAt);
+};
+
+export const updateSidebarPreferences = async (
+  db: dbClient,
+  userId: string,
+  preferences: {
+    workspacePublicId: string;
+    position: number;
+    pinned: boolean;
+  }[],
+) => {
+  const memberships = await db
+    .select({
+      id: workspaceMembers.id,
+      workspacePublicId: workspaces.publicId,
+    })
+    .from(workspaceMembers)
+    .innerJoin(workspaces, eq(workspaceMembers.workspaceId, workspaces.id))
+    .where(
+      and(
+        eq(workspaceMembers.userId, userId),
+        eq(workspaceMembers.status, "active"),
+        isNull(workspaceMembers.deletedAt),
+        isNull(workspaces.deletedAt),
+      ),
+    );
+
+  if (memberships.length !== preferences.length) {
+    return false;
+  }
+
+  const membershipByWorkspaceId = new Map(
+    memberships.map((membership) => [
+      membership.workspacePublicId,
+      membership.id,
+    ]),
+  );
+
+  if (
+    preferences.some(
+      (preference) =>
+        !membershipByWorkspaceId.has(preference.workspacePublicId),
+    )
+  ) {
+    return false;
+  }
+
+  await db.transaction(async (tx) => {
+    for (const preference of preferences) {
+      const membershipId = membershipByWorkspaceId.get(
+        preference.workspacePublicId,
+      );
+      if (!membershipId) {
+        throw new Error("Workspace membership not found");
+      }
+
+      await tx
+        .update(workspaceMembers)
+        .set({
+          sidebarPosition: preference.position,
+          sidebarPinned: preference.pinned,
+          updatedAt: new Date(),
+        })
+        .where(eq(workspaceMembers.id, membershipId));
+    }
+  });
+
+  return true;
 };
 
 export const getAllOwnedByUserId = async (db: dbClient, userId: string) => {

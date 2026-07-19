@@ -253,6 +253,13 @@
       "when": 1784484089192,
       "tag": "20260719180129_AddWorkspaceLogo",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1784487499741,
+      "tag": "20260719185819_AddSidebarPreferencesAndBranding",
+      "breakpoints": true
     }
   ]
 }

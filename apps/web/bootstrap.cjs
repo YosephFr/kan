@@ -25,12 +25,9 @@ if (!existsSync(publicDir)) {
   mkdirSync(publicDir, { recursive: true });
 }
 
-const envVars = {};
-for (const [key, value] of Object.entries(process.env)) {
-  if (key.startsWith("NEXT_PUBLIC_")) {
-    envVars[key] = value;
-  }
-}
+const envVars = Object.fromEntries(
+  Object.entries(process.env).filter(([key]) => key.startsWith("NEXT_PUBLIC_")),
+);
 
 writeFileSync(
   path.join(publicDir, "__ENV.js"),
@@ -41,4 +38,4 @@ writeFileSync(
 // 2. Start the Next.js standalone server
 // ---------------------------------------------------------------------------
 
-require("./apps/web/server.js");
+require(path.join(__dirname, "apps", "web", "server.js"));

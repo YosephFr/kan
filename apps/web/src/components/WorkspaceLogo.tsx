@@ -29,7 +29,10 @@ export function WorkspaceLogo({
   return (
     <span
       className={twMerge(
-        "relative inline-flex flex-shrink-0 items-center justify-center overflow-hidden bg-indigo-700 font-semibold leading-none text-white",
+        "relative inline-flex flex-shrink-0 items-center justify-center overflow-hidden font-semibold leading-none",
+        logo
+          ? "bg-white text-neutral-900 ring-1 ring-inset ring-light-500 dark:bg-dark-300 dark:text-dark-1000 dark:ring-dark-500"
+          : "bg-indigo-700 text-white",
         sizeClasses[size],
         className,
       )}
@@ -40,7 +43,7 @@ export function WorkspaceLogo({
           alt={name}
           width={pixels}
           height={pixels}
-          className="h-full w-full object-cover"
+          className="h-full w-full object-contain"
         />
       ) : (
         name.charAt(0).toUpperCase()

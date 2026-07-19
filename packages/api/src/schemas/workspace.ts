@@ -3,6 +3,8 @@ import { z } from "zod";
 // ─── workspace.all ───────────────────────────────────────────
 export const workspaceListItemSchema = z.object({
   role: z.string(),
+  sidebarPosition: z.number().nullable(),
+  sidebarPinned: z.boolean(),
   workspace: z.object({
     publicId: z.string(),
     name: z.string(),

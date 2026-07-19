@@ -14,12 +14,15 @@ import {
   HiOutlineBanknotes,
   HiOutlineBolt,
   HiOutlineCodeBracketSquare,
+  HiOutlinePaintBrush,
   HiOutlineRectangleGroup,
   HiOutlineShieldCheck,
   HiOutlineUser,
 } from "react-icons/hi2";
+
 import { usePermissions } from "~/hooks/usePermissions";
 import { useWorkspace } from "~/providers/workspace";
+import { api } from "~/utils/api";
 
 interface SettingsLayoutProps {
   children: React.ReactNode;
@@ -31,6 +34,7 @@ export function SettingsLayout({ children, currentTab }: SettingsLayoutProps) {
   const { workspace } = useWorkspace();
   const { canViewWorkspace, canEditWorkspace } = usePermissions();
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
+  const { data: branding } = api.branding.get.useQuery();
 
   const isAdmin = workspace.role === "admin";
 
@@ -76,6 +80,12 @@ export function SettingsLayout({ children, currentTab }: SettingsLayoutProps) {
       icon: <HiOutlineCodeBracketSquare />,
       label: t`Integrations`,
       condition: canEditWorkspace,
+    },
+    {
+      key: "whitelabel",
+      icon: <HiOutlinePaintBrush />,
+      label: t`Whitelabel`,
+      condition: branding?.canManage === true,
     },
   ];
 

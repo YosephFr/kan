@@ -140,6 +140,8 @@ export function NewWorkspaceForm() {
           cardPrefix: values.cardPrefix,
           role: "admin",
           weekStartDay: 1,
+          sidebarPosition: availableWorkspaces.length,
+          sidebarPinned: false,
         });
 
         closeModal();

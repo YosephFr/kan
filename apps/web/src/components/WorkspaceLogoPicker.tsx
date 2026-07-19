@@ -2,6 +2,7 @@ import { t } from "@lingui/core/macro";
 import { useEffect, useRef, useState } from "react";
 
 import Button from "~/components/Button";
+import { SquareImageCropModal } from "~/components/SquareImageCropModal";
 import { usePopup } from "~/providers/popup";
 import { WorkspaceLogo } from "./WorkspaceLogo";
 
@@ -27,6 +28,7 @@ export function WorkspaceLogoPicker({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const { showPopup } = usePopup();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (!selectedFile) {
@@ -53,65 +55,79 @@ export function WorkspaceLogoPicker({
       return;
     }
 
-    onFileSelect(file);
+    setCropFile(file);
   };
 
   const displayedLogo = previewUrl ?? currentLogo;
 
   return (
-    <div className="flex max-w-xl items-center gap-4">
-      <WorkspaceLogo
-        name={workspaceName || t`Workspace`}
-        logo={displayedLogo}
-        size="lg"
-      />
-      <div className="min-w-0">
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
-          onChange={handleFileChange}
-          disabled={disabled}
+    <>
+      <div className="flex max-w-xl items-center gap-4">
+        <WorkspaceLogo
+          name={workspaceName || t`Workspace`}
+          logo={displayedLogo}
+          size="lg"
         />
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => inputRef.current?.click()}
+        <div className="min-w-0">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handleFileChange}
             disabled={disabled}
-          >
-            {displayedLogo ? t`Change image` : t`Upload image`}
-          </Button>
-          {selectedFile && (
+          />
+          <div className="flex flex-wrap gap-2">
             <Button
               type="button"
-              variant="ghost"
+              variant="secondary"
               size="sm"
-              onClick={() => onFileSelect(null)}
+              onClick={() => inputRef.current?.click()}
               disabled={disabled}
             >
-              {t`Discard`}
+              {displayedLogo ? t`Change image` : t`Upload image`}
             </Button>
-          )}
-          {!selectedFile && currentLogo && onRemove && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={onRemove}
-              disabled={disabled || isRemoving}
-              isLoading={isRemoving}
-            >
-              {t`Remove`}
-            </Button>
-          )}
+            {selectedFile && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onFileSelect(null)}
+                disabled={disabled}
+              >
+                {t`Discard`}
+              </Button>
+            )}
+            {!selectedFile && currentLogo && onRemove && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onRemove}
+                disabled={disabled || isRemoving}
+                isLoading={isRemoving}
+              >
+                {t`Remove`}
+              </Button>
+            )}
+          </div>
+          <p className="mt-2 text-xs text-light-900 dark:text-dark-900">
+            {t`PNG, JPG, or WebP. Square images work best.`}
+          </p>
         </div>
-        <p className="mt-2 text-xs text-light-900 dark:text-dark-900">
-          {t`PNG, JPG, or WebP. Square images work best.`}
-        </p>
       </div>
-    </div>
+      {cropFile && (
+        <SquareImageCropModal
+          file={cropFile}
+          title={t`Adjust workspace image`}
+          description={t`Move and resize the square crop before using the image.`}
+          onCancel={() => setCropFile(null)}
+          onConfirm={(file) => {
+            onFileSelect(file);
+            setCropFile(null);
+          }}
+        />
+      )}
+    </>
   );
 }

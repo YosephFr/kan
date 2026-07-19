@@ -22,6 +22,8 @@ interface Workspace {
   role: "admin" | "member" | "guest";
   weekStartDay: 0 | 1 | 6;
   cardPrefix: string;
+  sidebarPosition: number | null;
+  sidebarPinned: boolean;
 }
 
 const initialWorkspace: Workspace = {
@@ -34,6 +36,8 @@ const initialWorkspace: Workspace = {
   role: "member",
   weekStartDay: 1,
   cardPrefix: "",
+  sidebarPosition: null,
+  sidebarPinned: false,
 };
 
 const initialAvailableWorkspaces: Workspace[] = [];
@@ -89,18 +93,22 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({
       workspacePublicId ?? localStorage.getItem("workspacePublicId");
 
     if (data.length) {
-      const workspaces = data.map(({ workspace, role }) => ({
-        role,
-        publicId: workspace.publicId,
-        name: workspace.name,
-        slug: workspace.slug,
-        description: workspace.description,
-        logo: workspace.logo,
-        plan: workspace.plan,
-        weekStartDay: workspace.weekStartDay,
-        cardPrefix: workspace.cardPrefix,
-        hasLoaded: true,
-      })) as Workspace[];
+      const workspaces = data.map(
+        ({ workspace, role, sidebarPosition, sidebarPinned }) => ({
+          role,
+          publicId: workspace.publicId,
+          name: workspace.name,
+          slug: workspace.slug,
+          description: workspace.description,
+          logo: workspace.logo,
+          plan: workspace.plan,
+          weekStartDay: workspace.weekStartDay,
+          cardPrefix: workspace.cardPrefix,
+          sidebarPosition,
+          sidebarPinned,
+          hasLoaded: true,
+        }),
+      ) as Workspace[];
 
       if (workspaces.length) setAvailableWorkspaces(workspaces);
     }
@@ -137,6 +145,8 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({
           role: selectedWorkspace.role as "admin" | "member" | "guest",
           weekStartDay: selectedWorkspace.workspace.weekStartDay as 0 | 1 | 6,
           cardPrefix: selectedWorkspace.workspace.cardPrefix,
+          sidebarPosition: selectedWorkspace.sidebarPosition,
+          sidebarPinned: selectedWorkspace.sidebarPinned,
         });
 
         if (workspacePublicId) {
@@ -164,6 +174,8 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({
       role: primaryWorkspaceRole as "admin" | "member" | "guest",
       weekStartDay: primaryWorkspace.weekStartDay as 0 | 1 | 6,
       cardPrefix: primaryWorkspace.cardPrefix,
+      sidebarPosition: data[0]?.sidebarPosition ?? null,
+      sidebarPinned: data[0]?.sidebarPinned ?? false,
     });
     setHasLoaded(true);
   }, [

@@ -8,8 +8,10 @@ import { useState } from "react";
 import { authClient } from "@kan/auth/client";
 
 import { Auth } from "~/components/AuthForm";
+import { BrandMark } from "~/components/BrandMark";
 import { PageHead } from "~/components/PageHead";
 import PatternedBackground from "~/components/PatternedBackground";
+import { api } from "~/utils/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -25,25 +27,32 @@ export default function LoginPage() {
   };
 
   const { data } = authClient.useSession();
+  const { data: branding } = api.branding.get.useQuery();
+  const brandName = branding?.brandName ?? "kan.bn";
 
   if (data?.user.id) router.push(redirect ?? "/boards");
 
   return (
     <>
-      <PageHead title={t`Login | kan.bn`} />
+      <PageHead title={`${t`Login`} | ${brandName}`} />
       <main className="h-screen bg-light-100 pt-20 dark:bg-dark-50 sm:pt-0">
         <div className="justify-top flex h-full flex-col items-center px-4 sm:justify-center">
           <div className="z-10 flex w-full flex-col items-center">
             <Link href="/">
-              <h1 className="mb-6 text-lg font-bold tracking-tight text-light-1000 dark:text-dark-1000">
-                kan.bn
-              </h1>
+              <BrandMark variant="login" className="mb-6" />
             </Link>
-            <p className="mb-10 text-3xl font-bold tracking-tight text-light-1000 dark:text-dark-1000">
-              {isMagicLinkSent ? t`Check your inbox` : t`Welcome back`}
+            <p className="text-3xl font-bold tracking-tight text-light-1000 dark:text-dark-1000">
+              {isMagicLinkSent
+                ? t`Check your inbox`
+                : (branding?.loginTitle ?? t`Welcome back`)}
             </p>
+            {!isMagicLinkSent && branding?.loginDescription && (
+              <p className="mt-2 max-w-md text-center text-sm text-light-900 dark:text-dark-900">
+                {branding.loginDescription}
+              </p>
+            )}
             {isMagicLinkSent ? (
-              <div className="sm:mx-auto sm:w-full sm:max-w-sm">
+              <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
                 <p className="text-md mt-2 text-center text-light-1000 dark:text-dark-1000">
                   <Trans>
                     Click on the link we've sent to {magicLinkRecipient} to sign
@@ -52,7 +61,7 @@ export default function LoginPage() {
                 </p>
               </div>
             ) : (
-              <div className="w-full rounded-lg border border-light-500 bg-light-300 px-4 py-10 dark:border-dark-400 dark:bg-dark-200 sm:max-w-md lg:px-10">
+              <div className="mt-10 w-full rounded-lg border border-light-500 bg-light-300 px-4 py-10 dark:border-dark-400 dark:bg-dark-200 sm:max-w-md lg:px-10">
                 <div className="sm:mx-auto sm:w-full sm:max-w-sm">
                   <Auth setIsMagicLinkSent={handleMagicLinkSent} />
                 </div>

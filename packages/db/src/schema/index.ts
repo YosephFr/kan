@@ -5,6 +5,7 @@ export * from "./cards";
 export * from "./checklists";
 export * from "./feedback";
 export * from "./imports";
+export * from "./instanceSettings";
 export * from "./labels";
 export * from "./lists";
 export * from "./users";

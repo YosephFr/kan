@@ -62,6 +62,77 @@ export const workspaceRouter = createTRPCRouter({
         })),
       );
     }),
+  updateSidebarPreferences: protectedProcedure
+    .meta({
+      openapi: {
+        summary: "Update workspace sidebar preferences",
+        method: "PUT",
+        path: "/workspaces/sidebar-preferences",
+        description:
+          "Updates the authenticated user's workspace order and pinned state",
+        tags: ["Workspaces"],
+        protect: true,
+      },
+    })
+    .input(
+      z.object({
+        preferences: z
+          .array(
+            z.object({
+              workspacePublicId: z.string().length(12),
+              position: z.number().int().min(0),
+              pinned: z.boolean(),
+            }),
+          )
+          .min(1)
+          .max(200)
+          .refine(
+            (preferences) =>
+              new Set(
+                preferences.map((preference) => preference.workspacePublicId),
+              ).size === preferences.length,
+            { message: "Workspace preferences must be unique" },
+          )
+          .refine(
+            (preferences) => {
+              const positions = preferences.map(
+                (preference) => preference.position,
+              );
+              return (
+                new Set(positions).size === preferences.length &&
+                positions.every((position) => position < preferences.length)
+              );
+            },
+            { message: "Workspace positions must be sequential" },
+          )
+          .refine(
+            (preferences) =>
+              preferences.filter((preference) => preference.pinned).length <= 3,
+            { message: "Up to three workspaces can be pinned" },
+          ),
+      }),
+    )
+    .output(z.object({ success: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user?.id;
+      if (!userId) {
+        throw new TRPCError({ code: "UNAUTHORIZED" });
+      }
+      const updated = await workspaceRepo.updateSidebarPreferences(
+        ctx.db,
+        userId,
+        input.preferences,
+      );
+
+      if (!updated) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Unable to update workspace sidebar preferences",
+        });
+      }
+
+      return { success: true };
+    }),
   byId: protectedProcedure
     .meta({
       openapi: {

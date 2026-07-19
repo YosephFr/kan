@@ -107,7 +107,7 @@
     "origin": [
       [
         "src/views/board/components/NewCardForm.tsx",
-        462
+        459
       ]
     ],
     "translation": "{0} labels"
@@ -299,7 +299,7 @@
     "origin": [
       [
         "src/components/SettingsLayout.tsx",
-        41
+        45
       ]
     ],
     "translation": "Account"
@@ -754,6 +754,18 @@
     ],
     "translation": "Adjust the square crop to fit your avatar."
   },
+  "PWtCt+": {
+    "message": "Adjust workspace image",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/WorkspaceLogoPicker.tsx",
+        122
+      ]
+    ],
+    "translation": "Adjust workspace image"
+  },
   "U3pytU": {
     "message": "Admin",
     "placeholders": {},
@@ -997,7 +1009,7 @@
     "origin": [
       [
         "src/components/SettingsLayout.tsx",
-        65
+        69
       ],
       [
         "src/views/pricing/components/FeatureComparisonTable.tsx",
@@ -1441,7 +1453,7 @@
     "origin": [
       [
         "src/components/SettingsLayout.tsx",
-        58
+        62
       ],
       [
         "src/views/boards/components/TemplateBoards.tsx",
@@ -1681,7 +1693,7 @@
     "origin": [
       [
         "src/components/SideNavigation.tsx",
-        97
+        98
       ],
       [
         "src/views/pricing/components/FeatureComparisonTable.tsx",
@@ -1713,6 +1725,70 @@
       ]
     ],
     "translation": "Brainstorming"
+  },
+  "GSljFb": {
+    "message": "Brand identity",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        155
+      ]
+    ],
+    "translation": "Brand identity"
+  },
+  "rtu6aD": {
+    "message": "Brand logo",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        173
+      ],
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        180
+      ]
+    ],
+    "translation": "Brand logo"
+  },
+  "pjaNRX": {
+    "message": "Brand logo removed",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        126
+      ]
+    ],
+    "translation": "Brand logo removed"
+  },
+  "7C7tMy": {
+    "message": "Brand name",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        162
+      ]
+    ],
+    "translation": "Brand name"
+  },
+  "iP5UYt": {
+    "message": "Branding updated",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        103
+      ]
+    ],
+    "translation": "Branding updated"
   },
   "vXemf6": {
     "message": "Bug",
@@ -2132,6 +2208,10 @@
         49
       ],
       [
+        "src/components/SquareImageCropModal.tsx",
+        183
+      ],
+      [
         "src/components/YouTubeEmbed/EditYouTubeModal.tsx",
         176
       ],
@@ -2277,7 +2357,7 @@
     "origin": [
       [
         "src/views/board/components/NewCardForm.tsx",
-        328
+        325
       ]
     ],
     "translation": "Card title"
@@ -2303,16 +2383,28 @@
     "translation": "Card URL copied to clipboard"
   },
   "f3cEDO": {
-    "translation": "Change image",
     "message": "Change image",
     "placeholders": {},
     "comments": [],
     "origin": [
       [
         "src/components/WorkspaceLogoPicker.tsx",
-        85
+        88
       ]
-    ]
+    ],
+    "translation": "Change image"
+  },
+  "pGY3w3": {
+    "message": "Change logo",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        209
+      ]
+    ],
+    "translation": "Change logo"
   },
   "VhMDMg": {
     "message": "Change Password",
@@ -2405,7 +2497,7 @@
       ],
       [
         "src/views/auth/login/index.tsx",
-        43
+        46
       ],
       [
         "src/views/auth/signup/index.tsx",
@@ -2455,16 +2547,20 @@
     "translation": "Choose a plan"
   },
   "iIV9st": {
-    "translation": "Choose a PNG, JPG, or WebP image.",
     "message": "Choose a PNG, JPG, or WebP image.",
     "placeholders": {},
     "comments": [],
     "origin": [
       [
         "src/components/WorkspaceLogoPicker.tsx",
-        50
+        52
+      ],
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        61
       ]
-    ]
+    ],
+    "translation": "Choose a PNG, JPG, or WebP image."
   },
   "5EMoSo": {
     "message": "Choose plan",
@@ -2545,7 +2641,7 @@
     "origin": [
       [
         "src/views/auth/login/index.tsx",
-        48
+        57
       ],
       [
         "src/views/auth/signup/index.tsx",
@@ -3093,7 +3189,7 @@
       ],
       [
         "src/views/board/components/NewCardForm.tsx",
-        527
+        524
       ],
       [
         "src/views/board/components/NewListForm.tsx",
@@ -3121,7 +3217,7 @@
     "origin": [
       [
         "src/views/board/components/NewCardForm.tsx",
-        537
+        534
       ]
     ],
     "translation": "Create card"
@@ -3213,7 +3309,7 @@
     "origin": [
       [
         "src/views/board/components/NewCardForm.tsx",
-        424
+        421
       ],
       [
         "src/views/card/components/LabelSelector.tsx",
@@ -3233,7 +3329,7 @@
       ],
       [
         "src/views/board/index.tsx",
-        679
+        683
       ]
     ],
     "translation": "Create new list"
@@ -3269,19 +3365,15 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
+        280
+      ],
+      [
+        "src/components/WorkspaceMenu.tsx",
         278
       ],
       [
         "src/components/WorkspaceMenu.tsx",
-        227
-      ],
-      [
-        "src/components/WorkspaceMenu.tsx",
-        228
-      ],
-      [
-        "src/components/WorkspaceMenu.tsx",
-        234
+        285
       ]
     ],
     "translation": "Create workspace"
@@ -3788,16 +3880,20 @@
     "translation": "Destination workspace"
   },
   "bzSI52": {
-    "translation": "Discard",
     "message": "Discard",
     "placeholders": {},
     "comments": [],
     "origin": [
       [
         "src/components/WorkspaceLogoPicker.tsx",
-        95
+        98
+      ],
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        219
       ]
-    ]
+    ],
+    "translation": "Discard"
   },
   "Odv3J6": {
     "message": "Disconnect GitHub",
@@ -3970,7 +4066,7 @@
     "origin": [
       [
         "src/views/auth/login/index.tsx",
-        63
+        72
       ]
     ],
     "translation": "Don't have an account? <0><1>Sign up</1></0>"
@@ -4031,6 +4127,18 @@
     ],
     "translation": "Download failed"
   },
+  "xlyIHp": {
+    "message": "Drag workspace",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/WorkspaceMenu.tsx",
+        176
+      ]
+    ],
+    "translation": "Drag workspace"
+  },
   "XicmhT": {
     "message": "Due date",
     "placeholders": {},
@@ -4042,7 +4150,7 @@
       ],
       [
         "src/views/board/components/NewCardForm.tsx",
-        479
+        476
       ],
       [
         "src/views/card/index.tsx",
@@ -5307,7 +5415,7 @@
     "origin": [
       [
         "src/views/board/index.tsx",
-        664
+        668
       ]
     ],
     "translation": "Get started by creating a new list"
@@ -5435,7 +5543,7 @@
     "origin": [
       [
         "src/components/SideNavigation.tsx",
-        105
+        106
       ],
       [
         "src/pages/404.tsx",
@@ -5463,7 +5571,7 @@
     "origin": [
       [
         "src/components/SideNavigation.tsx",
-        129
+        130
       ]
     ],
     "translation": "Go to members"
@@ -5475,7 +5583,7 @@
     "origin": [
       [
         "src/components/SideNavigation.tsx",
-        141
+        142
       ]
     ],
     "translation": "Go to settings"
@@ -5487,7 +5595,7 @@
     "origin": [
       [
         "src/components/SideNavigation.tsx",
-        117
+        118
       ]
     ],
     "translation": "Go to templates"
@@ -5728,6 +5836,18 @@
     ],
     "translation": "Ideas to improve this page..."
   },
+  "12fNS3": {
+    "message": "Image to crop",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/SquareImageCropModal.tsx",
+        164
+      ]
+    ],
+    "translation": "Image to crop"
+  },
   "l3s5ri": {
     "message": "Import",
     "placeholders": {},
@@ -5903,7 +6023,7 @@
     "origin": [
       [
         "src/components/SettingsLayout.tsx",
-        77
+        81
       ],
       [
         "src/views/home/components/Features.tsx",
@@ -6172,7 +6292,7 @@
       ],
       [
         "src/views/board/components/NewCardForm.tsx",
-        428
+        425
       ],
       [
         "src/views/card/index.tsx",
@@ -6293,6 +6413,18 @@
       ]
     ],
     "translation": "Learning"
+  },
+  "CtPNK5": {
+    "message": "Leave either field blank to use the standard sign-in copy.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        247
+      ]
+    ],
+    "translation": "Leave either field blank to use the standard sign-in copy."
   },
   "vifyyw": {
     "message": "Legal",
@@ -6470,6 +6602,18 @@
     ],
     "translation": "Loading..."
   },
+  "z0t9bb": {
+    "message": "Login",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/auth/login/index.tsx",
+        37
+      ]
+    ],
+    "translation": "Login"
+  },
   "N/bcWA": {
     "message": "Login | kan.bn",
     "placeholders": {},
@@ -6480,7 +6624,8 @@
         33
       ]
     ],
-    "translation": "Login | kan.bn"
+    "translation": "Login | kan.bn",
+    "obsolete": true
   },
   "nOhz3x": {
     "message": "Logout",
@@ -6685,7 +6830,7 @@
     "origin": [
       [
         "src/components/SideNavigation.tsx",
-        121
+        122
       ],
       [
         "src/views/board/components/Filters.tsx",
@@ -6693,7 +6838,7 @@
       ],
       [
         "src/views/board/components/NewCardForm.tsx",
-        386
+        383
       ],
       [
         "src/views/card/index.tsx",
@@ -6781,6 +6926,18 @@
       ]
     ],
     "translation": "monthly billing"
+  },
+  "mR0tVq": {
+    "message": "Move and resize the square crop before using the image.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/WorkspaceLogoPicker.tsx",
+        123
+      ]
+    ],
+    "translation": "Move and resize the square crop before using the image."
   },
   "sZ/WDz": {
     "message": "Move board",
@@ -6988,7 +7145,7 @@
     "origin": [
       [
         "src/views/board/components/NewCardForm.tsx",
-        311
+        308
       ]
     ],
     "translation": "New card"
@@ -7040,7 +7197,7 @@
       ],
       [
         "src/views/board/index.tsx",
-        628
+        632
       ]
     ],
     "translation": "New list"
@@ -7112,7 +7269,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        187
+        189
       ]
     ],
     "translation": "New workspace"
@@ -7260,7 +7417,7 @@
     "origin": [
       [
         "src/views/board/index.tsx",
-        660
+        664
       ]
     ],
     "translation": "No lists"
@@ -7272,7 +7429,7 @@
     "origin": [
       [
         "src/views/board/index.tsx",
-        665
+        669
       ]
     ],
     "translation": "No lists have been created yet"
@@ -7408,7 +7565,7 @@
     "origin": [
       [
         "src/components/WorkspaceMenu.tsx",
-        56
+        139
       ]
     ],
     "translation": "Open command menu"
@@ -7740,7 +7897,7 @@
     "origin": [
       [
         "src/components/SettingsLayout.tsx",
-        53
+        57
       ]
     ],
     "translation": "Permissions"
@@ -7796,6 +7953,22 @@
       ]
     ],
     "translation": "Pick a plan to get started. All paid plans include a 14-day free trial."
+  },
+  "17/eSE": {
+    "message": "Pin workspace",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/WorkspaceMenu.tsx",
+        237
+      ],
+      [
+        "src/components/WorkspaceMenu.tsx",
+        242
+      ]
+    ],
+    "translation": "Pin workspace"
   },
   "GdgCoi": {
     "message": "Plan",
@@ -7952,7 +8125,7 @@
       ],
       [
         "src/components/NewWorkspaceForm.tsx",
-        151
+        153
       ],
       [
         "src/views/board/components/BoardDropdown.tsx",
@@ -7960,7 +8133,7 @@
       ],
       [
         "src/views/board/components/NewCardForm.tsx",
-        193
+        190
       ],
       [
         "src/views/board/components/NewListForm.tsx",
@@ -8171,6 +8344,10 @@
     "comments": [],
     "origin": [
       [
+        "src/components/WorkspaceMenu.tsx",
+        61
+      ],
+      [
         "src/views/board/components/CardContextDuplicateModal.tsx",
         76
       ],
@@ -8201,21 +8378,53 @@
       [
         "src/views/public/board/index.tsx",
         86
+      ],
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        110
+      ],
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        133
       ]
     ],
     "translation": "Please try again."
   },
+  "EsSrMh": {
+    "translation": "Please try another image.",
+    "message": "Please try another image.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/SquareImageCropModal.tsx",
+        136
+      ]
+    ]
+  },
   "xsRUI3": {
-    "translation": "PNG, JPG, or WebP. Square images work best.",
     "message": "PNG, JPG, or WebP. Square images work best.",
     "placeholders": {},
     "comments": [],
     "origin": [
       [
         "src/components/WorkspaceLogoPicker.tsx",
-        112
+        115
       ]
-    ]
+    ],
+    "translation": "PNG, JPG, or WebP. Square images work best."
+  },
+  "IVlu7P": {
+    "message": "PNG, JPG, or WebP. Wide transparent images work best.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        236
+      ]
+    ],
+    "translation": "PNG, JPG, or WebP. Wide transparent images work best."
   },
   "nYNMZZ": {
     "message": "Position in list (0 = first, leave empty for end)",
@@ -8484,11 +8693,15 @@
     "origin": [
       [
         "src/components/WorkspaceLogoPicker.tsx",
-        107
+        110
       ],
       [
         "src/views/members/components/DeleteMemberConfirmation.tsx",
         58
+      ],
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        231
       ]
     ],
     "translation": "Remove"
@@ -8876,12 +9089,15 @@
       [
         "src/views/settings/components/NewWebhookModal.tsx",
         344
+      ],
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        279
       ]
     ],
     "translation": "Save changes"
   },
   "uKAEhd": {
-    "translation": "Save image",
     "message": "Save image",
     "placeholders": {},
     "comments": [],
@@ -8890,7 +9106,8 @@
         "src/views/settings/components/UpdateWorkspaceLogoForm.tsx",
         121
       ]
-    ]
+    ],
+    "translation": "Save image"
   },
   "MdwUGG": {
     "message": "Save time with reusable board templates.",
@@ -8917,16 +9134,16 @@
     "translation": "Screening"
   },
   "A1taO8": {
-    "translation": "Search",
     "message": "Search",
     "placeholders": {},
     "comments": [],
     "origin": [
       [
         "src/components/WorkspaceMenu.tsx",
-        149
+        294
       ]
-    ]
+    ],
+    "translation": "Search"
   },
   "SkCNhl": {
     "message": "Search boards and cards...",
@@ -9239,11 +9456,11 @@
     "origin": [
       [
         "src/components/SettingsLayout.tsx",
-        102
+        112
       ],
       [
         "src/components/SideNavigation.tsx",
-        133
+        134
       ]
     ],
     "translation": "Settings"
@@ -9320,6 +9537,18 @@
     ],
     "translation": "Settings | Webhooks"
   },
+  "jTElD4": {
+    "message": "Settings | Whitelabel",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        148
+      ]
+    ],
+    "translation": "Settings | Whitelabel"
+  },
   "Ci/KUX": {
     "message": "Settings | Workspace",
     "placeholders": {},
@@ -9345,20 +9574,20 @@
     "translation": "Shortcuts"
   },
   "fMPkxb": {
-    "translation": "Show more",
     "message": "Show more",
     "placeholders": {},
     "comments": [],
     "origin": [
       [
         "src/components/WorkspaceMenu.tsx",
-        179
+        362
       ],
       [
         "src/components/WorkspaceMenu.tsx",
-        191
+        374
       ]
-    ]
+    ],
+    "translation": "Show more"
   },
   "5lWFkC": {
     "message": "Sign in",
@@ -9491,6 +9720,18 @@
       ]
     ],
     "translation": "Sign up with "
+  },
+  "M3102h": {
+    "message": "Sign-in experience",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        244
+      ]
+    ],
+    "translation": "Sign-in experience"
   },
   "m2nk0i": {
     "message": "Simple pricing",
@@ -9647,15 +9888,15 @@
     "origin": [
       [
         "src/components/SideNavigation.tsx",
+        224
+      ],
+      [
+        "src/components/SideNavigation.tsx",
         225
       ],
       [
         "src/components/SideNavigation.tsx",
-        226
-      ],
-      [
-        "src/components/SideNavigation.tsx",
-        236
+        235
       ]
     ],
     "translation": "Start free trial"
@@ -9911,7 +10152,7 @@
     "origin": [
       [
         "src/components/SideNavigation.tsx",
-        109
+        110
       ],
       [
         "src/views/home/components/Features.tsx",
@@ -10068,6 +10309,18 @@
     ],
     "translation": "The board has been unarchived."
   },
+  "ZA8ghD": {
+    "message": "The brand name will be shown as text.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        127
+      ]
+    ],
+    "translation": "The brand name will be shown as text."
+  },
   "nKBUeF": {
     "message": "The card has been duplicated.",
     "placeholders": {},
@@ -10156,6 +10409,18 @@
     ],
     "translation": "The page you're looking for doesn't exist or has been moved."
   },
+  "T0SblI": {
+    "message": "The sidebar and sign-in page now use these settings.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        104
+      ]
+    ],
+    "translation": "The sidebar and sign-in page now use these settings."
+  },
   "fQCrjt": {
     "message": "The visibility of your board has been set to {0}.",
     "placeholders": {
@@ -10173,7 +10438,6 @@
     "translation": "The visibility of your board has been set to {0}."
   },
   "o6c6bT": {
-    "translation": "The workspace image is now visible to its members.",
     "message": "The workspace image is now visible to its members.",
     "placeholders": {},
     "comments": [],
@@ -10182,10 +10446,10 @@
         "src/views/settings/components/UpdateWorkspaceLogoForm.tsx",
         58
       ]
-    ]
+    ],
+    "translation": "The workspace image is now visible to its members."
   },
   "Tdj/d0": {
-    "translation": "The workspace will use its initial instead.",
     "message": "The workspace will use its initial instead.",
     "placeholders": {},
     "comments": [],
@@ -10194,7 +10458,8 @@
         "src/views/settings/components/UpdateWorkspaceLogoForm.tsx",
         87
       ]
-    ]
+    ],
+    "translation": "The workspace will use its initial instead."
   },
   "FEr96N": {
     "message": "Theme",
@@ -10387,7 +10652,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        240
+        242
       ]
     ],
     "translation": "This workspace URL has already been taken"
@@ -10399,7 +10664,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        242
+        244
       ]
     ],
     "translation": "This workspace URL is reserved"
@@ -10415,6 +10680,18 @@
       ]
     ],
     "translation": "This workspace username has already been taken"
+  },
+  "YuL6pN": {
+    "message": "Three workspaces are already pinned",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/WorkspaceMenu.tsx",
+        110
+      ]
+    ],
+    "translation": "Three workspaces are already pinned"
   },
   "pEb95p": {
     "message": "Ticket ID copied to clipboard",
@@ -10659,7 +10936,7 @@
     "origin": [
       [
         "src/views/board/components/NewCardForm.tsx",
-        190
+        187
       ]
     ],
     "translation": "Unable to create card"
@@ -10723,7 +11000,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        150
+        152
       ],
       [
         "src/views/onboarding/workspace-details/index.tsx",
@@ -10731,6 +11008,18 @@
       ]
     ],
     "translation": "Unable to create workspace"
+  },
+  "VL2rAP": {
+    "translation": "Unable to crop image",
+    "message": "Unable to crop image",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/SquareImageCropModal.tsx",
+        135
+      ]
+    ]
   },
   "WHHLh9": {
     "message": "Unable to delete attachment",
@@ -10844,6 +11133,18 @@
     ],
     "translation": "Unable to move card"
   },
+  "KOX/pP": {
+    "message": "Unable to remove brand logo",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        132
+      ]
+    ],
+    "translation": "Unable to remove brand logo"
+  },
   "8yFGGF": {
     "message": "Unable to remove member",
     "placeholders": {},
@@ -10857,7 +11158,6 @@
     "translation": "Unable to remove member"
   },
   "Zt1aIq": {
-    "translation": "Unable to remove workspace image",
     "message": "Unable to remove workspace image",
     "placeholders": {},
     "comments": [],
@@ -10866,7 +11166,8 @@
         "src/views/settings/components/UpdateWorkspaceLogoForm.tsx",
         92
       ]
-    ]
+    ],
+    "translation": "Unable to remove workspace image"
   },
   "YKeYae": {
     "message": "Unable to reorder checklist item",
@@ -10891,6 +11192,18 @@
       ]
     ],
     "translation": "Unable to reset permissions"
+  },
+  "NTsBMW": {
+    "message": "Unable to save workspace order",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/WorkspaceMenu.tsx",
+        60
+      ]
+    ],
+    "translation": "Unable to save workspace order"
   },
   "A8jqN7": {
     "message": "Unable to send feedback",
@@ -10967,6 +11280,18 @@
       ]
     ],
     "translation": "Unable to update board visibility"
+  },
+  "PblfIC": {
+    "message": "Unable to update branding",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        109
+      ]
+    ],
+    "translation": "Unable to update branding"
   },
   "o9WLwO": {
     "message": "Unable to update card",
@@ -11113,7 +11438,6 @@
     "translation": "Unable to update webhook"
   },
   "LF62IN": {
-    "translation": "Unable to update workspace image",
     "message": "Unable to update workspace image",
     "placeholders": {},
     "comments": [],
@@ -11122,19 +11446,24 @@
         "src/views/settings/components/UpdateWorkspaceLogoForm.tsx",
         63
       ]
-    ]
+    ],
+    "translation": "Unable to update workspace image"
   },
   "QlyLyb": {
-    "translation": "Unable to use this image",
     "message": "Unable to use this image",
     "placeholders": {},
     "comments": [],
     "origin": [
       [
         "src/components/WorkspaceLogoPicker.tsx",
-        49
+        51
+      ],
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        60
       ]
-    ]
+    ],
+    "translation": "Unable to use this image"
   },
   "It4/FS": {
     "message": "Unarchive board",
@@ -11380,6 +11709,34 @@
     ],
     "translation": "Unlimited seats and advanced features for growing teams."
   },
+  "OKO4YF": {
+    "message": "Unpin one before pinning another.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/WorkspaceMenu.tsx",
+        111
+      ]
+    ],
+    "translation": "Unpin one before pinning another."
+  },
+  "X12iRx": {
+    "message": "Unpin workspace",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/WorkspaceMenu.tsx",
+        236
+      ],
+      [
+        "src/components/WorkspaceMenu.tsx",
+        241
+      ]
+    ],
+    "translation": "Unpin workspace"
+  },
   "SMaFdc": {
     "message": "Unsubscribe",
     "placeholders": {},
@@ -11553,16 +11910,28 @@
     "translation": "Upload failed"
   },
   "6MxxvO": {
-    "translation": "Upload image",
     "message": "Upload image",
     "placeholders": {},
     "comments": [],
     "origin": [
       [
         "src/components/WorkspaceLogoPicker.tsx",
-        85
+        88
       ]
-    ]
+    ],
+    "translation": "Upload image"
+  },
+  "QfiWpJ": {
+    "message": "Upload logo",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        209
+      ]
+    ],
+    "translation": "Upload logo"
   },
   "BBUDfW": {
     "message": "Urgent",
@@ -11656,6 +12025,18 @@
     ],
     "translation": "URL must be at least 3 characters long"
   },
+  "PTd/zR": {
+    "message": "Use image",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/SquareImageCropModal.tsx",
+        191
+      ]
+    ],
+    "translation": "Use image"
+  },
   "QNtP5M": {
     "message": "Use template",
     "placeholders": {},
@@ -11667,6 +12048,18 @@
       ]
     ],
     "translation": "Use template"
+  },
+  "23LmLO": {
+    "message": "Used in the main navigation and on the sign-in page.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        158
+      ]
+    ],
+    "translation": "Used in the main navigation and on the sign-in page."
   },
   "n6EWYz": {
     "message": "Used to sign webhook payloads for verification. Leave blank to keep existing secret.",
@@ -11983,7 +12376,7 @@
     "origin": [
       [
         "src/components/SettingsLayout.tsx",
-        71
+        75
       ],
       [
         "src/views/settings/WebhookSettings.tsx",
@@ -12011,10 +12404,38 @@
     "origin": [
       [
         "src/views/auth/login/index.tsx",
-        43
+        47
+      ],
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        257
       ]
     ],
     "translation": "Welcome back"
+  },
+  "/IAPcI": {
+    "message": "Welcome message",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        262
+      ]
+    ],
+    "translation": "Welcome message"
+  },
+  "D/tFLm": {
+    "message": "Welcome title",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/settings/WhitelabelSettings.tsx",
+        251
+      ]
+    ],
+    "translation": "Welcome title"
   },
   "xEbBrW": {
     "message": "What license are you using?",
@@ -12052,6 +12473,18 @@
     ],
     "translation": "When Trello launched in 2011, it blew everyone away with its carefully designed simplicity, but over the years it lost its magic and grew into something closer to \"Jira Lite\". This project is our attempt to recapture the original magic of Trello's simplicity, in open source."
   },
+  "rT7VuT": {
+    "message": "Whitelabel",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/SettingsLayout.tsx",
+        87
+      ]
+    ],
+    "translation": "Whitelabel"
+  },
   "SFnH1j": {
     "message": "Why make an open source Trello?",
     "placeholders": {},
@@ -12071,11 +12504,11 @@
     "origin": [
       [
         "src/components/SettingsLayout.tsx",
-        47
+        51
       ],
       [
         "src/components/WorkspaceLogoPicker.tsx",
-        64
+        67
       ],
       [
         "src/views/board/index.tsx",
@@ -12114,7 +12547,6 @@
     "obsolete": true
   },
   "9ahTaL": {
-    "translation": "Workspace created without image",
     "message": "Workspace created without image",
     "placeholders": {},
     "comments": [],
@@ -12123,7 +12555,8 @@
         "src/components/NewWorkspaceForm.tsx",
         123
       ]
-    ]
+    ],
+    "translation": "Workspace created without image"
   },
   "UlhdTP": {
     "message": "Workspace deleted",
@@ -12190,7 +12623,6 @@
     "translation": "Workspace description updated"
   },
   "kfO+IG": {
-    "translation": "Workspace image",
     "message": "Workspace image",
     "placeholders": {},
     "comments": [],
@@ -12199,10 +12631,10 @@
         "src/views/settings/WorkspaceSettings.tsx",
         44
       ]
-    ]
+    ],
+    "translation": "Workspace image"
   },
   "EAzSVW": {
-    "translation": "Workspace image removed",
     "message": "Workspace image removed",
     "placeholders": {},
     "comments": [],
@@ -12211,10 +12643,10 @@
         "src/views/settings/components/UpdateWorkspaceLogoForm.tsx",
         86
       ]
-    ]
+    ],
+    "translation": "Workspace image removed"
   },
   "wBSSs7": {
-    "translation": "Workspace image updated",
     "message": "Workspace image updated",
     "placeholders": {},
     "comments": [],
@@ -12223,7 +12655,8 @@
         "src/views/settings/components/UpdateWorkspaceLogoForm.tsx",
         57
       ]
-    ]
+    ],
+    "translation": "Workspace image updated"
   },
   "wtxjAY": {
     "message": "Workspace members",
@@ -12252,7 +12685,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        206
+        208
       ],
       [
         "src/views/onboarding/workspace-details/index.tsx",
@@ -12372,22 +12805,22 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        229
+        231
       ]
     ],
     "translation": "workspace-url"
   },
   "pmt7u4": {
-    "translation": "Workspaces",
     "message": "Workspaces",
     "placeholders": {},
     "comments": [],
     "origin": [
       [
         "src/components/WorkspaceMenu.tsx",
-        143
+        275
       ]
-    ]
+    ],
+    "translation": "Workspaces"
   },
   "4kJRen": {
     "message": "Writing",
@@ -12490,7 +12923,6 @@
     "translation": "You can self-host by following the instructions in our <0>repo</0>."
   },
   "j+hcqf": {
-    "translation": "You can upload the workspace image from settings.",
     "message": "You can upload the workspace image from settings.",
     "placeholders": {},
     "comments": [],
@@ -12499,7 +12931,8 @@
         "src/components/NewWorkspaceForm.tsx",
         124
       ]
-    ]
+    ],
+    "translation": "You can upload the workspace image from settings."
   },
   "tUL16u": {
     "message": "You don't have any other workspaces to move this board to.",
@@ -12532,11 +12965,11 @@
       ],
       [
         "src/views/board/index.tsx",
-        612
+        616
       ],
       [
         "src/views/board/index.tsx",
-        670
+        674
       ],
       [
         "src/views/boards/components/BoardsList.tsx",
