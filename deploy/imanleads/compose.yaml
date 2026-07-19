@@ -82,6 +82,8 @@ services:
     volumes:
       - ./init-minio.sh:/opt/kan/init-minio.sh:ro
       - ./minio-policy.json:/opt/kan/minio-policy.json:ro
+    tmpfs:
+      - /data
     depends_on:
       minio:
         condition: service_healthy
