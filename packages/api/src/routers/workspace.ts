@@ -2,12 +2,22 @@ import { TRPCError } from "@trpc/server";
 import { env } from "next-runtime-env";
 import { z } from "zod";
 
+import type { WorkspacePlan } from "@kan/db/schema";
+import * as subscriptionRepo from "@kan/db/repository/subscription.repo";
 import * as workspaceRepo from "@kan/db/repository/workspace.repo";
 import * as workspaceSlugRepo from "@kan/db/repository/workspaceSlug.repo";
-import { generateUID } from "@kan/shared/utils";
+import { generateAvatarUrl, generateUID } from "@kan/shared/utils";
 
+import {
+  workspaceCreateResponseSchema,
+  workspaceDeleteResponseSchema,
+  workspaceDetailSchema,
+  workspaceListItemSchema,
+  workspaceUpdateResponseSchema,
+  workspaceWithBoardsSchema,
+} from "../schemas";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-import { assertUserInWorkspace } from "../utils/auth";
+import { assertPermission } from "../utils/permissions";
 
 export const workspaceRouter = createTRPCRouter({
   all: protectedProcedure
@@ -22,9 +32,7 @@ export const workspaceRouter = createTRPCRouter({
       },
     })
     .input(z.void())
-    .output(
-      z.custom<Awaited<ReturnType<typeof workspaceRepo.getAllByUserId>>>(),
-    )
+    .output(z.array(workspaceListItemSchema))
     .query(async ({ ctx }) => {
       const userId = ctx.user?.id;
 
@@ -50,11 +58,7 @@ export const workspaceRouter = createTRPCRouter({
       },
     })
     .input(z.object({ workspacePublicId: z.string().min(12) }))
-    .output(
-      z.custom<
-        Awaited<ReturnType<typeof workspaceRepo.getByPublicIdWithMembers>>
-      >(),
-    )
+    .output(workspaceDetailSchema)
     .query(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
 
@@ -74,8 +78,7 @@ export const workspaceRouter = createTRPCRouter({
           message: `Workspace not found`,
           code: "NOT_FOUND",
         });
-
-      await assertUserInWorkspace(ctx.db, userId, result.id);
+      await assertPermission(ctx.db, userId, result.id, "workspace:view");
 
       // Check if user is an admin
       const userMember = result.members.find(
@@ -86,9 +89,27 @@ export const workspaceRouter = createTRPCRouter({
       // Show emails if user is admin OR workspace setting allows it
       const shouldShowEmails = isAdmin || result.showEmailsToMembers === true;
 
+      // Generate presigned URLs for member avatars
+      const membersWithAvatarUrls = await Promise.all(
+        result.members.map(async (member) => {
+          if (!member.user?.image) {
+            return member;
+          }
+
+          const avatarUrl = await generateAvatarUrl(member.user.image);
+          return {
+            ...member,
+            user: {
+              ...member.user,
+              image: avatarUrl,
+            },
+          };
+        }),
+      );
+
       // If emails should be hidden, filter them out
       if (!shouldShowEmails) {
-        const sanitizedMembers = result.members.map((member) => {
+        const sanitizedMembers = membersWithAvatarUrls.map((member) => {
           // If user doesn't have a display name, use anonymous identifier
           const displayName =
             member.user?.name?.trim() ?? `anonymous_${member.publicId}`;
@@ -117,10 +138,13 @@ export const workspaceRouter = createTRPCRouter({
         return {
           ...result,
           members: sanitizedMembers,
-        } as Awaited<ReturnType<typeof workspaceRepo.getByPublicIdWithMembers>>;
+        };
       }
 
-      return result;
+      return {
+        ...result,
+        members: membersWithAvatarUrls,
+      };
     }),
   bySlug: publicProcedure
     .meta({
@@ -138,13 +162,11 @@ export const workspaceRouter = createTRPCRouter({
         workspaceSlug: z
           .string()
           .min(3)
-          .max(24)
+          .max(64)
           .regex(/^(?![-]+$)[a-zA-Z0-9-]+$/),
       }),
     )
-    .output(
-      z.custom<Awaited<ReturnType<typeof workspaceRepo.getBySlugWithBoards>>>(),
-    )
+    .output(workspaceWithBoardsSchema)
     .query(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
 
@@ -164,8 +186,7 @@ export const workspaceRouter = createTRPCRouter({
           message: `Workspace not found`,
           code: "NOT_FOUND",
         });
-
-      await assertUserInWorkspace(ctx.db, userId, result.id);
+      await assertPermission(ctx.db, userId, result.id, "workspace:view");
 
       return result;
     }),
@@ -183,15 +204,16 @@ export const workspaceRouter = createTRPCRouter({
     .input(
       z.object({
         name: z.string().min(1).max(64),
+        description: z.string().max(280).optional(),
         slug: z
           .string()
           .min(3)
-          .max(24)
+          .max(64)
           .regex(/^(?![-]+$)[a-zA-Z0-9-]+$/)
           .optional(),
       }),
     )
-    .output(z.custom<Awaited<ReturnType<typeof workspaceRepo.create>>>())
+    .output(workspaceCreateResponseSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
       const userEmail = ctx.user?.email;
@@ -241,6 +263,7 @@ export const workspaceRouter = createTRPCRouter({
         slug: workspaceSlug,
         createdBy: userId,
         createdByEmail: userEmail,
+        ...(input.description && { description: input.description }),
       });
 
       if (!result.publicId)
@@ -249,7 +272,49 @@ export const workspaceRouter = createTRPCRouter({
           code: "INTERNAL_SERVER_ERROR",
         });
 
-      return result;
+      let unlinkedSlot: Awaited<
+        ReturnType<typeof subscriptionRepo.getFirstUnlinkedSlotByLicenseKey>
+      >;
+
+      if (env("NEXT_PUBLIC_KAN_ENV") === "cloud") {
+        const memberships = await workspaceRepo.getAllByUserId(ctx.db, userId);
+        const otherWorkspaceIds = memberships
+          .map((m) => m.workspace?.publicId)
+          .filter((id): id is string => !!id && id !== workspacePublicId);
+
+        const partnerSub = otherWorkspaceIds.length
+          ? await subscriptionRepo.getFirstActivePartnerSubByWorkspaceIds(
+              ctx.db,
+              otherWorkspaceIds,
+            )
+          : undefined;
+        unlinkedSlot = partnerSub?.partnerLicenseKey
+          ? await subscriptionRepo.getFirstUnlinkedSlotByLicenseKey(
+              ctx.db,
+              partnerSub.partnerLicenseKey,
+            )
+          : undefined;
+
+        if (unlinkedSlot) {
+          await Promise.all([
+            subscriptionRepo.updateById(ctx.db, unlinkedSlot.id, {
+              referenceId: workspacePublicId,
+            }),
+            workspaceRepo.update(ctx.db, workspacePublicId, {
+              plan: unlinkedSlot.plan as WorkspacePlan,
+            }),
+          ]);
+        }
+      }
+
+      return {
+        publicId: result.publicId,
+        name: result.name!,
+        slug: result.slug!,
+        description: result.description ?? null,
+        plan: (unlinkedSlot?.plan ?? result.plan!) as WorkspacePlan,
+        cardPrefix: result.cardPrefix!,
+      };
     }),
   update: protectedProcedure
     .meta({
@@ -269,14 +334,17 @@ export const workspaceRouter = createTRPCRouter({
         slug: z
           .string()
           .min(3)
-          .max(24)
+          .max(64)
           .regex(/^(?![-]+$)[a-zA-Z0-9-]+$/)
           .optional(),
         description: z.string().min(3).max(280).optional(),
         showEmailsToMembers: z.boolean().optional(),
+        weekStartDay: z
+          .union([z.literal(0), z.literal(1), z.literal(6)])
+          .optional(),
       }),
     )
-    .output(z.custom<Awaited<ReturnType<typeof workspaceRepo.update>>>())
+    .output(workspaceUpdateResponseSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
 
@@ -296,8 +364,7 @@ export const workspaceRouter = createTRPCRouter({
           message: `Workspace not found`,
           code: "NOT_FOUND",
         });
-
-      await assertUserInWorkspace(ctx.db, userId, workspace.id, "admin");
+      await assertPermission(ctx.db, userId, workspace.id, "workspace:edit");
 
       if (input.slug) {
         const reservedOrPremiumWorkspaceSlug =
@@ -336,6 +403,7 @@ export const workspaceRouter = createTRPCRouter({
           slug: input.slug,
           description: input.description,
           showEmailsToMembers: input.showEmailsToMembers,
+          weekStartDay: input.weekStartDay,
         },
       );
 
@@ -359,7 +427,7 @@ export const workspaceRouter = createTRPCRouter({
       },
     })
     .input(z.object({ workspacePublicId: z.string().min(12) }))
-    .output(z.custom<Awaited<ReturnType<typeof workspaceRepo.hardDelete>>>())
+    .output(workspaceDeleteResponseSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
 
@@ -379,15 +447,25 @@ export const workspaceRouter = createTRPCRouter({
           message: `Workspace not found`,
           code: "NOT_FOUND",
         });
+      await assertPermission(ctx.db, userId, workspace.id, "workspace:delete");
 
-      await assertUserInWorkspace(ctx.db, userId, workspace.id, "admin");
+      if (env("NEXT_PUBLIC_KAN_ENV") === "cloud") {
+        const subs = await subscriptionRepo.getByReferenceId(
+          ctx.db,
+          input.workspacePublicId,
+        );
+        await Promise.all(
+          subs
+            .filter((s) => !!s.partnerLicenseKey)
+            .map((s) =>
+              subscriptionRepo.updateById(ctx.db, s.id, { referenceId: null }),
+            ),
+        );
+      }
 
-      const result = await workspaceRepo.hardDelete(
-        ctx.db,
-        input.workspacePublicId,
-      );
+      await workspaceRepo.hardDelete(ctx.db, input.workspacePublicId);
 
-      return result;
+      return { success: true };
     }),
   checkSlugAvailability: publicProcedure
     .meta({
@@ -405,7 +483,7 @@ export const workspaceRouter = createTRPCRouter({
         workspaceSlug: z
           .string()
           .min(3)
-          .max(24)
+          .max(64)
           .regex(/^(?![-]+$)[a-zA-Z0-9-]+$/),
       }),
     )
@@ -492,6 +570,7 @@ export const workspaceRouter = createTRPCRouter({
             boardPublicId: z.string(),
             boardName: z.string(),
             listName: z.string(),
+            cardNumber: z.number().nullable(),
             updatedAt: z.date().nullable(),
             createdAt: z.date(),
             type: z.literal("card"),
@@ -518,8 +597,7 @@ export const workspaceRouter = createTRPCRouter({
           message: `Workspace not found`,
           code: "NOT_FOUND",
         });
-
-      await assertUserInWorkspace(ctx.db, userId, workspace.id);
+      await assertPermission(ctx.db, userId, workspace.id, "workspace:view");
 
       const result = await workspaceRepo.searchBoardsAndCards(
         ctx.db,
@@ -529,5 +607,39 @@ export const workspaceRouter = createTRPCRouter({
       );
 
       return result;
+    }),
+  hasAvailablePartnerSlot: protectedProcedure
+    .input(z.void())
+    .output(z.boolean())
+    .query(async ({ ctx }) => {
+      const userId = ctx.user?.id;
+
+      if (!userId)
+        throw new TRPCError({
+          message: `User not authenticated`,
+          code: "UNAUTHORIZED",
+        });
+
+      const memberships = await workspaceRepo.getAllByUserId(ctx.db, userId);
+      const workspaceIds = memberships
+        .map((m) => m.workspace?.publicId)
+        .filter((id): id is string => !!id);
+
+      if (!workspaceIds.length) return false;
+
+      const partnerSub =
+        await subscriptionRepo.getFirstActivePartnerSubByWorkspaceIds(
+          ctx.db,
+          workspaceIds,
+        );
+      if (!partnerSub?.partnerLicenseKey) return false;
+
+      const unlinkedSlot =
+        await subscriptionRepo.getFirstUnlinkedSlotByLicenseKey(
+          ctx.db,
+          partnerSub.partnerLicenseKey,
+        );
+
+      return !!unlinkedSlot;
     }),
 });

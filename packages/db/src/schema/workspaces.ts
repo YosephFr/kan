@@ -3,6 +3,8 @@ import {
   bigint,
   bigserial,
   boolean,
+  index,
+  integer,
   pgEnum,
   pgTable,
   text,
@@ -12,6 +14,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { boards } from "./boards";
+import { workspaceMemberPermissions, workspaceRoles } from "./permissions";
 import { subscription } from "./subscriptions";
 import { users } from "./users";
 
@@ -32,28 +35,35 @@ export const slugTypes = ["reserved", "premium"] as const;
 export type SlugType = (typeof slugTypes)[number];
 export const slugTypeEnum = pgEnum("slug_type", slugTypes);
 
-export const workspacePlans = ["free", "pro", "enterprise"] as const;
+export const workspacePlans = ["free", "team", "pro", "enterprise"] as const;
 export type WorkspacePlan = (typeof workspacePlans)[number];
 export const workspacePlanEnum = pgEnum("workspace_plan", workspacePlans);
 
-export const workspaces = pgTable("workspace", {
-  id: bigserial("id", { mode: "number" }).primaryKey(),
-  publicId: varchar("publicId", { length: 12 }).notNull().unique(),
-  name: varchar("name", { length: 255 }).notNull(),
-  description: text("description"),
-  slug: varchar("slug", { length: 255 }).notNull().unique(),
-  plan: workspacePlanEnum("plan").notNull().default("free"),
-  showEmailsToMembers: boolean("showEmailsToMembers").notNull().default(true),
-  createdBy: uuid("createdBy").references(() => users.id, {
-    onDelete: "set null",
-  }),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt"),
-  deletedAt: timestamp("deletedAt"),
-  deletedBy: uuid("deletedBy").references(() => users.id, {
-    onDelete: "set null",
-  }),
-}).enableRLS();
+export const workspaces = pgTable(
+  "workspace",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    publicId: varchar("publicId", { length: 12 }).notNull().unique(),
+    name: varchar("name", { length: 255 }).notNull(),
+    description: text("description"),
+    slug: varchar("slug", { length: 255 }).notNull().unique(),
+    plan: workspacePlanEnum("plan").notNull().default("free"),
+    showEmailsToMembers: boolean("showEmailsToMembers").notNull().default(true),
+    weekStartDay: integer("weekStartDay").notNull().default(1),
+    cardPrefix: varchar("cardPrefix", { length: 10 }).notNull().default(""),
+    cardCounter: integer("cardCounter").notNull().default(0),
+    createdBy: uuid("createdBy").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt"),
+    deletedAt: timestamp("deletedAt"),
+    deletedBy: uuid("deletedBy").references(() => users.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [index("workspace_card_prefix_idx").on(table.cardPrefix)],
+).enableRLS();
 
 export const workspaceRelations = relations(workspaces, ({ one, many }) => ({
   user: one(users, {
@@ -69,6 +79,7 @@ export const workspaceRelations = relations(workspaces, ({ one, many }) => ({
   members: many(workspaceMembers),
   boards: many(boards),
   subscriptions: many(subscription),
+  roles: many(workspaceRoles),
 }));
 
 export const workspaceMembers = pgTable("workspace_members", {
@@ -86,13 +97,18 @@ export const workspaceMembers = pgTable("workspace_members", {
   deletedBy: uuid("deletedBy").references(() => users.id, {
     onDelete: "set null",
   }),
+  // Legacy role enum
   role: memberRoleEnum("role").notNull(),
+  roleId: bigint("roleId", { mode: "number" }).references(
+    () => workspaceRoles.id,
+    { onDelete: "restrict" },
+  ),
   status: memberStatusEnum("status").default("invited").notNull(),
 }).enableRLS();
 
 export const workspaceMembersRelations = relations(
   workspaceMembers,
-  ({ one }) => ({
+  ({ one, many }) => ({
     user: one(users, {
       fields: [workspaceMembers.userId],
       references: [users.id],
@@ -102,6 +118,23 @@ export const workspaceMembersRelations = relations(
       fields: [workspaceMembers.workspaceId],
       references: [workspaces.id],
       relationName: "workspaceMembersWorkspace",
+    }),
+    workspaceRole: one(workspaceRoles, {
+      fields: [workspaceMembers.roleId],
+      references: [workspaceRoles.id],
+      relationName: "workspaceMemberRole",
+    }),
+    permissions: many(workspaceMemberPermissions),
+  }),
+);
+
+export const workspaceMemberPermissionsRelations = relations(
+  workspaceMemberPermissions,
+  ({ one }) => ({
+    member: one(workspaceMembers, {
+      fields: [workspaceMemberPermissions.workspaceMemberId],
+      references: [workspaceMembers.id],
+      relationName: "memberPermissions",
     }),
   }),
 );

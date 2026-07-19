@@ -162,6 +162,90 @@
       "when": 1768858977000,
       "tag": "20260119164257_AddShowEmailsToMembersToWorkspace",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1769435949476,
+      "tag": "20260126135909_AddWorkspaceRoles",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1769983198190,
+      "tag": "20260201215958_AddUserBoardFavouritesTable",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1770500457005,
+      "tag": "20260207214056_AddNotificationsTable",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1770521594167,
+      "tag": "20260208033314_AddAttachmentToActivity",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1771192000000,
+      "tag": "20260129210000_AddWorkspaceWebhooks",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1772049587901,
+      "tag": "20260225195947_AddIsArchivedToBoard",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1771930355536,
+      "tag": "20260224105235_AddGitHubIntegrationSupport",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1773212242728,
+      "tag": "20260311065722_AddWeekStartDay",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1775170588247,
+      "tag": "20260402225628_AddTeamWorkspacePlan",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1776809379931,
+      "tag": "20260421220939_AddCardNumber",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1778617946519,
+      "tag": "20260512203226_AddPartnerLicenseToSubscription",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1780057951781,
+      "tag": "20260529123231_DropPartnerLicenseKeyUniqueConstraint",
+      "breakpoints": true
     }
   ]
 }

@@ -5,13 +5,14 @@ import {
   index,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
   uuid,
   varchar,
+  boolean,
 } from "drizzle-orm/pg-core";
-
 import { imports } from "./imports";
 import { labels } from "./labels";
 import { lists } from "./lists";
@@ -54,9 +55,11 @@ export const boards = pgTable(
       .references(() => workspaces.id, { onDelete: "cascade" }),
     visibility: boardVisibilityEnum("visibility").notNull().default("private"),
     type: boardTypeEnum("type").notNull().default("regular"),
+    isArchived: boolean("isArchived").notNull().default(false),
     sourceBoardId: bigint("sourceBoardId", { mode: "number" }),
   },
   (table) => [
+    index("board_is_archived_idx").on(table.isArchived),
     index("board_visibility_idx").on(table.visibility),
     index("board_type_idx").on(table.type),
     index("board_source_idx").on(table.sourceBoardId),
@@ -67,6 +70,7 @@ export const boards = pgTable(
 ).enableRLS();
 
 export const boardsRelations = relations(boards, ({ one, many }) => ({
+  userFavorites: many(userBoardFavorites),
   createdBy: one(users, {
     fields: [boards.createdBy],
     references: [users.id],
@@ -91,3 +95,21 @@ export const boardsRelations = relations(boards, ({ one, many }) => ({
     relationName: "boardWorkspace",
   }),
 }));
+
+export const userBoardFavorites = pgTable(
+  "user_board_favorites",
+  {
+    userId: uuid("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    boardId: bigint("boardId", { mode: "number" })
+      .notNull()
+      .references(() => boards.id, { onDelete: "cascade" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.boardId] }),
+    userIdx: index("user_board_favorite_user_idx").on(table.userId),
+    boardIdx: index("user_board_favorite_board_idx").on(table.boardId),
+  }),
+);

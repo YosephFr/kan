@@ -10,12 +10,20 @@ import * as workspaceRepo from "@kan/db/repository/workspace.repo";
 import { colours } from "@kan/shared/constants";
 import {
   convertDueDateFiltersToRanges,
+  generateAvatarUrl,
   generateSlug,
   generateUID,
 } from "@kan/shared/utils";
 
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-import { assertUserInWorkspace } from "../utils/auth";
+import {
+  boardListItemSchema,
+  boardDetailSchema,
+  boardBySlugSchema,
+  boardCreateResponseSchema,
+  boardUpdateResponseSchema,
+} from "../schemas";
+import { assertCanDelete, assertCanEdit, assertPermission } from "../utils/permissions";
 
 export const boardRouter = createTRPCRouter({
   all: protectedProcedure
@@ -33,11 +41,10 @@ export const boardRouter = createTRPCRouter({
       z.object({
         workspacePublicId: z.string().min(12),
         type: z.enum(["regular", "template"]).optional(),
+        archived: z.boolean().optional(),
       }),
     )
-    .output(
-      z.custom<Awaited<ReturnType<typeof boardRepo.getAllByWorkspaceId>>>(),
-    )
+    .output(z.array(boardListItemSchema))
     .query(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
 
@@ -58,11 +65,17 @@ export const boardRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      await assertUserInWorkspace(ctx.db, userId, workspace.id);
+      await assertPermission(ctx.db, userId, workspace.id, "board:view");
 
-      const result = boardRepo.getAllByWorkspaceId(ctx.db, workspace.id, {
-        type: input.type,
-      });
+      const result = boardRepo.getAllByWorkspaceId(
+        ctx.db,
+        workspace.id,
+        userId,
+        {
+          type: input.type,
+          archived: input.archived ?? false,
+        }
+      );
 
       return result;
     }),
@@ -98,7 +111,7 @@ export const boardRouter = createTRPCRouter({
         type: z.enum(["regular", "template"]).optional(),
       }),
     )
-    .output(z.custom<Awaited<ReturnType<typeof boardRepo.getByPublicId>>>())
+    .output(boardDetailSchema)
     .query(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
 
@@ -119,7 +132,7 @@ export const boardRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      await assertUserInWorkspace(ctx.db, userId, board.workspaceId);
+      await assertPermission(ctx.db, userId, board.workspaceId, "board:view");
 
       // Convert semantic string filters to date ranges expected by the repo
       const dueDateFilters = input.dueDateFilters
@@ -129,6 +142,7 @@ export const boardRouter = createTRPCRouter({
       const result = await boardRepo.getByPublicId(
         ctx.db,
         input.boardPublicId,
+        userId,
         {
           members: input.members ?? [],
           labels: input.labels ?? [],
@@ -138,7 +152,63 @@ export const boardRouter = createTRPCRouter({
         },
       );
 
-      return result;
+      if (!result) {
+        throw new TRPCError({
+          message: `Board with public ID ${input.boardPublicId} not found`,
+          code: "NOT_FOUND",
+        });
+      }
+
+      // Generate presigned URLs for workspace member avatars
+      const workspaceWithAvatarUrls = result.workspace
+        ? {
+          ...result.workspace,
+          members: await Promise.all(
+            result.workspace.members.map(async (member) => {
+              if (!member.user?.image) {
+                return member;
+              }
+
+              const avatarUrl = await generateAvatarUrl(member.user.image);
+              return {
+                ...member,
+                user: {
+                  ...member.user,
+                  image: avatarUrl,
+                },
+              };
+            }),
+          ),
+        }
+        : result.workspace;
+
+      // Generate presigned URLs for card member avatars
+      const listsWithAvatarUrls = await Promise.all(
+        result.lists.map(async (list) => ({
+          ...list,
+          cards: await Promise.all(
+            list.cards.map(async (card) => ({
+              ...card,
+              members: await Promise.all(
+                card.members.map(async (member) => {
+                  if (!member.user?.image) return member;
+                  const avatarUrl = await generateAvatarUrl(member.user.image);
+                  return {
+                    ...member,
+                    user: { ...member.user, image: avatarUrl },
+                  };
+                }),
+              ),
+            })),
+          ),
+        })),
+      );
+
+      return {
+        ...result,
+        lists: listsWithAvatarUrls,
+        workspace: workspaceWithAvatarUrls,
+      };
     }),
   bySlug: publicProcedure
     .meta({
@@ -157,12 +227,12 @@ export const boardRouter = createTRPCRouter({
         workspaceSlug: z
           .string()
           .min(3)
-          .max(24)
+          .max(64)
           .regex(/^(?![-]+$)[a-zA-Z0-9-]+$/),
         boardSlug: z
           .string()
           .min(3)
-          .max(24)
+          .max(60)
           .regex(/^(?![-]+$)[a-zA-Z0-9-]+$/),
         members: z.array(z.string().min(12)).optional(),
         labels: z.array(z.string().min(12)).optional(),
@@ -181,7 +251,7 @@ export const boardRouter = createTRPCRouter({
           .optional(),
       }),
     )
-    .output(z.custom<Awaited<ReturnType<typeof boardRepo.getBySlug>>>())
+    .output(boardBySlugSchema.nullable())
     .query(async ({ ctx, input }) => {
       const workspace = await workspaceRepo.getBySlugWithBoards(
         ctx.db,
@@ -234,7 +304,7 @@ export const boardRouter = createTRPCRouter({
         sourceBoardPublicId: z.string().min(12).optional(),
       }),
     )
-    .output(z.custom<Awaited<ReturnType<typeof boardRepo.create>>>())
+    .output(boardCreateResponseSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
 
@@ -255,7 +325,7 @@ export const boardRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      await assertUserInWorkspace(ctx.db, userId, workspace.id);
+      await assertPermission(ctx.db, userId, workspace.id, "board:create");
 
       // If sourceBoardPublicId is provided, clone the source board
       if (input.sourceBoardPublicId) {
@@ -275,6 +345,7 @@ export const boardRouter = createTRPCRouter({
         const sourceBoard = await boardRepo.getByPublicId(
           ctx.db,
           input.sourceBoardPublicId,
+          userId,
           {
             members: [],
             labels: [],
@@ -399,9 +470,11 @@ export const boardRouter = createTRPCRouter({
           .regex(/^(?![-]+$)[a-zA-Z0-9-]+$/)
           .optional(),
         visibility: z.enum(["public", "private"]).optional(),
+        favorite: z.boolean().optional(),
+        isArchived: z.boolean().optional(),
       }),
     )
-    .output(z.custom<Awaited<ReturnType<typeof boardRepo.update>>>())
+    .output(boardUpdateResponseSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
 
@@ -422,7 +495,30 @@ export const boardRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      await assertUserInWorkspace(ctx.db, userId, board.workspaceId);
+      await assertCanEdit(
+        ctx.db,
+        userId,
+        board.workspaceId,
+        "board:edit",
+        board.createdBy ?? null,
+      );
+
+      // Handle favorite toggle separately
+      if (input.favorite !== undefined) {
+        if (input.favorite) {
+          await boardRepo.addUserFavorite(ctx.db, userId, board.id);
+        } else {
+          await boardRepo.removeUserFavorite(ctx.db, userId, board.id);
+        }
+      }
+
+      // Handle other updates (name, slug, visibility)
+      const hasOtherUpdates = input.name || input.slug || input.visibility !== undefined || input.isArchived !== undefined;
+
+      if (!hasOtherUpdates) {
+        // Only favorite was updated, return success
+        return { success: true };
+      }
 
       if (input.slug) {
         const isBoardSlugAvailable = await boardRepo.isBoardSlugAvailable(
@@ -444,6 +540,7 @@ export const boardRouter = createTRPCRouter({
         slug: input.slug,
         boardPublicId: input.boardPublicId,
         visibility: input.visibility,
+        isArchived: input.isArchived,
       });
 
       if (!result)
@@ -491,7 +588,13 @@ export const boardRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      await assertUserInWorkspace(ctx.db, userId, board.workspaceId);
+      await assertCanDelete(
+        ctx.db,
+        userId,
+        board.workspaceId,
+        "board:delete",
+        board.createdBy ?? null,
+      );
 
       const listIds = board.lists.map((list) => list.id);
 
@@ -543,6 +646,119 @@ export const boardRouter = createTRPCRouter({
 
       return { success: true };
     }),
+  move: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/boards/{boardPublicId}/move",
+        summary: "Move board to another workspace",
+        description:
+          "Moves a board and all its contents to a different workspace",
+        tags: ["Boards"],
+        protect: true,
+      },
+    })
+    .input(
+      z.object({
+        boardPublicId: z.string().min(12),
+        targetWorkspacePublicId: z.string().min(12),
+      }),
+    )
+    .output(z.object({ success: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user?.id;
+
+      if (!userId)
+        throw new TRPCError({
+          message: `User not authenticated`,
+          code: "UNAUTHORIZED",
+        });
+
+      // Get source board
+      const board = await boardRepo.getBoardForMove(
+        ctx.db,
+        input.boardPublicId,
+      );
+
+      if (!board)
+        throw new TRPCError({
+          message: `Board with public ID ${input.boardPublicId} not found`,
+          code: "NOT_FOUND",
+        });
+
+      if (board.type === "template")
+        throw new TRPCError({
+          message: `Templates cannot be moved between workspaces`,
+          code: "BAD_REQUEST",
+        });
+
+      if (board.isArchived)
+        throw new TRPCError({
+          message: `Archived boards cannot be moved. Unarchive the board first.`,
+          code: "BAD_REQUEST",
+        });
+
+      // Check permission to edit board in source workspace
+      await assertCanEdit(
+        ctx.db,
+        userId,
+        board.workspaceId,
+        "board:edit",
+        board.createdBy ?? null,
+      );
+
+      // Get target workspace. workspaceRepo.getByPublicId does not yet
+      // filter soft-deleted workspaces (legacy: same is true for several
+      // peer callers); guard at this call site so we never move a board
+      // into a tombstoned workspace. A wider fix to make the repo treat
+      // deleted-as-not-found is a separate concern.
+      const targetWorkspace = await workspaceRepo.getByPublicId(
+        ctx.db,
+        input.targetWorkspacePublicId,
+      );
+
+      if (!targetWorkspace || targetWorkspace.deletedAt)
+        throw new TRPCError({
+          message: `Target workspace not found`,
+          code: "NOT_FOUND",
+        });
+
+      if (targetWorkspace.id === board.workspaceId)
+        throw new TRPCError({
+          message: `Board is already in this workspace`,
+          code: "BAD_REQUEST",
+        });
+
+      // Check permission to create boards in target workspace
+      await assertPermission(
+        ctx.db,
+        userId,
+        targetWorkspace.id,
+        "board:create",
+      );
+
+      let slug = board.slug ?? generateSlug(board.name);
+
+      const isSlugAvailable = await boardRepo.isBoardSlugAvailable(
+        ctx.db,
+        slug,
+        targetWorkspace.id,
+      );
+
+      if (!isSlugAvailable) {
+        slug = `${slug}-${generateUID()}`;
+      }
+
+      // Move the board
+      await boardRepo.moveToWorkspace(
+        ctx.db,
+        board.id,
+        targetWorkspace.id,
+        slug,
+      );
+
+      return { success: true };
+    }),
   checkSlugAvailability: publicProcedure
     .meta({
       openapi: {
@@ -559,7 +775,7 @@ export const boardRouter = createTRPCRouter({
         boardSlug: z
           .string()
           .min(3)
-          .max(24)
+          .max(60)
           .regex(/^(?![-]+$)[a-zA-Z0-9-]+$/),
         boardPublicId: z.string().min(12),
       }),

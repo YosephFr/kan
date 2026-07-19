@@ -1,54 +1,31 @@
-import { useRouter } from "next/router";
 import { t } from "@lingui/core/macro";
-import { env } from "next-runtime-env";
-import { useEffect, useState } from "react";
-import { HiBolt } from "react-icons/hi2";
 
 import type { Subscription } from "@kan/shared/utils";
-import { hasActiveSubscription } from "@kan/shared/utils";
 
 import Button from "~/components/Button";
 import FeedbackModal from "~/components/FeedbackModal";
 import Modal from "~/components/modal";
 import { NewWorkspaceForm } from "~/components/NewWorkspaceForm";
 import { PageHead } from "~/components/PageHead";
+import { usePermissions } from "~/hooks/usePermissions";
 import { useModal } from "~/providers/modal";
 import { useWorkspace } from "~/providers/workspace";
 import { api } from "~/utils/api";
 import { DeleteWorkspaceConfirmation } from "./components/DeleteWorkspaceConfirmation";
+import UpdateWeekStartDayForm from "./components/UpdateWeekStartDayForm";
 import UpdateWorkspaceDescriptionForm from "./components/UpdateWorkspaceDescriptionForm";
 import UpdateWorkspaceEmailVisibilityForm from "./components/UpdateWorkspaceEmailVisibilityForm";
 import UpdateWorkspaceNameForm from "./components/UpdateWorkspaceNameForm";
 import UpdateWorkspaceUrlForm from "./components/UpdateWorkspaceUrlForm";
-import { UpgradeToProConfirmation } from "./components/UpgradeToProConfirmation";
 
 export default function WorkspaceSettings() {
   const { modalContentType, openModal, isOpen } = useModal();
   const { workspace } = useWorkspace();
-  const router = useRouter();
-  const { data } = api.user.getUser.useQuery();
-  const [hasOpenedUpgradeModal, setHasOpenedUpgradeModal] = useState(false);
-
-  const { data: workspaceData } = api.workspace.byId.useQuery({
-    workspacePublicId: workspace.publicId,
-  });
-
-  const subscriptions = workspaceData?.subscriptions as
-    | Subscription[]
-    | undefined;
-
-  // Open upgrade modal if upgrade=pro is in URL params
-  useEffect(() => {
-    if (
-      router.query.upgrade === "pro" &&
-      env("NEXT_PUBLIC_KAN_ENV") === "cloud" &&
-      !hasActiveSubscription(subscriptions, "pro") &&
-      !hasOpenedUpgradeModal
-    ) {
-      openModal("UPGRADE_TO_PRO");
-      setHasOpenedUpgradeModal(true);
-    }
-  }, [router.query.upgrade, subscriptions, openModal, hasOpenedUpgradeModal]);
+  const { canEditWorkspace } = usePermissions();
+  const { data: workspaceData } = api.workspace.byId.useQuery(
+    { workspacePublicId: workspace.publicId },
+    { enabled: !!workspace.publicId && workspace.publicId.length >= 12 },
+  );
 
   return (
     <>
@@ -61,6 +38,7 @@ export default function WorkspaceSettings() {
         <UpdateWorkspaceNameForm
           workspacePublicId={workspace.publicId}
           workspaceName={workspace.name}
+          disabled={!canEditWorkspace}
         />
 
         <h2 className="mb-4 mt-8 text-[14px] font-bold text-neutral-900 dark:text-dark-1000">
@@ -70,6 +48,7 @@ export default function WorkspaceSettings() {
           workspacePublicId={workspace.publicId}
           workspaceUrl={workspace.slug ?? ""}
           workspacePlan={workspace.plan ?? "free"}
+          disabled={!canEditWorkspace}
         />
 
         <h2 className="mb-4 mt-8 text-[14px] font-bold text-neutral-900 dark:text-dark-1000">
@@ -78,6 +57,16 @@ export default function WorkspaceSettings() {
         <UpdateWorkspaceDescriptionForm
           workspacePublicId={workspace.publicId}
           workspaceDescription={workspace.description ?? ""}
+          disabled={!canEditWorkspace}
+        />
+
+        <h2 className="mb-4 mt-8 text-[14px] font-bold text-neutral-900 dark:text-dark-1000">
+          {t`Week start day`}
+        </h2>
+        <UpdateWeekStartDayForm
+          workspacePublicId={workspace.publicId}
+          weekStartDay={workspaceData?.weekStartDay ?? 1}
+          disabled={!canEditWorkspace}
         />
 
         <h2 className="mb-4 mt-8 text-[14px] font-bold text-neutral-900 dark:text-dark-1000">
@@ -85,21 +74,11 @@ export default function WorkspaceSettings() {
         </h2>
         <UpdateWorkspaceEmailVisibilityForm
           workspacePublicId={workspace.publicId}
-          showEmailsToMembers={workspaceData?.showEmailsToMembers ?? false}
-        />
-
-        {env("NEXT_PUBLIC_KAN_ENV") === "cloud" &&
-          !hasActiveSubscription(subscriptions, "pro") &&
-          !hasActiveSubscription(subscriptions, "team") && (
-            <div className="my-8">
-              <Button
-                onClick={() => openModal("UPGRADE_TO_PRO")}
-                iconRight={<HiBolt />}
-              >
-                {t`Upgrade to Pro`}
-              </Button>
-            </div>
+          showEmailsToMembers={Boolean(
+            workspaceData?.showEmailsToMembers ?? false,
           )}
+          disabled={!canEditWorkspace}
+        />
 
         <div className="border-t border-light-300 dark:border-dark-300">
           <h2 className="mb-4 mt-8 text-[14px] font-bold text-neutral-900 dark:text-dark-1000">
@@ -127,16 +106,6 @@ export default function WorkspaceSettings() {
       >
         <DeleteWorkspaceConfirmation />
       </Modal>
-      <Modal
-        modalSize="sm"
-        isVisible={isOpen && modalContentType === "UPGRADE_TO_PRO"}
-      >
-        <UpgradeToProConfirmation
-          userId={data?.id ?? ""}
-          workspacePublicId={workspace.publicId}
-        />
-      </Modal>
-
       {/* Global modals */}
       <Modal
         modalSize="md"

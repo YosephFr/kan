@@ -21,6 +21,7 @@
     "dev": "tsc",
     "format": "prettier --check . --ignore-path ../../.gitignore",
     "lint": "eslint",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit --emitDeclarationOnly false"
   },
   "devDependencies": {
@@ -38,6 +39,7 @@
   "prettier": "@kan/prettier-config",
   "dependencies": {
     "@better-auth/stripe": "^1.4.6",
+    "@kan/logger": "workspace:^",
     "better-auth": "^1.4.6"
   }
 }

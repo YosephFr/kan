@@ -4,18 +4,25 @@ import { z } from "zod";
 
 import * as inviteLinkRepo from "@kan/db/repository/inviteLink.repo";
 import * as memberRepo from "@kan/db/repository/member.repo";
+import * as permissionRepo from "@kan/db/repository/permission.repo";
 import * as subscriptionRepo from "@kan/db/repository/subscription.repo";
 import * as userRepo from "@kan/db/repository/user.repo";
 import * as workspaceRepo from "@kan/db/repository/workspace.repo";
 import {
   generateUID,
+  getSeatLimit,
   getSubscriptionByPlan,
   hasUnlimitedSeats,
-} from "@kan/shared/utils";
+} from "@kan/shared";
 import { updateSubscriptionSeats } from "@kan/stripe";
 
+import { memberInviteResponseSchema } from "../schemas";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
-import { assertUserInWorkspace } from "../utils/auth";
+import {
+  assertCanManageMember,
+  assertCanManageRole,
+  assertPermission,
+} from "../utils/permissions";
 
 export const memberRouter = createTRPCRouter({
   invite: protectedProcedure
@@ -35,7 +42,7 @@ export const memberRouter = createTRPCRouter({
         workspacePublicId: z.string().min(12),
       }),
     )
-    .output(z.custom<Awaited<ReturnType<typeof memberRepo.create>>>())
+    .output(memberInviteResponseSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
 
@@ -56,7 +63,7 @@ export const memberRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      await assertUserInWorkspace(ctx.db, userId, workspace.id, "admin");
+      await assertPermission(ctx.db, userId, workspace.id, "member:invite");
 
       const isInvitedEmailAlreadyMember = workspace.members.some(
         (member) => member.email === input.email,
@@ -108,9 +115,30 @@ export const memberRouter = createTRPCRouter({
             });
           }
         }
+
+        const seatLimit = getSeatLimit(subscriptions);
+        if (seatLimit !== null) {
+          const memberCount = await memberRepo.getCountByWorkspaceId(
+            ctx.db,
+            workspace.id,
+          );
+          if (memberCount >= seatLimit) {
+            throw new TRPCError({
+              message: `SEAT_LIMIT_REACHED`,
+              code: "FORBIDDEN",
+            });
+          }
+        }
       }
 
       const existingUser = await userRepo.getByEmail(ctx.db, input.email);
+
+      // Get the workspace role to set roleId
+      const memberRole = await permissionRepo.getRoleByWorkspaceIdAndName(
+        ctx.db,
+        workspace.id,
+        "member",
+      );
 
       const invite = await memberRepo.create(ctx.db, {
         workspaceId: workspace.id,
@@ -118,6 +146,7 @@ export const memberRouter = createTRPCRouter({
         userId: existingUser?.id ?? null,
         createdBy: userId,
         role: "member",
+        roleId: memberRole?.id ?? null,
         status: "invited",
       });
 
@@ -190,18 +219,19 @@ export const memberRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      await assertUserInWorkspace(ctx.db, userId, workspace.id, "admin");
+      await assertPermission(ctx.db, userId, workspace.id, "member:remove");
 
       const member = await memberRepo.getByPublicId(
         ctx.db,
         input.memberPublicId,
       );
 
-      if (!member)
+      if (!member || member.workspaceId !== workspace.id) {
         throw new TRPCError({
           message: `Member with public ID ${input.memberPublicId} not found`,
           code: "NOT_FOUND",
         });
+      }
 
       const deletedMember = await memberRepo.softDelete(ctx.db, {
         memberId: member.id,
@@ -292,8 +322,8 @@ export const memberRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      // Check if user is in workspace
-      await assertUserInWorkspace(ctx.db, userId, workspace.id);
+      // Check if user can view members
+      await assertPermission(ctx.db, userId, workspace.id, "member:view");
 
       // Get active invite link for this workspace
       const activeInviteLink = await inviteLinkRepo.getActiveForWorkspace(
@@ -360,8 +390,8 @@ export const memberRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      // Check if user is in workspace
-      await assertUserInWorkspace(ctx.db, userId, workspace.id, "admin");
+      // Check if user can edit members (admin-equivalent)
+      await assertPermission(ctx.db, userId, workspace.id, "member:edit");
 
       // Check subscription for cloud environment
       if (process.env.NEXT_PUBLIC_KAN_ENV === "cloud") {
@@ -461,8 +491,8 @@ export const memberRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      // Check if user is in workspace
-      await assertUserInWorkspace(ctx.db, userId, workspace.id, "admin");
+      // Check if user can edit members (admin-equivalent)
+      await assertPermission(ctx.db, userId, workspace.id, "member:edit");
 
       // Deactivate all active invite links
       await inviteLinkRepo.deactivateAllActiveForWorkspace(ctx.db, {
@@ -629,7 +659,28 @@ export const memberRouter = createTRPCRouter({
             });
           }
         }
+
+        const seatLimit = getSeatLimit(subscriptions);
+        if (seatLimit !== null) {
+          const memberCount = await memberRepo.getCountByWorkspaceId(
+            ctx.db,
+            workspace.id,
+          );
+          if (memberCount >= seatLimit) {
+            throw new TRPCError({
+              message: `SEAT_LIMIT_REACHED`,
+              code: "FORBIDDEN",
+            });
+          }
+        }
       }
+
+      // Get the workspace role to set roleId
+      const memberRole = await permissionRepo.getRoleByWorkspaceIdAndName(
+        ctx.db,
+        invite.workspaceId,
+        "member",
+      );
 
       await memberRepo.create(ctx.db, {
         workspaceId: invite.workspaceId,
@@ -637,6 +688,7 @@ export const memberRouter = createTRPCRouter({
         userId: user.id,
         createdBy: user.id,
         role: "member",
+        roleId: memberRole?.id ?? null,
         status: "active",
       });
 
@@ -644,6 +696,87 @@ export const memberRouter = createTRPCRouter({
         success: true,
         workspacePublicId: workspace.publicId,
         workspaceSlug: workspace.slug,
+      };
+    }),
+  updateRole: protectedProcedure
+    .meta({
+      openapi: {
+        summary: "Update member role",
+        method: "PUT",
+        path: "/workspaces/{workspacePublicId}/members/{memberPublicId}/role",
+        description: "Updates a member's role in a workspace",
+        tags: ["Workspaces"],
+        protect: true,
+      },
+    })
+    .input(
+      z.object({
+        workspacePublicId: z.string().min(12),
+        memberPublicId: z.string().min(12),
+        role: z.enum(["admin", "member", "guest"]),
+      }),
+    )
+    .output(
+      z.object({
+        success: z.boolean(),
+        role: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user?.id;
+
+      if (!userId) {
+        throw new TRPCError({
+          message: "User not authenticated",
+          code: "UNAUTHORIZED",
+        });
+      }
+
+      const workspace = await workspaceRepo.getByPublicId(
+        ctx.db,
+        input.workspacePublicId,
+      );
+
+      if (!workspace) {
+        throw new TRPCError({
+          message: "Workspace not found",
+          code: "NOT_FOUND",
+        });
+      }
+
+      await assertPermission(ctx.db, userId, workspace.id, "member:edit");
+
+      const member = await memberRepo.getByPublicId(
+        ctx.db,
+        input.memberPublicId,
+      );
+
+      if (!member || member.workspaceId !== workspace.id) {
+        throw new TRPCError({
+          message: "Member not found",
+          code: "NOT_FOUND",
+        });
+      }
+
+      await assertCanManageMember(ctx.db, userId, workspace.id, member.id);
+      await assertCanManageRole(ctx.db, userId, workspace.id, input.role);
+
+      // Get the workspace role to set roleId
+      const workspaceRole = await permissionRepo.getRoleByWorkspaceIdAndName(
+        ctx.db,
+        workspace.id,
+        input.role,
+      );
+
+      await memberRepo.updateRole(ctx.db, {
+        memberId: member.id,
+        role: input.role,
+        roleId: workspaceRole?.id ?? null,
+      });
+
+      return {
+        success: true,
+        role: input.role,
       };
     }),
 });

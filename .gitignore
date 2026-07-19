@@ -55,5 +55,4 @@ i18n.cache
 # pgdata
 /apps/web/pgdata
 
-# claude code
-.claude/
+.claude

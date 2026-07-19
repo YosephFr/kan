@@ -39,7 +39,7 @@ export function LabelForm({
       labelPublicId: entityId,
     },
     {
-      enabled: isEdit && !!entityId,
+      enabled: !!isEdit && entityId.length >= 12,
     },
   );
 
@@ -75,7 +75,7 @@ export function LabelForm({
           reset(newFormState);
         }
       } catch (e) {
-        console.log(e);
+        console.error(e);
       }
     },
   });
@@ -207,7 +207,7 @@ export function LabelForm({
         />
       </div>
 
-      <div className="mt-12 flex items-center justify-end border-t border-light-600 px-5 pb-5 pt-5 dark:border-dark-600">
+      <div className="mt-12 flex items-center justify-end space-x-4 border-t border-light-600 px-5 pb-5 pt-5 dark:border-dark-600">
         {!isEdit && (
           <Toggle
             label={t`Create another`}
@@ -231,9 +231,7 @@ export function LabelForm({
           <Button
             type="submit"
             isLoading={updateLabel.isPending || createLabel.isPending}
-            disabled={
-              !watch("name")
-            }
+            disabled={!watch("name")}
           >
             {isEdit ? t`Update label` : t`Create label`}
           </Button>

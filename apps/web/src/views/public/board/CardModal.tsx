@@ -1,12 +1,13 @@
 import { useRouter } from "next/router";
 import { t } from "@lingui/core/macro";
 import { useEffect, useRef, useState } from "react";
-import { HiXMark } from "react-icons/hi2";
+import { HiLink, HiXMark } from "react-icons/hi2";
 
 import Badge from "~/components/Badge";
 import Editor from "~/components/Editor";
 import LabelIcon from "~/components/LabelIcon";
 import { useModal } from "~/providers/modal";
+import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
 import ActivityList from "~/views/card/components/ActivityList";
 import { AttachmentThumbnails } from "~/views/card/components/AttachmentThumbnails";
@@ -23,18 +24,48 @@ export function CardModal({
 }) {
   const router = useRouter();
   const { closeModal, isOpen } = useModal();
+  const { showPopup } = usePopup();
   const [showFade, setShowFade] = useState(false);
   const [showTopFade, setShowTopFade] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const { data, isLoading } = api.card.byId.useQuery(
+  const handleCopyCardLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      showPopup({
+        header: t`Link copied`,
+        icon: "success",
+        message: t`Card URL copied to clipboard`,
+      });
+    } catch (error) {
+      console.error(error);
+      showPopup({
+        header: t`Unable to copy link`,
+        icon: "error",
+        message: t`Please try again.`,
+      });
+    }
+  };
+
+  const { data, isLoading, error } = api.card.byId.useQuery(
     {
       cardPublicId: cardPublicId ?? "",
     },
     {
-      enabled: isOpen && !!cardPublicId,
+      enabled: isOpen && !!cardPublicId && cardPublicId.length >= 12,
     },
   );
+
+  // Redirect to 404 if card doesn't exist
+  useEffect(() => {
+    if (isOpen && cardPublicId && !isLoading) {
+      if (error?.data?.code === "NOT_FOUND" || (!data && !isLoading && error)) {
+        // Close modal first, then redirect
+        closeModal();
+        router.replace("/404");
+      }
+    }
+  }, [isOpen, cardPublicId, isLoading, error, data, closeModal, router]);
 
   const labels = data?.labels ?? [];
 
@@ -64,45 +95,65 @@ export function CardModal({
       <div className="flex h-full w-full flex-col overflow-hidden">
         <div className="h-full p-8">
           <div className="mb-6">
-            <div className="flex w-full items-center justify-between">
-              <button
-                className="absolute right-[2rem] top-[2rem] rounded p-1 hover:bg-light-300 focus:outline-none dark:hover:bg-dark-300"
-                onClick={(e) => {
-                  e.preventDefault();
-                  closeModal();
+            <div className="flex w-full items-start justify-between gap-4">
+              <div className="flex-1">
+                {isLoading ? (
+                  <div className="flex space-x-2">
+                    <div className="h-[2.3rem] w-[300px] animate-pulse rounded-[5px] bg-light-300 dark:bg-dark-300" />
+                  </div>
+                ) : (
+                  <>
+                    {data?.cardNumber != null &&
+                      data.list.board.workspace.cardPrefix && (
+                        <span className="mb-1 block text-xs font-medium text-light-700 dark:text-dark-800">
+                          {data.list.board.workspace.cardPrefix}-
+                          {data.cardNumber}
+                        </span>
+                      )}
+                    <h1 className="font-bold leading-[2.3rem] tracking-tight text-neutral-900 dark:text-dark-1000 sm:text-[1.2rem]">
+                      {data?.title}
+                    </h1>
+                  </>
+                )}
+              </div>
+              <div className="flex flex-shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={handleCopyCardLink}
+                  className="rounded p-1.5 transition-all hover:bg-light-200 focus:outline-none dark:hover:bg-dark-100"
+                  aria-label="Copy card link"
+                >
+                  <HiLink className="h-4 w-4 text-light-900 dark:text-dark-900" />
+                </button>
+                <button
+                  type="button"
+                  className="rounded p-1.5 transition-all hover:bg-light-200 focus:outline-none dark:hover:bg-dark-100"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    closeModal();
 
-                  setTimeout(() => {
-                    void router.replace(
-                      {
-                        pathname: router.pathname,
-                        query: {
-                          ...router.query,
-                          workspaceSlug,
-                          boardSlug: [boardSlug],
+                    setTimeout(() => {
+                      void router.replace(
+                        {
+                          pathname: router.pathname,
+                          query: {
+                            ...router.query,
+                            workspaceSlug: workspaceSlug ?? "",
+                            boardSlug: [boardSlug ?? ""],
+                          },
                         },
-                      },
-                      undefined,
-                      { shallow: true },
-                    );
-                  }, 400);
-                }}
-              >
-                <HiXMark
-                  size={18}
-                  className="dark:text-dark-9000 text-light-900"
-                />
-              </button>
-              {isLoading ? (
-                <div className="flex space-x-2">
-                  <div className="h-[2.3rem] w-[300px] animate-pulse rounded-[5px] bg-light-300 dark:bg-dark-300" />
-                </div>
-              ) : (
-                <>
-                  <h1 className="pr-8 font-bold leading-[2.3rem] tracking-tight text-neutral-900 dark:text-dark-1000 sm:text-[1.2rem]">
-                    {data?.title}
-                  </h1>
-                </>
-              )}
+                        undefined,
+                        { shallow: true },
+                      );
+                    }, 400);
+                  }}
+                >
+                  <HiXMark
+                    size={18}
+                    className="text-light-900 dark:text-dark-900"
+                  />
+                </button>
+              </div>
             </div>
             {labels.length > 0 && (
               <div className="mt-2">

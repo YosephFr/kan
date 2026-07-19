@@ -4,14 +4,32 @@ import { z } from "zod";
 import * as cardRepo from "@kan/db/repository/card.repo";
 import * as cardActivityRepo from "@kan/db/repository/cardActivity.repo";
 import * as cardCommentRepo from "@kan/db/repository/cardComment.repo";
+import * as checklistRepo from "@kan/db/repository/checklist.repo";
 import * as labelRepo from "@kan/db/repository/label.repo";
 import * as listRepo from "@kan/db/repository/list.repo";
 import * as workspaceRepo from "@kan/db/repository/workspace.repo";
+import { generateAttachmentUrl, generateAvatarUrl } from "@kan/shared/utils";
 
+import {
+  activityItemSchema,
+  cardCreateResponseSchema,
+  cardDetailSchema,
+  cardUpdateResponseSchema,
+  commentDeleteResponseSchema,
+  commentResponseSchema,
+} from "../schemas";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { mergeActivities } from "../utils/activities";
-import { assertUserInWorkspace } from "../utils/auth";
-import { generateDownloadUrl } from "../utils/s3";
+import { sendMentionEmails } from "../utils/notifications";
+import {
+  assertCanDelete,
+  assertCanEdit,
+  assertPermission,
+} from "../utils/permissions";
+import {
+  createCardWebhookPayload,
+  sendWebhooksForWorkspace,
+} from "../utils/webhook";
 
 export const cardRouter = createTRPCRouter({
   create: protectedProcedure
@@ -36,7 +54,7 @@ export const cardRouter = createTRPCRouter({
         dueDate: z.date().nullable().optional(),
       }),
     )
-    .output(z.custom<Awaited<ReturnType<typeof cardRepo.create>>>())
+    .output(cardCreateResponseSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
 
@@ -57,19 +75,14 @@ export const cardRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      await assertUserInWorkspace(ctx.db, userId, list.workspaceId);
-
-      if (!userId)
-        throw new TRPCError({
-          message: `User not authenticated`,
-          code: "UNAUTHORIZED",
-        });
+      await assertPermission(ctx.db, userId, list.workspaceId, "card:create");
 
       const newCard = await cardRepo.create(ctx.db, {
         title: input.title,
         description: input.description,
         createdBy: userId,
         listId: list.id,
+        workspaceId: list.workspaceId,
         position: input.position,
         dueDate: input.dueDate ?? null,
       });
@@ -159,6 +172,44 @@ export const cardRouter = createTRPCRouter({
         await cardActivityRepo.bulkCreate(ctx.db, cardActivitesInsert);
       }
 
+      if (input.description) {
+        sendMentionEmails({
+          db: ctx.db,
+          cardPublicId: newCard.publicId,
+          commentHtml: input.description,
+          commenterUserId: userId,
+        }).catch((error) => {
+          console.error("Failed to send mention emails:", error);
+        });
+      }
+
+      // Fire webhooks (non-blocking)
+      sendWebhooksForWorkspace(
+        ctx.db,
+        list.workspaceId,
+        createCardWebhookPayload(
+          "card.created",
+          {
+            id: String(newCard.id),
+            publicId: newCard.publicId,
+            title: input.title,
+            description: input.description,
+            dueDate: input.dueDate ?? null,
+            listId: list.publicId,
+          },
+          {
+            boardId: list.boardPublicId,
+            boardName: list.boardName,
+            listName: list.name,
+            user: ctx.user
+              ? { id: ctx.user.id, name: ctx.user.name }
+              : undefined,
+          },
+        ),
+      ).catch((error) => {
+        console.error("Webhook delivery failed:", error);
+      });
+
       return newCard;
     }),
   addComment: protectedProcedure
@@ -178,7 +229,7 @@ export const cardRouter = createTRPCRouter({
         comment: z.string().min(1),
       }),
     )
-    .output(z.custom<Awaited<ReturnType<typeof cardCommentRepo.create>>>())
+    .output(commentResponseSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
 
@@ -199,7 +250,12 @@ export const cardRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      await assertUserInWorkspace(ctx.db, userId, card.workspaceId);
+      await assertPermission(
+        ctx.db,
+        userId,
+        card.workspaceId,
+        "comment:create",
+      );
 
       const newComment = await cardCommentRepo.create(ctx.db, {
         comment: input.comment,
@@ -219,6 +275,16 @@ export const cardRouter = createTRPCRouter({
         commentId: newComment.id,
         toComment: newComment.comment,
         createdBy: userId,
+      });
+
+      sendMentionEmails({
+        db: ctx.db,
+        cardPublicId: input.cardPublicId,
+        commentHtml: input.comment,
+        commenterUserId: userId,
+        commentId: newComment.id,
+      }).catch((error) => {
+        console.error("Failed to send mention emails:", error);
       });
 
       return newComment;
@@ -241,7 +307,7 @@ export const cardRouter = createTRPCRouter({
         comment: z.string().min(1),
       }),
     )
-    .output(z.custom<Awaited<ReturnType<typeof cardCommentRepo.update>>>())
+    .output(commentResponseSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
 
@@ -262,24 +328,24 @@ export const cardRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      await assertUserInWorkspace(ctx.db, userId, card.workspaceId);
-
       const existingComment = await cardCommentRepo.getByPublicId(
         ctx.db,
         input.commentPublicId,
       );
 
-      if (!existingComment)
+      if (!existingComment || existingComment.cardId !== card.id)
         throw new TRPCError({
           message: `Comment with public ID ${input.commentPublicId} not found`,
           code: "NOT_FOUND",
         });
 
-      if (existingComment.createdBy !== userId)
-        throw new TRPCError({
-          message: `You do not have permission to update this comment`,
-          code: "FORBIDDEN",
-        });
+      await assertCanEdit(
+        ctx.db,
+        userId,
+        card.workspaceId,
+        "comment:edit",
+        existingComment.createdBy,
+      );
 
       const updatedComment = await cardCommentRepo.update(ctx.db, {
         id: existingComment.id,
@@ -301,6 +367,16 @@ export const cardRouter = createTRPCRouter({
         createdBy: userId,
       });
 
+      sendMentionEmails({
+        db: ctx.db,
+        cardPublicId: input.cardPublicId,
+        commentHtml: input.comment,
+        commenterUserId: userId,
+        commentId: updatedComment.id,
+      }).catch((error) => {
+        console.error("Failed to send mention emails:", error);
+      });
+
       return updatedComment;
     }),
   deleteComment: protectedProcedure
@@ -319,7 +395,7 @@ export const cardRouter = createTRPCRouter({
         commentPublicId: z.string().min(12),
       }),
     )
-    .output(z.custom<Awaited<ReturnType<typeof cardCommentRepo.softDelete>>>())
+    .output(commentDeleteResponseSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
 
@@ -340,18 +416,24 @@ export const cardRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      await assertUserInWorkspace(ctx.db, userId, card.workspaceId);
-
       const existingComment = await cardCommentRepo.getByPublicId(
         ctx.db,
         input.commentPublicId,
       );
 
-      if (!existingComment)
+      if (!existingComment || existingComment.cardId !== card.id)
         throw new TRPCError({
           message: `Comment with public ID ${input.commentPublicId} not found`,
           code: "NOT_FOUND",
         });
+
+      await assertCanDelete(
+        ctx.db,
+        userId,
+        card.workspaceId,
+        "comment:delete",
+        existingComment.createdBy,
+      );
 
       const deletedComment = await cardCommentRepo.softDelete(ctx.db, {
         commentId: existingComment.id,
@@ -372,7 +454,7 @@ export const cardRouter = createTRPCRouter({
         createdBy: userId,
       });
 
-      return deletedComment;
+      return { publicId: input.commentPublicId };
     }),
   addOrRemoveLabel: protectedProcedure
     .meta({
@@ -412,7 +494,7 @@ export const cardRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      await assertUserInWorkspace(ctx.db, userId, card.workspaceId);
+      await assertPermission(ctx.db, userId, card.workspaceId, "card:edit");
 
       const label = await labelRepo.getByPublicId(ctx.db, input.labelPublicId);
 
@@ -504,7 +586,7 @@ export const cardRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      await assertUserInWorkspace(ctx.db, userId, card.workspaceId);
+      await assertPermission(ctx.db, userId, card.workspaceId, "card:edit");
 
       const member = await workspaceRepo.getMemberByPublicId(
         ctx.db,
@@ -576,25 +658,7 @@ export const cardRouter = createTRPCRouter({
       },
     })
     .input(z.object({ cardPublicId: z.string().min(12) }))
-    .output(
-      z.custom<
-        Omit<
-          NonNullable<
-            Awaited<ReturnType<typeof cardRepo.getWithListAndMembersByPublicId>>
-          >,
-          "attachments"
-        > & {
-          attachments: {
-            publicId: string;
-            contentType: string;
-            s3Key: string;
-            originalFilename: string | null;
-            size?: number | null;
-            url: string | null;
-          }[];
-        }
-      >(),
-    )
+    .output(cardDetailSchema)
     .query(async ({ ctx, input }) => {
       const card = await cardRepo.getWorkspaceAndCardIdByCardPublicId(
         ctx.db,
@@ -616,7 +680,7 @@ export const cardRouter = createTRPCRouter({
             code: "UNAUTHORIZED",
           });
 
-        await assertUserInWorkspace(ctx.db, userId, card.workspaceId);
+        await assertPermission(ctx.db, userId, card.workspaceId, "card:view");
       }
 
       const result = await cardRepo.getWithListAndMembersByPublicId(
@@ -631,45 +695,54 @@ export const cardRouter = createTRPCRouter({
         });
 
       // Generate URLs for all attachments
-      const bucket = process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME;
-      if (result.attachments && Array.isArray(result.attachments)) {
-        const attachments = result.attachments as {
-          publicId: string;
-          contentType: string;
-          s3Key: string;
-          originalFilename: string | null;
-          size?: number | null;
-        }[];
+      const attachmentsWithUrls = await Promise.all(
+        result.attachments.map(async (attachment) => {
+          const url = await generateAttachmentUrl(attachment.s3Key);
+          return {
+            publicId: attachment.publicId,
+            contentType: attachment.contentType,
+            s3Key: attachment.s3Key,
+            originalFilename: attachment.originalFilename,
+            size: attachment.size,
+            url,
+          };
+        }),
+      );
 
-        const attachmentsWithUrls = await Promise.all(
-          attachments.map(async (attachment) => {
-            const base = {
-              publicId: attachment.publicId,
-              contentType: attachment.contentType,
-              s3Key: attachment.s3Key,
-              originalFilename: attachment.originalFilename,
-              size: attachment.size,
-            };
-            if (!bucket || !attachment.s3Key) {
-              return { ...base, url: null };
-            }
-            try {
-              const url = await generateDownloadUrl(
-                bucket,
-                attachment.s3Key,
-                86400, // 24 hours expiration
-              );
-              return { ...base, url };
-            } catch {
-              // If URL generation fails, return attachment with url: null
-              return { ...base, url: null };
-            }
-          }),
-        );
-        return { ...result, attachments: attachmentsWithUrls };
-      }
+      // Generate presigned URLs for workspace member avatars
+      const workspaceWithAvatarUrls = result.list.board.workspace
+        ? {
+            ...result.list.board.workspace,
+            members: await Promise.all(
+              result.list.board.workspace.members.map(async (member) => {
+                if (!member.user?.image) {
+                  return member;
+                }
 
-      return { ...result, attachments: [] };
+                const avatarUrl = await generateAvatarUrl(member.user.image);
+                return {
+                  ...member,
+                  user: {
+                    ...member.user,
+                    image: avatarUrl,
+                  },
+                };
+              }),
+            ),
+          }
+        : result.list.board.workspace;
+
+      return {
+        ...result,
+        attachments: attachmentsWithUrls,
+        list: {
+          ...result.list,
+          board: {
+            ...result.list.board,
+            workspace: workspaceWithAvatarUrls,
+          },
+        },
+      };
     }),
   getActivities: publicProcedure
     .meta({
@@ -691,15 +764,7 @@ export const cardRouter = createTRPCRouter({
     )
     .output(
       z.object({
-        activities: z.array(
-          z.custom<
-            NonNullable<
-              Awaited<
-                ReturnType<typeof cardActivityRepo.getPaginatedActivities>
-              >
-            >["activities"][number]
-          >(),
-        ),
+        activities: z.array(activityItemSchema),
         hasMore: z.boolean(),
         nextCursor: z.string().datetime().nullable(),
       }),
@@ -725,7 +790,7 @@ export const cardRouter = createTRPCRouter({
             code: "UNAUTHORIZED",
           });
 
-        await assertUserInWorkspace(ctx.db, userId, card.workspaceId);
+        await assertPermission(ctx.db, userId, card.workspaceId, "card:view");
       }
 
       const cursor = input.cursor ? new Date(input.cursor) : undefined;
@@ -738,7 +803,39 @@ export const cardRouter = createTRPCRouter({
         },
       );
 
-      const mergedActivities = mergeActivities(result.activities);
+      // Generate presigned URLs for user avatars in activities
+      const activitiesWithAvatarUrls = await Promise.all(
+        result.activities.map(async (activity) => {
+          const updatedActivity = { ...activity };
+
+          // Generate presigned URL for activity user avatar
+          if (activity.user?.image) {
+            const userAvatarUrl = await generateAvatarUrl(activity.user.image);
+            updatedActivity.user = {
+              ...activity.user,
+              image: userAvatarUrl,
+            };
+          }
+
+          // Generate presigned URL for member user avatar (if exists)
+          if (activity.member?.user?.image) {
+            const memberAvatarUrl = await generateAvatarUrl(
+              activity.member.user.image,
+            );
+            updatedActivity.member = {
+              ...activity.member,
+              user: {
+                ...activity.member.user,
+                image: memberAvatarUrl,
+              },
+            };
+          }
+
+          return updatedActivity;
+        }),
+      );
+
+      const mergedActivities = mergeActivities(activitiesWithAvatarUrls);
 
       return {
         activities: mergedActivities,
@@ -767,7 +864,7 @@ export const cardRouter = createTRPCRouter({
         dueDate: z.date().nullable().optional(),
       }),
     )
-    .output(z.custom<Awaited<ReturnType<typeof cardRepo.update>>>())
+    .output(cardUpdateResponseSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
 
@@ -788,7 +885,13 @@ export const cardRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      await assertUserInWorkspace(ctx.db, userId, card.workspaceId);
+      await assertCanEdit(
+        ctx.db,
+        userId,
+        card.workspaceId,
+        "card:edit",
+        card.createdBy,
+      );
 
       const existingCard = await cardRepo.getByPublicId(
         ctx.db,
@@ -796,12 +899,18 @@ export const cardRouter = createTRPCRouter({
       );
 
       let newListId: number | undefined;
+      let newList:
+        | {
+            id: number;
+            publicId: string;
+            name: string;
+            boardId: number;
+            index: number;
+          }
+        | undefined;
 
       if (input.listPublicId) {
-        const newList = await listRepo.getByPublicId(
-          ctx.db,
-          input.listPublicId,
-        );
+        newList = await listRepo.getByPublicId(ctx.db, input.listPublicId);
 
         if (!newList)
           throw new TRPCError({
@@ -843,7 +952,7 @@ export const cardRouter = createTRPCRouter({
         );
       }
 
-      if (input.index !== undefined) {
+      if (input.index !== undefined || newListId !== undefined) {
         result = await cardRepo.reorder(ctx.db, {
           cardId: existingCard.id,
           newIndex: input.index,
@@ -876,6 +985,15 @@ export const cardRouter = createTRPCRouter({
           createdBy: userId,
           fromDescription: existingCard.description ?? undefined,
           toDescription: input.description,
+        });
+
+        sendMentionEmails({
+          db: ctx.db,
+          cardPublicId: input.cardPublicId,
+          commentHtml: input.description,
+          commenterUserId: userId,
+        }).catch((error) => {
+          console.error("Failed to send mention emails:", error);
         });
       }
 
@@ -919,6 +1037,71 @@ export const cardRouter = createTRPCRouter({
         await cardActivityRepo.bulkCreate(ctx.db, activities);
       }
 
+      // Build changes object for webhook
+      const webhookChanges: Record<string, { from: unknown; to: unknown }> = {};
+      if (input.title && existingCard.title !== input.title) {
+        webhookChanges.title = { from: existingCard.title, to: input.title };
+      }
+      if (input.description && existingCard.description !== input.description) {
+        webhookChanges.description = {
+          from: existingCard.description,
+          to: input.description,
+        };
+      }
+      if (
+        input.dueDate !== undefined &&
+        previousDueDate?.getTime() !== input.dueDate?.getTime()
+      ) {
+        webhookChanges.dueDate = { from: previousDueDate, to: input.dueDate };
+      }
+      const movedToNewList = Boolean(
+        newListId && existingCard.listId !== newListId,
+      );
+      const currentWebhookListPublicId = movedToNewList
+        ? input.listPublicId!
+        : existingCard.list.publicId;
+      const currentWebhookListName = movedToNewList
+        ? (newList?.name ?? card.listName)
+        : existingCard.list.name;
+
+      if (movedToNewList) {
+        webhookChanges.listId = {
+          from: existingCard.list.publicId,
+          to: input.listPublicId!,
+        };
+      }
+
+      // Fire webhooks (non-blocking)
+      sendWebhooksForWorkspace(
+        ctx.db,
+        card.workspaceId,
+        createCardWebhookPayload(
+          movedToNewList ? "card.moved" : "card.updated",
+          {
+            id: String(result.id),
+            publicId: result.publicId,
+            title: result.title,
+            description: result.description,
+            dueDate: result.dueDate,
+            listId: currentWebhookListPublicId,
+          },
+          {
+            boardId: card.boardPublicId,
+            boardName: card.boardName,
+            listName: currentWebhookListName,
+            user: ctx.user
+              ? { id: ctx.user.id, name: ctx.user.name }
+              : undefined,
+            changes:
+              Object.keys(webhookChanges).length > 0
+                ? webhookChanges
+                : undefined,
+          },
+        ),
+      ).catch((error) => {
+        console.error("Webhook delivery failed:", error);
+      });
+
       return result;
     }),
   delete: protectedProcedure
@@ -958,7 +1141,16 @@ export const cardRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      await assertUserInWorkspace(ctx.db, userId, card.workspaceId);
+      await assertCanDelete(
+        ctx.db,
+        userId,
+        card.workspaceId,
+        "card:delete",
+        card.createdBy,
+      );
+
+      // Fetch full card data before delete for webhook
+      const fullCard = await cardRepo.getByPublicId(ctx.db, input.cardPublicId);
 
       const deletedAt = new Date();
 
@@ -974,6 +1166,211 @@ export const cardRouter = createTRPCRouter({
         createdBy: userId,
       });
 
+      // Fire webhooks (non-blocking)
+      if (fullCard) {
+        sendWebhooksForWorkspace(
+          ctx.db,
+          card.workspaceId,
+          createCardWebhookPayload(
+            "card.deleted",
+            {
+              id: String(fullCard.id),
+              publicId: fullCard.publicId,
+              title: fullCard.title,
+              description: fullCard.description,
+              dueDate: fullCard.dueDate,
+              listId: fullCard.list.publicId,
+            },
+            {
+              boardId: card.boardPublicId,
+              boardName: card.boardName,
+              listName: fullCard.list.name,
+              user: ctx.user
+                ? { id: ctx.user.id, name: ctx.user.name }
+                : undefined,
+            },
+          ),
+        ).catch((error) => {
+          console.error("Webhook delivery failed:", error);
+        });
+      }
+
       return { success: true };
+    }),
+  duplicate: protectedProcedure
+    .meta({
+      openapi: {
+        summary: "Duplicate a card",
+        method: "POST",
+        path: "/cards/{cardPublicId}/duplicate",
+        description: "Duplicates a card to a target list with optional options",
+        tags: ["Cards"],
+        protect: true,
+      },
+    })
+    .input(
+      z.object({
+        cardPublicId: z.string().min(12),
+        listPublicId: z.string().min(12),
+        index: z.number().int().min(0).optional(),
+        title: z.string().min(1).max(2000).optional(),
+        copyLabels: z.boolean(),
+        copyMembers: z.boolean(),
+        copyChecklists: z.boolean(),
+      }),
+    )
+    .output(
+      z.object({
+        publicId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user?.id;
+
+      if (!userId)
+        throw new TRPCError({
+          message: `User not authenticated`,
+          code: "UNAUTHORIZED",
+        });
+
+      const sourceCardMeta = await cardRepo.getWorkspaceAndCardIdByCardPublicId(
+        ctx.db,
+        input.cardPublicId,
+      );
+
+      if (!sourceCardMeta)
+        throw new TRPCError({
+          message: `Card with public ID ${input.cardPublicId} not found`,
+          code: "NOT_FOUND",
+        });
+
+      await assertPermission(
+        ctx.db,
+        userId,
+        sourceCardMeta.workspaceId,
+        "card:create",
+      );
+
+      const targetList = await listRepo.getWorkspaceAndListIdByListPublicId(
+        ctx.db,
+        input.listPublicId,
+      );
+
+      if (!targetList)
+        throw new TRPCError({
+          message: `List with public ID ${input.listPublicId} not found`,
+          code: "NOT_FOUND",
+        });
+
+      if (targetList.workspaceId !== sourceCardMeta.workspaceId)
+        throw new TRPCError({
+          message: `Target list must be in the same workspace`,
+          code: "BAD_REQUEST",
+        });
+
+      const sourceCard = await cardRepo.getWithListAndMembersByPublicId(
+        ctx.db,
+        input.cardPublicId,
+      );
+
+      if (!sourceCard)
+        throw new TRPCError({
+          message: `Card with public ID ${input.cardPublicId} not found`,
+          code: "NOT_FOUND",
+        });
+
+      const newCard = await cardRepo.create(ctx.db, {
+        title: input.title ?? sourceCard.title,
+        description: sourceCard.description ?? "",
+        createdBy: userId,
+        listId: targetList.id,
+        workspaceId: targetList.workspaceId,
+        position: "end",
+        dueDate: sourceCard.dueDate ?? null,
+      });
+
+      if (input.index !== undefined && input.index >= 0) {
+        await cardRepo.reorder(ctx.db, {
+          cardId: newCard.id,
+          newIndex: input.index,
+          newListId: targetList.id,
+        });
+      }
+
+      if (input.copyLabels && sourceCard.labels?.length) {
+        const labelPublicIds = sourceCard.labels.map((l) => l.publicId);
+        const labels = await labelRepo.getAllByPublicIds(
+          ctx.db,
+          labelPublicIds,
+        );
+        if (labels.length) {
+          const labelsInsert = labels.map((label) => ({
+            cardId: newCard.id,
+            labelId: label.id,
+          }));
+          await cardRepo.bulkCreateCardLabelRelationships(ctx.db, labelsInsert);
+          const cardActivitesInsert = labels.map((cardLabel) => ({
+            type: "card.updated.label.added" as const,
+            cardId: newCard.id,
+            labelId: cardLabel.id,
+            createdBy: userId,
+          }));
+          await cardActivityRepo.bulkCreate(ctx.db, cardActivitesInsert);
+        }
+      }
+
+      if (input.copyMembers && sourceCard.members?.length) {
+        const memberPublicIds = sourceCard.members.map((m) => m.publicId);
+        const members = await workspaceRepo.getAllMembersByPublicIds(
+          ctx.db,
+          memberPublicIds,
+        );
+        if (members.length) {
+          const membersInsert = members.map((member) => ({
+            cardId: newCard.id,
+            workspaceMemberId: member.id,
+          }));
+          await cardRepo.bulkCreateCardWorkspaceMemberRelationships(
+            ctx.db,
+            membersInsert,
+          );
+          const cardActivitesInsert = members.map((member) => ({
+            type: "card.updated.member.added" as const,
+            cardId: newCard.id,
+            workspaceMemberId: member.id,
+            createdBy: userId,
+          }));
+          await cardActivityRepo.bulkCreate(ctx.db, cardActivitesInsert);
+        }
+      }
+
+      if (input.copyChecklists && sourceCard.checklists?.length) {
+        for (const checklist of sourceCard.checklists) {
+          const newChecklist = await checklistRepo.create(ctx.db, {
+            cardId: newCard.id,
+            name: checklist.name,
+            createdBy: userId,
+          });
+          if (!newChecklist?.id) continue;
+          if (checklist.items?.length) {
+            for (const item of checklist.items) {
+              await checklistRepo.createItem(ctx.db, {
+                checklistId: newChecklist.id,
+                title: item.title,
+                createdBy: userId,
+                completed: false,
+              });
+            }
+          }
+          await cardActivityRepo.create(ctx.db, {
+            type: "card.updated.checklist.added",
+            cardId: newCard.id,
+            toTitle: newChecklist.name,
+            createdBy: userId,
+          });
+        }
+      }
+
+      return { publicId: newCard.publicId };
     }),
 });

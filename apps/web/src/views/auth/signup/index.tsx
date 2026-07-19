@@ -21,14 +21,16 @@ export default function SignUpPage() {
 
   const { data } = authClient.useSession();
 
-  if (data?.user.id) router.push("/boards");
+  if (data?.user.id) router.push(redirect ?? "/boards");
 
   const handleMagicLinkSent = (value: boolean, recipient: string) => {
     setIsMagicLinkSent(value);
     setMagicLinkRecipient(recipient);
   };
 
-  if (isSignUpDisabled) {
+  const isInviteFlow = redirect?.startsWith("/invite/");
+
+  if (isSignUpDisabled && !isInviteFlow) {
     return (
       <>
         <PageHead title={t`Sign up | kan.bn`} />

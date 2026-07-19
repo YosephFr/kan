@@ -24,6 +24,7 @@ import Toggle from "~/components/Toggle";
 import { useModalFormState } from "~/hooks/useModalFormState";
 import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
+import { useWorkspace } from "~/providers/workspace";
 import { api } from "~/utils/api";
 import { formatMemberDisplayName, getAvatarUrl } from "~/utils/helpers";
 
@@ -53,6 +54,7 @@ export function NewCardForm({
   queryParams,
 }: NewCardFormProps) {
   const { showPopup } = usePopup();
+  const { workspace } = useWorkspace();
   const { closeModal, openModal, modalStates, clearModalState } = useModal();
 
   const utils = api.useUtils();
@@ -144,6 +146,10 @@ export function NewCardForm({
               listId: 2,
               description: "",
               dueDate: args.dueDate ?? null,
+              cardNumber: null,
+              comments: [],
+              checklists: [],
+              attachments: [],
               labels: oldBoard.labels.filter((label) =>
                 args.labelPublicIds.includes(label.publicId),
               ),
@@ -156,6 +162,9 @@ export function NewCardForm({
                     ...member,
                     deletedAt: null,
                   })) ?? [],
+              comments: [],
+              checklists: [],
+              attachments: [],
               _filteredLabels: labelPublicIds.map((id) => ({ publicId: id })),
               _filteredMembers: memberPublicIds.map((id) => ({ publicId: id })),
               index: position === "start" ? 0 : list.cards.length,
@@ -491,6 +500,7 @@ export function NewCardForm({
                       setValue("dueDate", date ?? null);
                       setIsDateSelectorOpen(false);
                     }}
+                    weekStartsOn={workspace.weekStartDay}
                   />
                 </div>
               </>
@@ -512,7 +522,7 @@ export function NewCardForm({
         </div>
       </div>
 
-      <div className="mt-5 flex items-center justify-end border-t border-light-600 px-5 pb-5 pt-5 dark:border-dark-600">
+      <div className="mt-5 flex items-center justify-end space-x-4 border-t border-light-600 px-5 pb-5 pt-5 dark:border-dark-600">
         <Toggle
           label={t`Create another`}
           isChecked={isCreateAnotherEnabled}

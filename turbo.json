@@ -3,28 +3,49 @@
   "ui": "tui",
   "tasks": {
     "topo": {
-      "dependsOn": ["^topo"]
+      "dependsOn": [
+        "^topo"
+      ]
     },
     "build": {
-      "dependsOn": ["^build"],
-      "outputs": [".cache/tsbuildinfo.json", "dist/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        ".cache/tsbuildinfo.json",
+        "dist/**"
+      ]
     },
     "dev": {
-      "dependsOn": ["^dev"],
+      "dependsOn": [
+        "^dev"
+      ],
       "cache": false,
       "persistent": false
     },
     "format": {
-      "outputs": [".cache/.prettiercache"],
+      "outputs": [
+        ".cache/.prettiercache"
+      ],
       "outputLogs": "new-only"
     },
     "lint": {
-      "dependsOn": ["^topo", "^build"],
-      "outputs": [".cache/.eslintcache"]
+      "dependsOn": [
+        "^topo",
+        "^build"
+      ],
+      "outputs": [
+        ".cache/.eslintcache"
+      ]
     },
     "typecheck": {
-      "dependsOn": ["^topo", "^build"],
-      "outputs": [".cache/tsbuildinfo.json"]
+      "dependsOn": [
+        "^topo",
+        "^build"
+      ],
+      "outputs": [
+        ".cache/tsbuildinfo.json"
+      ]
     },
     "clean": {
       "cache": false
@@ -123,12 +144,18 @@
     "S3_SECRET_ACCESS_KEY",
     "S3_ENDPOINT",
     "S3_FORCE_PATH_STYLE",
+    "S3_AVATAR_UPLOAD_LIMIT",
     "PORT",
     "BETTER_AUTH_SECRET",
     "BETTER_AUTH_TRUSTED_ORIGINS",
     "NOVU_API_KEY",
     "EMAIL_UNSUBSCRIBE_SECRET",
-    "REDIS_URL"
+    "REDIS_URL",
+    "LOG_LEVEL",
+    "AXIOM_TOKEN",
+    "AXIOM_DATASET",
+    "KAN_BASE_URL",
+    "KAN_API_TOKEN"
   ],
   "globalPassThroughEnv": [
     "NODE_ENV",

@@ -12,3 +12,6 @@ export * from "./integrations";
 export * from "./workspaces";
 export * from "./subscriptions";
 export * from "./workspaceInviteLinks";
+export * from "./permissions";
+export * from "./notifications";
+export * from "./webhooks";

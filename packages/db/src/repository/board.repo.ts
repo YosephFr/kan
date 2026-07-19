@@ -26,6 +26,7 @@ import {
   comments,
   labels,
   lists,
+  userBoardFavorites,
   workspaceMembers,
 } from "@kan/db/schema";
 import { generateUID } from "@kan/shared/utils";
@@ -39,17 +40,24 @@ export const getCount = async (db: dbClient) => {
   return result[0]?.count ?? 0;
 };
 
-export const getAllByWorkspaceId = (
+export const getAllByWorkspaceId = async (
   db: dbClient,
   workspaceId: number,
-  opts?: { type?: "regular" | "template" },
+  userId: string,
+  opts?: { type?: "regular" | "template"; archived?: boolean },
 ) => {
-  return db.query.boards.findMany({
+  const boardsData = await db.query.boards.findMany({
     columns: {
       publicId: true,
       name: true,
     },
     with: {
+      userFavorites: {
+        where: eq(userBoardFavorites.userId, userId),
+        columns: {
+          userId: true,
+        },
+      },
       lists: {
         columns: {
           publicId: true,
@@ -70,8 +78,24 @@ export const getAllByWorkspaceId = (
       eq(boards.workspaceId, workspaceId),
       isNull(boards.deletedAt),
       opts?.type ? eq(boards.type, opts.type) : undefined,
+      opts?.archived !== undefined ? eq(boards.isArchived, opts.archived) : undefined,
     ),
   });
+
+  // Transform and sort: favorites first, then alphabetically
+  return boardsData
+    .map((board) => ({
+      ...board,
+      favorite: board.userFavorites.length > 0,
+      userFavorites: undefined,
+    }))
+    .sort((a, b) => {
+      // Sort favorites first
+      if (a.favorite && !b.favorite) return -1;
+      if (!a.favorite && b.favorite) return 1;
+      // Then alphabetically by name
+      return a.name.localeCompare(b.name);
+    });
 };
 
 export const getIdByPublicId = async (db: dbClient, boardPublicId: string) => {
@@ -79,6 +103,7 @@ export const getIdByPublicId = async (db: dbClient, boardPublicId: string) => {
     columns: {
       id: true,
       type: true,
+      isArchived: true,
     },
     where: eq(boards.publicId, boardPublicId),
   });
@@ -122,6 +147,7 @@ const buildDueDateWhere = (filters: DueDateFilter[]) => {
 export const getByPublicId = async (
   db: dbClient,
   boardPublicId: string,
+  userId: string,
   filters: {
     members: string[];
     labels: string[];
@@ -171,21 +197,31 @@ export const getByPublicId = async (
       name: true,
       slug: true,
       visibility: true,
+      isArchived: true,
     },
     with: {
+      userFavorites: {
+        where: eq(userBoardFavorites.userId, userId),
+        columns: {
+          userId: true,
+        },
+      },
       workspace: {
         columns: {
           publicId: true,
+          cardPrefix: true,
         },
         with: {
           members: {
             columns: {
               publicId: true,
               email: true,
+              status: true,
             },
             with: {
               user: {
                 columns: {
+                  id: true,
                   name: true,
                   email: true,
                   image: true,
@@ -220,6 +256,7 @@ export const getByPublicId = async (
               listId: true,
               index: true,
               dueDate: true,
+              cardNumber: true,
             },
             with: {
               labels: {
@@ -244,6 +281,7 @@ export const getByPublicId = async (
                     with: {
                       user: {
                         columns: {
+                          id: true,
                           name: true,
                           email: true,
                           image: true,
@@ -325,6 +363,8 @@ export const getByPublicId = async (
 
   const formattedResult = {
     ...board,
+    favorite: board.userFavorites.length > 0,
+    userFavorites: undefined,
     lists: board.lists.map((list) => ({
       ...list,
       cards: list.cards.map((card) => ({
@@ -386,6 +426,7 @@ export const getBySlug = async (
           publicId: true,
           name: true,
           slug: true,
+          cardPrefix: true,
         },
       },
       labels: {
@@ -412,6 +453,7 @@ export const getBySlug = async (
               listId: true,
               index: true,
               dueDate: true,
+              cardNumber: true,
             },
             with: {
               labels: {
@@ -518,6 +560,7 @@ export const getWithListIdsByPublicId = (
     columns: {
       id: true,
       workspaceId: true,
+      createdBy: true,
     },
     with: {
       lists: {
@@ -594,6 +637,7 @@ export const update = async (
     slug: string | undefined;
     visibility: BoardVisibilityStatus | undefined;
     boardPublicId: string;
+    isArchived?: boolean;
   },
 ) => {
   const [result] = await db
@@ -603,6 +647,7 @@ export const update = async (
       slug: boardInput.slug,
       visibility: boardInput.visibility,
       updatedAt: new Date(),
+      ...(boardInput.isArchived !== undefined && { isArchived: boardInput.isArchived })
     })
     .where(eq(boards.publicId, boardInput.boardPublicId))
     .returning({
@@ -671,11 +716,36 @@ export const getWorkspaceAndBoardIdByBoardPublicId = async (
     columns: {
       id: true,
       workspaceId: true,
+      createdBy: true,
     },
     where: eq(boards.publicId, boardPublicId),
   });
 
   return result;
+};
+
+/**
+ * Fetches the board fields needed by the move mutation:
+ * identity, naming, type guards, and workspace ownership.
+ * Soft-deleted boards are excluded — moving a tombstoned board has
+ * no defensible semantics.
+ */
+export const getBoardForMove = async (
+  db: dbClient,
+  boardPublicId: string,
+) => {
+  return db.query.boards.findFirst({
+    columns: {
+      id: true,
+      name: true,
+      slug: true,
+      type: true,
+      isArchived: true,
+      workspaceId: true,
+      createdBy: true,
+    },
+    where: and(eq(boards.publicId, boardPublicId), isNull(boards.deletedAt)),
+  });
 };
 
 export const isBoardSlugAvailable = async (
@@ -921,4 +991,90 @@ export const createFromSnapshot = async (
 
     return newBoard;
   });
+};
+
+export const moveToWorkspace = async (
+  db: dbClient,
+  boardId: number,
+  targetWorkspaceId: number,
+  newSlug?: string,
+) => {
+  return db.transaction(async (tx) => {
+    // Update the board's workspace (and slug if provided)
+    const [updatedBoard] = await tx
+      .update(boards)
+      .set({
+        workspaceId: targetWorkspaceId,
+        ...(newSlug && { slug: newSlug }),
+        updatedAt: new Date(),
+      })
+      .where(eq(boards.id, boardId))
+      .returning({
+        publicId: boards.publicId,
+        name: boards.name,
+      });
+
+    if (!updatedBoard) throw new Error("Failed to move board");
+
+    // Get every card ID ever belonging to this board, including
+    // soft-deleted cards under soft-deleted lists. Member assignments
+    // point at workspace-scoped members that no longer exist after
+    // the move; if we leave assignments on soft-deleted cards, a later
+    // restore would resurrect rogue references to the old workspace.
+    const boardLists = await tx
+      .select({ id: lists.id })
+      .from(lists)
+      .where(eq(lists.boardId, boardId));
+
+    if (boardLists.length > 0) {
+      const listIds = boardLists.map((l) => l.id);
+
+      const boardCards = await tx
+        .select({ id: cards.id })
+        .from(cards)
+        .where(inArray(cards.listId, listIds));
+
+      if (boardCards.length > 0) {
+        const cardIds = boardCards.map((c) => c.id);
+
+        // Clear all card member assignments (they reference workspace-scoped members)
+        await tx
+          .delete(cardToWorkspaceMembers)
+          .where(inArray(cardToWorkspaceMembers.cardId, cardIds));
+      }
+    }
+
+    return updatedBoard;
+  });
+};
+
+export const addUserFavorite = async (
+  db: dbClient,
+  userId: string,
+  boardId: number,
+) => {
+  return db
+    .insert(userBoardFavorites)
+    .values({
+      userId,
+      boardId,
+    })
+    .onConflictDoNothing()
+    .returning();
+};
+
+export const removeUserFavorite = async (
+  db: dbClient,
+  userId: string,
+  boardId: number,
+) => {
+  return db
+    .delete(userBoardFavorites)
+    .where(
+      and(
+        eq(userBoardFavorites.userId, userId),
+        eq(userBoardFavorites.boardId, boardId)
+      )
+    )
+    .returning();
 };

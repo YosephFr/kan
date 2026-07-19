@@ -16,6 +16,19 @@ const config = {
       : undefined,
   reactStrictMode: true,
 
+  /** Exclude build tools and dev-only packages from the standalone output */
+  outputFileTracingExcludes: {
+    "**/*": [
+      "@esbuild/**",
+      "esbuild/**",
+      "typescript/**",
+      "webpack/**",
+      "uglify-js/**",
+      "terser/**",
+    ],
+  },
+
+
   /** Enables hot reloading for local packages without a build step */
   transpilePackages: [
     "@kan/api",
@@ -33,64 +46,14 @@ const config = {
 
   images: {
     remotePatterns: (() => {
-      /** @type {Array<{protocol: "http" | "https", hostname: string, pathname?: string}>} */
+      /** @type {Array<{protocol: "http" | "https", hostname: string}>} */
       const patterns = [
+        { protocol: "https", hostname: "**" },
         {
           protocol: "http",
           hostname: "localhost",
         },
-        {
-          protocol: "https",
-          hostname: "*.googleusercontent.com",
-        },
-        {
-          protocol: "https",
-          hostname: "cdn.discordapp.com",
-          pathname: "/avatars/**",
-        },
       ];
-
-      const storageDomain = env("NEXT_PUBLIC_STORAGE_DOMAIN");
-      if (storageDomain) {
-        patterns.push({
-          protocol: "https",
-          hostname:
-            env("S3_FORCE_PATH_STYLE") === "true"
-              ? storageDomain
-              : `*.${storageDomain}`,
-        });
-      }
-
-      const storageUrl = env("NEXT_PUBLIC_STORAGE_URL");
-      if (storageUrl) {
-        try {
-          const url = new URL(storageUrl);
-          patterns.push({
-            protocol: url.protocol.replace(":", ""),
-            hostname: url.hostname,
-          });
-        } catch {
-        }
-      }
-
-      const s3Endpoint = env("S3_ENDPOINT");
-      if (s3Endpoint) {
-        try {
-          const url = new URL(s3Endpoint);
-          const hostname = url.hostname;
-          const protocol = url.protocol.replace(":", "");
-
-          const parts = hostname.split(".");
-          if (parts.length >= 2) {
-            const rootDomain = parts.slice(-2).join(".");
-            patterns.push({
-              protocol: protocol === "http" ? "http" : "https",
-              hostname: `*.${rootDomain}`,
-            });
-          }
-        } catch {
-        }
-      }
 
       return patterns;
     })(),
@@ -103,15 +66,11 @@ const config = {
       },
     },
   },
+  serverExternalPackages: ["pino"],
+
   experimental: {
     // instrumentationHook: true,
     swcPlugins: [["@lingui/swc-plugin", {}]],
-  },
-
-  api: {
-    bodyParser: {
-      sizeLimit: env("NEXT_API_BODY_SIZE_LIMIT") || '1mb',
-    },
   },
 
   async rewrites() {

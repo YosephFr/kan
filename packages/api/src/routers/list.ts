@@ -7,7 +7,8 @@ import * as activityRepo from "@kan/db/repository/cardActivity.repo";
 import * as listRepo from "@kan/db/repository/list.repo";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-import { assertUserInWorkspace } from "../utils/auth";
+import { listCreateResponseSchema, listUpdateResponseSchema } from "../schemas";
+import { assertCanDelete, assertCanEdit, assertPermission } from "../utils/permissions";
 
 export const listRouter = createTRPCRouter({
   create: protectedProcedure
@@ -27,7 +28,7 @@ export const listRouter = createTRPCRouter({
         boardPublicId: z.string().min(12),
       }),
     )
-    .output(z.custom<Awaited<ReturnType<typeof listRepo.create>>>())
+    .output(listCreateResponseSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
 
@@ -48,7 +49,7 @@ export const listRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      await assertUserInWorkspace(ctx.db, userId, board.workspaceId);
+      await assertPermission(ctx.db, userId, board.workspaceId, "list:create");
 
       const result = await listRepo.create(ctx.db, {
         name: input.name,
@@ -101,7 +102,13 @@ export const listRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      await assertUserInWorkspace(ctx.db, userId, list.workspaceId);
+      await assertCanDelete(
+        ctx.db,
+        userId,
+        list.workspaceId,
+        "list:delete",
+        list.createdBy,
+      );
 
       const deletedAt = new Date();
 
@@ -157,12 +164,7 @@ export const listRouter = createTRPCRouter({
         index: z.number().optional(),
       }),
     )
-    .output(
-      z.custom<
-        | Awaited<ReturnType<typeof listRepo.update>>
-        | Awaited<ReturnType<typeof listRepo.reorder>>
-      >(),
-    )
+    .output(listUpdateResponseSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
 
@@ -183,7 +185,13 @@ export const listRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      await assertUserInWorkspace(ctx.db, userId, list.workspaceId);
+      await assertCanEdit(
+        ctx.db,
+        userId,
+        list.workspaceId,
+        "list:edit",
+        list.createdBy,
+      );
 
       let result: { name: string; publicId: string } | undefined;
 

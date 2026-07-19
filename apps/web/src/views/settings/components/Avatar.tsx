@@ -58,28 +58,6 @@ export default function Avatar({
   const [crop, setCrop] = useState<PercentCrop>();
   const imgRef = useRef<HTMLImageElement | null>(null);
 
-  const updateUser = api.user.update.useMutation({
-    onSuccess: async () => {
-      showPopup({
-        header: t`Profile image updated`,
-        message: t`Your profile image has been updated.`,
-        icon: "success",
-      });
-      try {
-        await utils.user.getUser.refetch();
-      } catch (e) {
-        console.error(e);
-        throw e;
-      }
-    },
-    onError: () => {
-      showPopup({
-        header: t`Error updating profile image`,
-        message: t`Please try again later, or contact customer support.`,
-        icon: "error",
-      });
-    },
-  });
 
   const avatarUrl = userImage ? getAvatarUrl(userImage) : undefined;
 
@@ -132,18 +110,17 @@ export default function Avatar({
     const cropYpx = (crop.y / 100) * image.naturalHeight;
     const cropWpx = (crop.width / 100) * image.naturalWidth;
     const cropHpx = (crop.height / 100) * image.naturalHeight;
-    canvas.width = Math.max(1, Math.floor(cropWpx));
-    canvas.height = Math.max(1, Math.floor(cropHpx));
+
+    // Cap output at 512x512 — avatars display at 64x64, so higher res is wasteful
+    // and causes "File too large" errors on HiDPI screens
+    const maxSize = 512;
+    const scale = Math.min(maxSize / cropWpx, maxSize / cropHpx, 1);
+    canvas.width = Math.max(1, Math.floor(cropWpx * scale));
+    canvas.height = Math.max(1, Math.floor(cropHpx * scale));
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Canvas not supported");
 
-    // For better quality on HiDPI screens
-    const pixelRatio = window.devicePixelRatio || 1;
-    canvas.width = canvas.width * pixelRatio;
-    canvas.height = canvas.height * pixelRatio;
-    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     ctx.imageSmoothingQuality = "high";
-
     ctx.drawImage(
       image,
       cropXpx,
@@ -152,8 +129,8 @@ export default function Avatar({
       cropHpx,
       0,
       0,
-      canvas.width / pixelRatio,
-      canvas.height / pixelRatio,
+      canvas.width,
+      canvas.height,
     );
 
     const mime = selectedFile?.type ?? "image/jpeg";
@@ -161,6 +138,7 @@ export default function Avatar({
       canvas.toBlob(
         (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
         mime,
+        0.85,
       );
     });
     return blob;
@@ -187,29 +165,32 @@ export default function Avatar({
       const originalExt = selectedFile.name.split(".").pop() ?? "jpg";
       const fileName = `${userId}/avatar-${generateUID()}.${originalExt}`;
 
+      const baseUrl = env("NEXT_PUBLIC_BASE_URL") ?? "";
       const response = await fetch(
-        env("NEXT_PUBLIC_BASE_URL") + "/api/upload/image",
+        `${baseUrl}/api/upload/avatar`,
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type": blob.type,
+            "x-original-filename": encodeURIComponent(fileName),
           },
-          body: JSON.stringify({ filename: fileName, contentType: blob.type }),
+          body: blob,
         },
       );
 
-      if (!response.ok) throw new Error("Failed to get pre-signed URL");
+      if (!response.ok) {
+        throw new Error("Failed to upload profile image");
+      }
 
-      const { url } = (await response.json()) as { url: string };
-
-      const uploadResponse = await fetch(url, {
-        method: "PUT",
-        body: blob,
+      // User image is updated in the backend, refresh user data
+      await utils.user.getUser.refetch();
+      
+      showPopup({
+        header: t`Profile image updated`,
+        message: t`Your profile image has been updated.`,
+        icon: "success",
       });
-
-      if (!uploadResponse.ok) throw new Error("Failed to upload profile image");
-
-      updateUser.mutate({ image: fileName });
+      
       setCropDialogOpen(false);
       resetCropState();
     } catch (error) {
@@ -227,7 +208,7 @@ export default function Avatar({
     resetCropState,
     selectedFile,
     showPopup,
-    updateUser,
+    utils.user.getUser,
     userId,
   ]);
 

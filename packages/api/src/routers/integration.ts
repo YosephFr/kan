@@ -14,7 +14,70 @@ export const apiKeys = {
   trello: process.env.TRELLO_APP_API_KEY,
 };
 
+import { encryptToken } from "../utils/encryption";
+
 export const integrationRouter = createTRPCRouter({
+  saveGitHubToken: protectedProcedure
+    .input(z.object({ token: z.string() }))
+    .output(z.object({ success: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const user = ctx.user;
+
+      if (!user)
+        throw new TRPCError({
+          message: "User not authenticated",
+          code: "UNAUTHORIZED",
+        });
+
+      const encryptedToken = encryptToken(input.token);
+
+      const expiresAt = new Date();
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+
+      await integrationsRepo.createOrUpdateProvider(ctx.db, {
+        provider: "github",
+        userId: user.id,
+        accessToken: encryptedToken,
+        expiresAt,
+      });
+
+      return { success: true };
+    }),
+
+  disconnectGitHub: protectedProcedure
+    .output(z.object({ success: z.boolean() }))
+    .mutation(async ({ ctx }) => {
+    const user = ctx.user;
+
+    if (!user)
+      throw new TRPCError({
+        message: "User not authenticated",
+        code: "UNAUTHORIZED",
+      });
+
+    await integrationsRepo.deleteProviderForUser(ctx.db, user.id, "github");
+    return { success: true };
+  }),
+
+  getGitHubStatus: protectedProcedure
+    .output(z.object({ connected: z.boolean() }))
+    .query(async ({ ctx }) => {
+    const user = ctx.user;
+
+    if (!user)
+      throw new TRPCError({
+        message: "User not authenticated",
+        code: "UNAUTHORIZED",
+      });
+
+    const connected = await integrationsRepo.isProviderAvailableForUser(
+      ctx.db,
+      user.id,
+      "github",
+    );
+    return { connected };
+  }),
+
   providers: protectedProcedure
     .meta({
       openapi: {
@@ -67,7 +130,7 @@ export const integrationRouter = createTRPCRouter({
         protect: true,
       },
     })
-    .input(z.object({ provider: z.enum(["trello"]) }))
+    .input(z.object({ provider: z.enum(["trello", "github"]) }))
     .output(z.object({}))
     .mutation(async ({ ctx, input }) => {
       const user = ctx.user;

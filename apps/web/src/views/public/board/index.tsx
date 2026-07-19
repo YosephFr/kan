@@ -30,7 +30,7 @@ export default function PublicBoardView() {
   const { showPopup } = usePopup();
   const [isRouteLoaded, setIsRouteLoaded] = useState(false);
   const { openModal } = useModal();
-  
+
   const { ref: scrollRef, onMouseDown } = useDragToScroll({
     enabled: true,
     direction: "horizontal",
@@ -70,29 +70,34 @@ export default function PublicBoardView() {
     },
   );
 
-  const CopyBoardLink = () => {
-    return (
-      <button
-        onClick={async () => {
-          try {
-            await navigator.clipboard.writeText(window.location.href);
-          } catch (error) {
-            console.error(error);
-          }
-
-          showPopup({
-            header: t`Link copied`,
-            icon: "success",
-            message: t`Board URL copied to clipboard`,
-          });
-        }}
-        className="rounded p-1.5 transition-all hover:bg-light-200 dark:hover:bg-dark-100"
-        aria-label={`Copy board URL`}
-      >
-        <HiLink className={`h-4 w-4 text-light-900 dark:text-dark-900`} />
-      </button>
-    );
+  const handleCopyBoardLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      showPopup({
+        header: t`Link copied`,
+        icon: "success",
+        message: t`Board URL copied to clipboard`,
+      });
+    } catch (error) {
+      console.error(error);
+      showPopup({
+        header: t`Unable to copy link`,
+        icon: "error",
+        message: t`Please try again.`,
+      });
+    }
   };
+
+  const CopyBoardLink = () => (
+    <button
+      type="button"
+      onClick={handleCopyBoardLink}
+      className="rounded p-1.5 transition-all hover:bg-light-200 focus:outline-none dark:hover:bg-dark-100"
+      aria-label="Copy board URL"
+    >
+      <HiLink className="h-4 w-4 text-light-900 dark:text-dark-900" />
+    </button>
+  );
 
   const pathWithoutQuery = router.asPath.split("?")[0];
   const splitPath = pathWithoutQuery?.split("/") ?? [];
@@ -160,7 +165,7 @@ export default function PublicBoardView() {
           <div
             ref={scrollRef}
             onMouseDown={onMouseDown}
-            className="scrollbar-w-none scrollbar-track-rounded-[4px] scrollbar-thumb-rounded-[4px] scrollbar-h-[8px] relative h-full flex-1 overflow-y-hidden overflow-x-scroll overscroll-contain scrollbar scrollbar-track-light-200 scrollbar-thumb-light-400 dark:scrollbar-track-dark-100 dark:scrollbar-thumb-dark-300"
+            className="scrollbar-w-none scrollbar-track-rounded-[4px] scrollbar-thumb-rounded-[4px] scrollbar-h-[8px] relative h-full flex-1 snap-x snap-mandatory scroll-pl-[10px] overflow-y-hidden overflow-x-scroll overscroll-contain scrollbar scrollbar-track-light-200 scrollbar-thumb-light-400 dark:scrollbar-track-dark-100 dark:scrollbar-thumb-dark-300 md:snap-none"
           >
             {isLoading || !router.isReady ? (
               <div className="ml-[2rem] flex">
@@ -183,11 +188,11 @@ export default function PublicBoardView() {
               </div>
             ) : (
               <div className="flex">
-                <div className="min-w-[2rem]" />
+                <div className="min-w-[10px] md:min-w-[2rem]" />
                 {data?.lists.map((list) => (
                   <div
                     key={list.publicId}
-                    className="dark-text-dark-1000 mr-5 h-fit min-w-[18rem] max-w-[18rem] rounded-md border border-light-400 bg-light-300 py-2 pl-2 pr-1 text-neutral-900 dark:border-dark-300 dark:bg-dark-100"
+                    className="dark-text-dark-1000 mr-5 h-fit min-w-[18rem] max-w-[18rem] snap-start rounded-md border border-light-400 bg-light-300 py-2 pl-2 pr-1 text-neutral-900 dark:border-dark-300 dark:bg-dark-100 md:snap-align-none"
                   >
                     <div className="flex justify-between">
                       <span className="mb-4 block px-4 pt-1 text-sm font-medium text-neutral-900 dark:text-dark-1000">
@@ -229,7 +234,7 @@ export default function PublicBoardView() {
                     </div>
                   </div>
                 ))}
-                <div className="min-w-[0.75rem]" />
+                <div className="min-w-[calc(100vw-18rem)] md:min-w-[0.75rem]" />
               </div>
             )}
           </div>

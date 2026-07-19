@@ -3,7 +3,10 @@ import { useRouter } from "next/router";
 import { t } from "@lingui/core/macro";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { HiXMark } from "react-icons/hi2";
 import { IoChevronForwardSharp } from "react-icons/io5";
+
+import { authClient } from "@kan/auth/client";
 
 import Avatar from "~/components/Avatar";
 import Editor from "~/components/Editor";
@@ -14,6 +17,7 @@ import Modal from "~/components/modal";
 import { NewWorkspaceForm } from "~/components/NewWorkspaceForm";
 import { PageHead } from "~/components/PageHead";
 import { EditYouTubeModal } from "~/components/YouTubeEmbed/EditYouTubeModal";
+import { usePermissions } from "~/hooks/usePermissions";
 import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
 import { useWorkspace } from "~/providers/workspace";
@@ -44,13 +48,19 @@ interface FormValues {
 
 export function CardRightPanel({ isTemplate }: { isTemplate?: boolean }) {
   const router = useRouter();
+  const { canEditCard } = usePermissions();
+  const { data: session } = authClient.useSession();
   const cardId = Array.isArray(router.query.cardId)
     ? router.query.cardId[0]
     : router.query.cardId;
 
-  const { data: card } = api.card.byId.useQuery({
-    cardPublicId: cardId ?? "",
-  });
+  const { data: card } = api.card.byId.useQuery(
+    { cardPublicId: cardId ?? "" },
+    { enabled: !!cardId && cardId.length >= 12 },
+  );
+
+  const isCreator = card?.createdBy && session?.user.id === card.createdBy;
+  const canEdit = canEditCard || isCreator;
 
   const board = card?.list.board;
   const labels = board?.labels;
@@ -116,6 +126,7 @@ export function CardRightPanel({ isTemplate }: { isTemplate?: boolean }) {
           cardPublicId={cardId ?? ""}
           lists={formattedLists}
           isLoading={!card}
+          disabled={!canEdit}
         />
       </div>
       <div className="mb-4 flex w-full flex-row">
@@ -124,6 +135,7 @@ export function CardRightPanel({ isTemplate }: { isTemplate?: boolean }) {
           cardPublicId={cardId ?? ""}
           labels={formattedLabels}
           isLoading={!card}
+          disabled={!canEdit}
         />
       </div>
       {!isTemplate && (
@@ -133,6 +145,7 @@ export function CardRightPanel({ isTemplate }: { isTemplate?: boolean }) {
             cardPublicId={cardId ?? ""}
             members={formattedMembers}
             isLoading={!card}
+            disabled={!canEdit}
           />
         </div>
       )}
@@ -142,6 +155,7 @@ export function CardRightPanel({ isTemplate }: { isTemplate?: boolean }) {
           cardPublicId={cardId ?? ""}
           dueDate={card?.dueDate}
           isLoading={!card}
+          disabled={!canEdit}
         />
       </div>
     </div>
@@ -154,7 +168,6 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
   const {
     modalContentType,
     entityId,
-    openModal,
     getModalState,
     clearModalState,
     isOpen,
@@ -162,6 +175,8 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
   } = useModal();
   const { showPopup } = usePopup();
   const { workspace } = useWorkspace();
+  const { canEditCard } = usePermissions();
+  const { data: session } = authClient.useSession();
   const [activeChecklistForm, setActiveChecklistForm] = useState<string | null>(
     null,
   );
@@ -170,16 +185,49 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
     ? router.query.cardId[0]
     : router.query.cardId;
 
-  const { data: card, isLoading } = api.card.byId.useQuery({
-    cardPublicId: cardId ?? "",
-  });
+  const {
+    data: card,
+    isLoading,
+    error,
+  } = api.card.byId.useQuery(
+    { cardPublicId: cardId ?? "" },
+    { enabled: !!cardId && cardId.length >= 12 },
+  );
+
+  // Redirect to 404 if card doesn't exist
+  useEffect(() => {
+    if (router.isReady && cardId && !isLoading) {
+      if (error?.data?.code === "NOT_FOUND" || (!card && !isLoading)) {
+        router.replace("/404");
+      }
+    }
+  }, [router, cardId, isLoading, error, card]);
+
+  const isCreator = card?.createdBy && session?.user.id === card.createdBy;
+  const canEdit = canEditCard || isCreator;
 
   const refetchCard = async () => {
     if (cardId) await utils.card.byId.refetch({ cardPublicId: cardId });
   };
 
   const board = card?.list.board;
+  const workspaceMembers = board?.workspace.members;
   const boardId = board?.publicId;
+
+  const editorWorkspaceMembers =
+    workspaceMembers
+      ?.filter((member) => member.email)
+      .map((member) => ({
+        publicId: member.publicId,
+        email: member.email,
+        user: member.user
+          ? {
+              id: member.user.id,
+              name: member.user.name ?? null,
+              image: member.user.image ?? null,
+            }
+          : null,
+      })) ?? [];
 
   const updateCard = api.card.update.useMutation({
     onError: () => {
@@ -296,9 +344,38 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
                 >
                   {board?.name}
                 </Link>
+                {card.cardNumber != null &&
+                  card.list.board.workspace.cardPrefix && (
+                    <>
+                      <IoChevronForwardSharp className="h-[10px] w-[10px] text-light-900 dark:text-dark-900" />
+                      <span className="whitespace-nowrap text-sm font-bold leading-[1.5rem] text-light-700 dark:text-dark-800">
+                        {card.list.board.workspace.cardPrefix}-{card.cardNumber}
+                      </span>
+                    </>
+                  )}
               </div>
               <div className="flex items-center gap-2">
-                <Dropdown />
+                <Dropdown
+                  cardPublicId={cardId}
+                  isTemplate={isTemplate}
+                  boardPublicId={boardId}
+                  cardCreatedBy={card?.createdBy}
+                  ticketNumber={
+                    card.cardNumber != null &&
+                    card.list.board.workspace.cardPrefix
+                      ? `${card.list.board.workspace.cardPrefix}-${card.cardNumber}`
+                      : null
+                  }
+                  listPublicId={card?.list.publicId}
+                  cardIndex={card?.index}
+                />
+                <Link
+                  href={`/${isTemplate ? "templates" : "boards"}/${boardId}`}
+                  className="flex h-7 w-7 items-center justify-center rounded-[5px] text-light-900 hover:bg-light-200 dark:text-dark-900 dark:hover:bg-dark-200"
+                  aria-label={t`Close`}
+                >
+                  <HiXMark className="h-4 w-4" />
+                </Link>
               </div>
             </>
           )}
@@ -326,9 +403,10 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
                       <textarea
                         id="title"
                         {...register("title")}
-                        onBlur={handleSubmit(onSubmit)}
+                        onBlur={canEdit ? handleSubmit(onSubmit) : undefined}
                         rows={1}
-                        className="block w-full resize-none overflow-hidden border-0 bg-transparent p-0 py-0 font-bold leading-relaxed text-neutral-900 focus:ring-0 dark:text-dark-1000 sm:text-[1.2rem]"
+                        disabled={!canEdit}
+                        className={`block w-full resize-none overflow-hidden border-0 bg-transparent p-0 py-0 font-bold leading-relaxed text-neutral-900 focus:ring-0 dark:text-dark-1000 sm:text-[1.2rem] ${!canEdit ? "cursor-default" : ""}`}
                         onInput={(e) => {
                           const target = e.target as HTMLTextAreaElement;
                           target.style.height = "auto";
@@ -354,9 +432,16 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
                       <div className="mt-2">
                         <Editor
                           content={card.description}
-                          onChange={(e) => setValue("description", e)}
-                          onBlur={() => handleSubmit(onSubmit)()}
-                          workspaceMembers={board?.workspace.members ?? []}
+                          onChange={
+                            canEdit
+                              ? (e) => setValue("description", e)
+                              : undefined
+                          }
+                          onBlur={
+                            canEdit ? () => handleSubmit(onSubmit)() : undefined
+                          }
+                          workspaceMembers={workspaceMembers ?? []}
+                          readOnly={!canEdit}
                         />
                       </div>
                     </form>
@@ -366,6 +451,7 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
                     cardPublicId={cardId}
                     activeChecklistForm={activeChecklistForm}
                     setActiveChecklistForm={setActiveChecklistForm}
+                    viewOnly={!canEdit}
                   />
                   {!isTemplate && (
                     <>
@@ -374,12 +460,15 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
                           <AttachmentThumbnails
                             attachments={card.attachments}
                             cardPublicId={cardId ?? ""}
+                            isReadOnly={!canEdit}
                           />
                         </div>
                       )}
-                      <div className="mt-6">
-                        <AttachmentUpload cardPublicId={cardId} />
-                      </div>
+                      {canEdit && (
+                        <div className="mt-6">
+                          <AttachmentUpload cardPublicId={cardId} />
+                        </div>
+                      )}
                     </>
                   )}
                   <div className="border-t-[1px] border-light-300 pt-12 dark:border-dark-300">
@@ -395,7 +484,10 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
                     </div>
                     {!isTemplate && (
                       <div className="mt-6">
-                        <NewCommentForm cardPublicId={cardId} />
+                        <NewCommentForm
+                          cardPublicId={cardId}
+                          workspaceMembers={editorWorkspaceMembers}
+                        />
                       </div>
                     )}
                   </div>

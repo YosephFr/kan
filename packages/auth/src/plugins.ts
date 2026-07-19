@@ -5,13 +5,53 @@ import { magicLink } from "better-auth/plugins/magic-link";
 import type { dbClient } from "@kan/db/client";
 import * as memberRepo from "@kan/db/repository/member.repo";
 import * as subscriptionRepo from "@kan/db/repository/subscription.repo";
+import * as userRepo from "@kan/db/repository/user.repo";
 import * as workspaceRepo from "@kan/db/repository/workspace.repo";
-import { generateUID } from "@kan/shared/utils";
 import { sendEmail } from "@kan/email";
+import { createLogger } from "@kan/logger";
+import { generateUID } from "@kan/shared/utils";
 import { createStripeClient } from "@kan/stripe";
 
 import { socialProvidersPlugin } from "./providers";
 import { triggerWorkflow } from "./utils";
+
+const log = createLogger("auth");
+
+async function cancelWorkspaceAccess(
+  db: dbClient,
+  workspacePublicId: string,
+): Promise<void> {
+  const workspace = await workspaceRepo.getByPublicId(db, workspacePublicId);
+
+  if (!workspace) return;
+
+  const preserveUserId = await memberRepo.getPreservableMemberId(
+    db,
+    workspace.id,
+    workspace.createdBy ?? null,
+  );
+
+  let newSlug = workspace.publicId;
+  if (workspace.slug !== workspace.publicId) {
+    const isPublicIdAvailable = await workspaceRepo.isWorkspaceSlugAvailable(
+      db,
+      workspace.publicId,
+    );
+    if (!isPublicIdAvailable) {
+      newSlug = generateUID();
+    }
+  }
+
+  await Promise.all([
+    preserveUserId
+      ? memberRepo.pauseMembersExcept(db, workspace.id, preserveUserId)
+      : memberRepo.pauseAllMembers(db, workspace.id),
+    workspaceRepo.update(db, workspacePublicId, {
+      plan: "free",
+      slug: newSlug,
+    }),
+  ]);
+}
 
 export function createPlugins(db: dbClient) {
   return [
@@ -100,8 +140,9 @@ export function createPlugins(db: dbClient) {
                       unlimitedSeats: true,
                     },
                   );
-                  console.log(
-                    `Pro subscription ${stripeSubscription.id} activated with unlimited seats`,
+                  log.info(
+                    { subscriptionId: stripeSubscription.id },
+                    "Pro subscription activated with unlimited seats",
                   );
 
                   const workspace = await workspaceRepo.getByPublicId(
@@ -124,34 +165,9 @@ export function createPlugins(db: dbClient) {
                   subscription,
                   cancellationDetails,
                 );
-
-                // for cancelled subscriptions, we need to pause all members and set their workspace plan to free
-                const workspace = await workspaceRepo.getByPublicId(
-                  db,
-                  subscription.referenceId,
-                );
-
-                if (workspace?.id) {
-                  await memberRepo.pauseAllMembers(db, workspace.id);
-                  
-                  // Reset slug to publicId, or generate a UID if publicId is taken
-                  let newSlug = workspace.publicId;
-                  
-                  if (workspace.slug !== workspace.publicId) {
-                    const isPublicIdAvailable = await workspaceRepo.isWorkspaceSlugAvailable(
-                      db,
-                      workspace.publicId,
-                    );
-                    if (!isPublicIdAvailable) {
-                      newSlug = generateUID();
-                    }
-                  }
-                  
-                  await workspaceRepo.update(db, subscription.referenceId, {
-                    plan: "free",
-                    slug: newSlug,
-                  });
-                }
+              },
+              onSubscriptionDeleted: async ({ subscription }) => {
+                await cancelWorkspaceAccess(db, subscription.referenceId);
               },
               onSubscriptionUpdate: async ({ subscription }) => {
                 await triggerWorkflow(db, "subscription-updated", subscription);
@@ -162,6 +178,13 @@ export function createPlugins(db: dbClient) {
       : []),
     apiKey({
       enableSessionForAPIKeys: true,
+      customAPIKeyGetter: (ctx) => {
+        const authorization = ctx.headers?.get("authorization");
+        if (authorization?.startsWith("Bearer ")) {
+          return authorization.slice(7);
+        }
+        return ctx.headers?.get("x-api-key") ?? null;
+      },
       rateLimit: {
         enabled: true,
         timeWindow: 1000 * 60, // 1 minute
@@ -171,19 +194,72 @@ export function createPlugins(db: dbClient) {
     magicLink({
       expiresIn: 60 * 60 * 24 * 7, // 7 days
       sendMagicLink: async ({ email, url }) => {
-        if (url.includes("type=invite")) {
-          await sendEmail(
-            email,
-            "Invitation to join workspace",
-            "JOIN_WORKSPACE",
-            {
-              magicLoginUrl: url,
-            },
+        try {
+          const decodedUrl = decodeURIComponent(url);
+          log.info(
+            { email, isInvite: decodedUrl.includes("type=invite") },
+            "Sending magic link",
           );
-        } else {
-          await sendEmail(email, "Sign in to kan.bn", "MAGIC_LINK", {
-            magicLoginUrl: url,
-          });
+          if (decodedUrl.includes("type=invite")) {
+            let inviterName = "";
+            let workspaceName = "";
+
+            try {
+              const urlObj = new URL(url);
+              const callbackUrl = urlObj.searchParams.get("callbackURL");
+              if (callbackUrl) {
+                const callbackParams = new URL(
+                  callbackUrl,
+                  process.env.NEXT_PUBLIC_BASE_URL,
+                ).searchParams;
+                const memberPublicId = callbackParams.get("memberPublicId");
+
+                if (memberPublicId) {
+                  const member = await memberRepo.getByPublicId(
+                    db,
+                    memberPublicId,
+                  );
+                  if (member) {
+                    const [workspace, inviter] = await Promise.all([
+                      workspaceRepo.getById(db, member.workspaceId),
+                      userRepo.getById(db, member.createdBy),
+                    ]);
+
+                    if (workspace) workspaceName = workspace.name;
+                    if (inviter) inviterName = inviter.name ?? "";
+                  }
+                }
+              }
+            } catch (error) {
+              log.error({ err: error }, "Failed to fetch invite details");
+            }
+
+            await sendEmail(
+              email,
+              workspaceName
+                ? `Invitation to join the workspace ${workspaceName}`
+                : "Invitation to join workspace",
+              "JOIN_WORKSPACE",
+              {
+                magicLoginUrl: url,
+                inviterName,
+                workspaceName,
+              },
+            );
+          } else {
+            await sendEmail(
+              email,
+              process.env.NEXT_PUBLIC_WHITE_LABEL_HIDE_POWERED_BY === "true"
+                ? "Sign in to your account"
+                : "Sign in to Kan",
+              "MAGIC_LINK",
+              {
+                magicLoginUrl: url,
+              },
+            );
+          }
+        } catch (error) {
+          log.error({ err: error, email }, "Error sending magic link");
         }
       },
     }),
@@ -213,7 +289,7 @@ export function createPlugins(db: dbClient) {
                   picture?: string;
                   avatar?: string;
                 }) => {
-                  console.log("OIDC profile:", profile);
+                  log.debug({ profile }, "OIDC profile received");
 
                   const name =
                     profile.name ??

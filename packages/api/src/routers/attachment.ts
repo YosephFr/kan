@@ -8,8 +8,9 @@ import * as workspaceRepo from "@kan/db/repository/workspace.repo";
 import { generateUID } from "@kan/shared/utils";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-import { assertUserInWorkspace } from "../utils/auth";
-import { deleteObject, generateUploadUrl } from "../utils/s3";
+import { attachmentConfirmResponseSchema } from "../schemas";
+import { assertPermission } from "../utils/permissions";
+import { deleteObject, generateUploadUrl } from "@kan/shared/utils";
 
 export const attachmentRouter = createTRPCRouter({
   generateUploadUrl: protectedProcedure
@@ -55,8 +56,7 @@ export const attachmentRouter = createTRPCRouter({
           message: `Card with public ID ${input.cardPublicId} not found`,
           code: "NOT_FOUND",
         });
-
-      await assertUserInWorkspace(ctx.db, userId, card.workspaceId);
+      await assertPermission(ctx.db, userId, card.workspaceId, "card:edit");
 
       // Get workspace publicId
       const workspace = await workspaceRepo.getById(ctx.db, card.workspaceId);
@@ -111,7 +111,7 @@ export const attachmentRouter = createTRPCRouter({
         size: z.number().positive(),
       }),
     )
-    .output(z.custom<Awaited<ReturnType<typeof cardAttachmentRepo.create>>>())
+    .output(attachmentConfirmResponseSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
 
@@ -131,8 +131,7 @@ export const attachmentRouter = createTRPCRouter({
           message: `Card with public ID ${input.cardPublicId} not found`,
           code: "NOT_FOUND",
         });
-
-      await assertUserInWorkspace(ctx.db, userId, card.workspaceId);
+      await assertPermission(ctx.db, userId, card.workspaceId, "card:edit");
 
       const attachment = await cardAttachmentRepo.create(ctx.db, {
         cardId: card.id,
@@ -144,9 +143,18 @@ export const attachmentRouter = createTRPCRouter({
         createdBy: userId,
       });
 
+      if (!attachment) {
+        throw new TRPCError({
+          message: "Failed to create attachment",
+          code: "INTERNAL_SERVER_ERROR",
+        });
+      }
+
       await cardActivityRepo.create(ctx.db, {
         type: "card.updated.attachment.added",
         cardId: card.id,
+        attachmentId: attachment.id,
+        toTitle: input.originalFilename,
         createdBy: userId,
       });
 
@@ -186,8 +194,7 @@ export const attachmentRouter = createTRPCRouter({
         });
 
       const workspaceId = attachment.card.list.board.workspaceId;
-
-      await assertUserInWorkspace(ctx.db, userId, workspaceId);
+      await assertPermission(ctx.db, userId, workspaceId, "card:edit");
 
       const bucket = process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME;
       if (bucket) {
@@ -209,6 +216,8 @@ export const attachmentRouter = createTRPCRouter({
       await cardActivityRepo.create(ctx.db, {
         type: "card.updated.attachment.removed",
         cardId: attachment.cardId,
+        attachmentId: attachment.id,
+        fromTitle: attachment.originalFilename,
         createdBy: userId,
       });
 

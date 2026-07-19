@@ -46,6 +46,7 @@ interface FormValues {
 interface AuthProps {
   setIsMagicLinkSent: (value: boolean, recipient: string) => void;
   isSignUp?: boolean;
+  callbackURL?: string;
 }
 
 const EmailSchema = z.object({
@@ -152,7 +153,11 @@ const availableSocialProviders = {
   },
 };
 
-export function Auth({ setIsMagicLinkSent, isSignUp }: AuthProps) {
+export function Auth({
+  setIsMagicLinkSent,
+  isSignUp,
+  callbackURL: callbackURLProp,
+}: AuthProps) {
   const [isCloudEnv, setIsCloudEnv] = useState(false);
   const [isLoginWithProviderPending, setIsLoginWithProviderPending] =
     useState<null | AuthProvider>(null);
@@ -165,7 +170,7 @@ export function Auth({ setIsMagicLinkSent, isSignUp }: AuthProps) {
   const passwordRef = useRef<HTMLInputElement | null>(null);
 
   const redirect = useSearchParams().get("next");
-  const callbackURL = redirect ?? "/boards";
+  const callbackURL = callbackURLProp ?? redirect ?? "/boards";
 
   // Safely get environment variables on client side to avoid hydration mismatch
   useEffect(() => {
@@ -361,8 +366,8 @@ export function Auth({ setIsMagicLinkSent, isSignUp }: AuthProps) {
           })}
         </div>
       )}
-      <form onSubmit={handleSubmit(onSubmit)}>
-        {!isCredentialsEnabled && socialProviders?.length === 0 && (
+      {!(isCredentialsEnabled || isMagicLinkAvailable) &&
+        socialProviders?.length === 0 && (
           <div className="flex w-full items-center gap-4">
             <div className="h-[1px] w-1/3 bg-light-600 dark:bg-dark-600" />
             <span className="text-center text-sm text-light-900 dark:text-dark-900">
@@ -371,65 +376,62 @@ export function Auth({ setIsMagicLinkSent, isSignUp }: AuthProps) {
             <div className="h-[1px] w-1/3 bg-light-600 dark:bg-dark-600" />
           </div>
         )}
-        {!isCredentialsEnabled && socialProviders?.length !== 0 && (
-          <div className="mb-[1.5rem] flex w-full items-center gap-4">
-            <div className="h-[1px] w-full bg-light-600 dark:bg-dark-600" />
-            <span className="text-sm text-light-900 dark:text-dark-900">
-              {t`or`}
-            </span>
-            <div className="h-[1px] w-full bg-light-600 dark:bg-dark-600" />
-          </div>
-        )}
-        <div className="space-y-2">
-          {isSignUp && isCredentialsEnabled && (
-            <div>
-              <Input
-                {...register("name", { required: true })}
-                placeholder={t`Enter your name`}
-              />
-              {errors.name && (
-                <p className="mt-2 text-xs text-red-400">
-                  {t`Please enter a valid name`}
-                </p>
-              )}
+      {(isCredentialsEnabled || isMagicLinkAvailable) && (
+        <form onSubmit={handleSubmit(onSubmit)}>
+          {socialProviders?.length !== 0 && (
+            <div className="mb-[1.5rem] flex w-full items-center gap-4">
+              <div className="h-[1px] w-full bg-light-600 dark:bg-dark-600" />
+              <span className="text-sm text-light-900 dark:text-dark-900">
+                {t`or`}
+              </span>
+              <div className="h-[1px] w-full bg-light-600 dark:bg-dark-600" />
             </div>
           )}
-          {(isCredentialsEnabled || isMagicLinkAvailable) && (
-            <>
+          <div className="space-y-2">
+            {isSignUp && isCredentialsEnabled && (
               <div>
                 <Input
-                  {...register("email", { required: true })}
-                  placeholder={t`Enter your email address`}
+                  {...register("name", { required: true })}
+                  placeholder={t`Enter your name`}
                 />
-                {errors.email && (
+                {errors.name && (
                   <p className="mt-2 text-xs text-red-400">
-                    {t`Please enter a valid email address`}
+                    {t`Please enter a valid name`}
                   </p>
                 )}
               </div>
-
-              {isCredentialsEnabled && (
-                <div>
-                  <Input
-                    type="password"
-                    {...register("password", { required: true })}
-                    placeholder={t`Enter your password`}
-                  />
-                  {errors.password && (
-                    <p className="mt-2 text-xs text-red-400">
-                      {errors.password.message ??
-                        t`Please enter a valid password`}
-                    </p>
-                  )}
-                </div>
+            )}
+            <div>
+              <Input
+                {...register("email", { required: true })}
+                placeholder={t`Enter your email address`}
+              />
+              {errors.email && (
+                <p className="mt-2 text-xs text-red-400">
+                  {t`Please enter a valid email address`}
+                </p>
               )}
-            </>
-          )}
-          {loginError && (
-            <p className="mt-2 text-xs text-red-400">{loginError}</p>
-          )}
-        </div>
-        {(isCredentialsEnabled || isMagicLinkAvailable) && (
+            </div>
+
+            {isCredentialsEnabled && (
+              <div>
+                <Input
+                  type="password"
+                  {...register("password", { required: true })}
+                  placeholder={t`Enter your password`}
+                />
+                {errors.password && (
+                  <p className="mt-2 text-xs text-red-400">
+                    {errors.password.message ??
+                      t`Please enter a valid password`}
+                  </p>
+                )}
+              </div>
+            )}
+            {loginError && (
+              <p className="mt-2 text-xs text-red-400">{loginError}</p>
+            )}
+          </div>
           <div className="mt-[1.5rem] flex items-center gap-4">
             <Button
               isLoading={isLoginWithEmailPending}
@@ -441,8 +443,11 @@ export function Auth({ setIsMagicLinkSent, isSignUp }: AuthProps) {
               {isMagicLinkMode ? t`magic link` : t`email`}
             </Button>
           </div>
-        )}
-      </form>
+        </form>
+      )}
+      {!(isCredentialsEnabled || isMagicLinkAvailable) && loginError && (
+        <p className="mt-2 text-xs text-red-400">{loginError}</p>
+      )}
     </div>
   );
 }

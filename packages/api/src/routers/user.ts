@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import * as userRepo from "@kan/db/repository/user.repo";
+import { generateAvatarUrl } from "@kan/shared/utils";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 
@@ -26,11 +27,12 @@ export const userRouter = createTRPCRouter({
         name: z.string().nullable(),
         image: z.string().nullable(),
         stripeCustomerId: z.string().nullable(),
+        hasPassword: z.boolean(),
+        hasMagicLinkAccount: z.boolean(),
         apiKey: z
           .object({
             id: z.number(),
             prefix: z.string().nullable(),
-            key: z.string(),
           })
           .nullable(),
       }),
@@ -55,9 +57,15 @@ export const userRouter = createTRPCRouter({
 
       const apiKey = result.apiKeys[0];
 
+      // Generate presigned URL for avatar
+      const imageUrl = await generateAvatarUrl(result.image);
+
       return {
         ...result,
-        apiKey: apiKey ?? null,
+        image: imageUrl,
+        hasPassword: result.hasPassword,
+        hasMagicLinkAccount: result.hasMagicLinkAccount,
+        apiKey: apiKey ? { id: apiKey.id, prefix: apiKey.prefix } : null,
       };
     }),
   update: protectedProcedure
@@ -102,6 +110,68 @@ export const userRouter = createTRPCRouter({
         });
       }
 
-      return result;
+      // Generate presigned URL for avatar
+      const imageUrl = await generateAvatarUrl(result.image);
+
+      return {
+        ...result,
+        image: imageUrl,
+      };
+    }),
+  setPassword: protectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/users/me/password",
+        summary: "Set password",
+        description:
+          "Sets a password for a user who signed up via magic link and has no password yet",
+        tags: ["Users"],
+        protect: true,
+      },
+    })
+    .input(
+      z.object({
+        newPassword: z
+          .string()
+          .min(8, "Password must be at least 8 characters"),
+      }),
+    )
+    .output(z.object({ success: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user?.id;
+
+      if (!userId)
+        throw new TRPCError({
+          message: `User not authenticated`,
+          code: "UNAUTHORIZED",
+        });
+
+      const existing = await userRepo.getById(ctx.db, userId);
+
+      if (!existing) {
+        throw new TRPCError({
+          message: `User not found`,
+          code: "NOT_FOUND",
+        });
+      }
+
+      if (existing.hasPassword) {
+        throw new TRPCError({
+          message: `Password already set; use change password instead`,
+          code: "BAD_REQUEST",
+        });
+      }
+
+      try {
+        await ctx.auth.api.setPassword({ newPassword: input.newPassword });
+      } catch {
+        throw new TRPCError({
+          message: "Failed to set password",
+          code: "INTERNAL_SERVER_ERROR",
+        });
+      }
+
+      return { success: true };
     }),
 });

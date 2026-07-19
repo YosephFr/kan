@@ -16,10 +16,12 @@ const UpdateWorkspaceUrlForm = ({
   workspacePublicId,
   workspaceUrl,
   workspacePlan,
+  disabled = false,
 }: {
   workspacePublicId: string;
   workspaceUrl: string;
-  workspacePlan: "free" | "pro" | "enterprise";
+  workspacePlan: "free" | "team" | "pro" | "enterprise";
+  disabled?: boolean;
 }) => {
   const utils = api.useUtils();
   const { showPopup } = usePopup();
@@ -31,7 +33,7 @@ const UpdateWorkspaceUrlForm = ({
       .min(3, {
         message: t`URL must be at least 3 characters long`,
       })
-      .max(24, { message: t`URL cannot exceed 24 characters` })
+      .max(64, { message: t`URL cannot exceed 64 characters` })
       .regex(/^(?![-]+$)[a-zA-Z0-9-]+$/, {
         message: t`URL can only contain letters, numbers, and hyphens`,
       }),
@@ -136,9 +138,10 @@ const UpdateWorkspaceUrlForm = ({
               <HiCheck className="h-4 w-4 dark:text-dark-1000" />
             ) : null
           }
+          disabled={disabled}
         />
       </div>
-      {isDirty && (
+      {isDirty && !disabled && (
         <div>
           <Button
             onClick={handleSubmit(onSubmit)}

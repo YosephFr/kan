@@ -209,10 +209,12 @@ export const getByPublicId = async (db: dbClient, listPublicId: string) => {
   return db.query.lists.findFirst({
     columns: {
       id: true,
+      publicId: true,
+      name: true,
       boardId: true,
       index: true,
     },
-    where: eq(lists.publicId, listPublicId),
+    where: and(eq(lists.publicId, listPublicId), isNull(lists.deletedAt)),
   });
 };
 
@@ -402,8 +404,6 @@ export const softDeleteById = async (
       .groupBy(lists.index)
       .having(gt(countExpr, 1));
 
-    console.log(duplicateIndices);
-
     if (duplicateIndices.length > 0) {
       throw new Error(
         `Duplicate indices found after reordering in board ${result.boardId}`,
@@ -419,18 +419,28 @@ export const getWorkspaceAndListIdByListPublicId = async (
   listPublicId: string,
 ) => {
   const result = await db.query.lists.findFirst({
-    columns: { id: true },
+    columns: { id: true, name: true, createdBy: true },
     where: and(eq(lists.publicId, listPublicId), isNull(lists.deletedAt)),
     with: {
       board: {
         columns: {
+          publicId: true,
           workspaceId: true,
+          name: true,
         },
       },
     },
   });
 
   return result
-    ? { id: result.id, workspaceId: result.board.workspaceId }
+    ? {
+        id: result.id,
+        publicId: listPublicId,
+        name: result.name,
+        createdBy: result.createdBy,
+        workspaceId: result.board.workspaceId,
+        boardPublicId: result.board.publicId,
+        boardName: result.board.name,
+      }
     : null;
 };

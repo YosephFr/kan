@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { ChatOrPushProviderEnum } from "@novu/api/models/components";
 import { createAuthMiddleware } from "better-auth/api";
 import { env } from "next-runtime-env";
@@ -7,7 +7,10 @@ import type { dbClient } from "@kan/db/client";
 import * as memberRepo from "@kan/db/repository/member.repo";
 import * as userRepo from "@kan/db/repository/user.repo";
 import { notificationClient } from "@kan/email";
-import { createEmailUnsubscribeLink } from "@kan/shared";
+import { createLogger } from "@kan/logger";
+import { createEmailUnsubscribeLink, createS3Client } from "@kan/shared";
+
+const log = createLogger("auth");
 
 import { downloadImage } from "./utils";
 
@@ -61,20 +64,7 @@ export function createDatabaseHooks(db: dbClient) {
             !user.image.includes(storageDomain)
           ) {
             try {
-              const credentials =
-                env("S3_ACCESS_KEY_ID") && env("S3_SECRET_ACCESS_KEY")
-                  ? {
-                      accessKeyId: env("S3_ACCESS_KEY_ID")!,
-                      secretAccessKey: env("S3_SECRET_ACCESS_KEY")!,
-                    }
-                  : undefined;
-
-              const client = new S3Client({
-                region: env("S3_REGION") ?? "",
-                endpoint: env("S3_ENDPOINT") ?? "",
-                forcePathStyle: env("S3_FORCE_PATH_STYLE") === "true",
-                credentials,
-              });
+              const client = createS3Client();
 
               const allowedFileExtensions = ["jpg", "jpeg", "png", "webp"];
 
@@ -116,6 +106,7 @@ export function createDatabaseHooks(db: dbClient) {
 
               const unsubscribeUrl = await createEmailUnsubscribeLink(user.id);
 
+              log.info({ workflowId: "user-signup", userId: user.id, email: user.email }, "Triggering Novu workflow");
               await notificationClient.trigger({
                 to: {
                   subscriberId: user.id,
@@ -135,6 +126,7 @@ export function createDatabaseHooks(db: dbClient) {
                 },
                 workflowId: "user-signup",
               });
+              log.info({ workflowId: "user-signup", userId: user.id }, "Novu workflow triggered");
 
               await notificationClient.subscribers.credentials.update(
                 {
@@ -147,7 +139,7 @@ export function createDatabaseHooks(db: dbClient) {
                 user.id,
               );
             } catch (error) {
-              console.error("Error adding user to notification client", error);
+              log.error({ err: error }, "Error adding user to notification client");
             }
           }
         },
