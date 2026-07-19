@@ -5,7 +5,10 @@ import { useEffect, useRef, useState } from "react";
 
 import Button from "~/components/Button";
 import Input from "~/components/Input";
+import Modal from "~/components/modal";
+import { NewWorkspaceForm } from "~/components/NewWorkspaceForm";
 import { PageHead } from "~/components/PageHead";
+import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
 
@@ -14,6 +17,7 @@ const acceptedLogoTypes = ["image/jpeg", "image/png", "image/webp"];
 export default function WhitelabelSettings() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const { modalContentType, isOpen } = useModal();
   const { showPopup } = usePopup();
   const utils = api.useUtils();
   const { data: branding, isLoading } = api.branding.get.useQuery();
@@ -280,6 +284,12 @@ export default function WhitelabelSettings() {
           </Button>
         </div>
       </form>
+      <Modal
+        modalSize="sm"
+        isVisible={isOpen && modalContentType === "NEW_WORKSPACE"}
+      >
+        <NewWorkspaceForm />
+      </Modal>
     </>
   );
 }
