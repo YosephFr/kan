@@ -104,6 +104,9 @@ jobs:
           deploy/imanleads/init-minio.sh
           deploy/imanleads/install-nginx.sh
 
+      - name: Generate Next.js types
+        run: pnpm --filter @kan/web exec next typegen
+
       - name: Typecheck production targets
         run: >-
           pnpm exec turbo run typecheck
