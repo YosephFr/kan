@@ -64,6 +64,7 @@ export const getAllByWorkspaceId = async (
           name: true,
           index: true,
         },
+        where: isNull(lists.deletedAt),
         orderBy: [asc(lists.index)],
       },
       labels: {
@@ -78,7 +79,9 @@ export const getAllByWorkspaceId = async (
       eq(boards.workspaceId, workspaceId),
       isNull(boards.deletedAt),
       opts?.type ? eq(boards.type, opts.type) : undefined,
-      opts?.archived !== undefined ? eq(boards.isArchived, opts.archived) : undefined,
+      opts?.archived !== undefined
+        ? eq(boards.isArchived, opts.archived)
+        : undefined,
     ),
   });
 
@@ -647,7 +650,9 @@ export const update = async (
       slug: boardInput.slug,
       visibility: boardInput.visibility,
       updatedAt: new Date(),
-      ...(boardInput.isArchived !== undefined && { isArchived: boardInput.isArchived })
+      ...(boardInput.isArchived !== undefined && {
+        isArchived: boardInput.isArchived,
+      }),
     })
     .where(eq(boards.publicId, boardInput.boardPublicId))
     .returning({
@@ -730,10 +735,7 @@ export const getWorkspaceAndBoardIdByBoardPublicId = async (
  * Soft-deleted boards are excluded — moving a tombstoned board has
  * no defensible semantics.
  */
-export const getBoardForMove = async (
-  db: dbClient,
-  boardPublicId: string,
-) => {
+export const getBoardForMove = async (db: dbClient, boardPublicId: string) => {
   return db.query.boards.findFirst({
     columns: {
       id: true,
@@ -1073,8 +1075,8 @@ export const removeUserFavorite = async (
     .where(
       and(
         eq(userBoardFavorites.userId, userId),
-        eq(userBoardFavorites.boardId, boardId)
-      )
+        eq(userBoardFavorites.boardId, boardId),
+      ),
     )
     .returning();
 };

@@ -7917,5 +7917,133 @@
     "comments": [],
     "origin": [["src/components/YouTubeEmbed/EditYouTubeModal.tsx", 147]],
     "translation": "Adres URL YouTube"
+  },
+  "wmwvU1": {
+    "message": "Card moved",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/CardContextMoveBoardModal.tsx",
+        50
+      ]
+    ],
+    "translation": ""
+  },
+  "CVa6RO": {
+    "message": "Choose a board and destination list.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/CardContextMoveBoardModal.tsx",
+        91
+      ]
+    ],
+    "translation": ""
+  },
+  "TnU3pN": {
+    "message": "Move card",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/CardContextMoveBoardModal.tsx",
+        202
+      ]
+    ],
+    "translation": ""
+  },
+  "CluBqG": {
+    "message": "Move to another board",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/CardContextMenu.tsx",
+        53
+      ],
+      [
+        "src/views/board/components/CardContextMoveBoardModal.tsx",
+        88
+      ]
+    ],
+    "translation": ""
+  },
+  "ksgFyQ": {
+    "message": "Select a board",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/CardContextMoveBoardModal.tsx",
+        129
+      ]
+    ],
+    "translation": ""
+  },
+  "loYRe+": {
+    "message": "The card was moved to {0}.",
+    "placeholders": {
+      "0": [
+        "selectedBoard?.name ?? \"\""
+      ]
+    },
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/CardContextMoveBoardModal.tsx",
+        51
+      ]
+    ],
+    "translation": ""
+  },
+  "BPNJWo": {
+    "message": "There are no other active boards in this workspace.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/CardContextMoveBoardModal.tsx",
+        110
+      ]
+    ],
+    "translation": ""
+  },
+  "RL9JcZ": {
+    "message": "This board has no lists.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/CardContextMoveBoardModal.tsx",
+        169
+      ]
+    ],
+    "translation": ""
+  },
+  "rrjIqt": {
+    "message": "This card's labels will be removed because labels belong to the current board.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/CardContextMoveBoardModal.tsx",
+        178
+      ]
+    ],
+    "translation": ""
+  },
+  "bwpWC2": {
+    "message": "Unable to load boards. Please try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/CardContextMoveBoardModal.tsx",
+        106
+      ]
+    ],
+    "translation": ""
   }
 }

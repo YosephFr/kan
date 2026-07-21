@@ -267,6 +267,11 @@ export const getByPublicId = (db: dbClient, cardPublicId: string) => {
           name: true,
         },
       },
+      labels: {
+        columns: {
+          labelId: true,
+        },
+      },
     },
     where: eq(cards.publicId, cardPublicId),
   });
@@ -709,6 +714,7 @@ export const reorder = async (
     newListId: number | undefined;
     newIndex: number | undefined;
     cardId: number;
+    clearLabels?: boolean;
   },
 ) => {
   return db.transaction(async (tx) => {
@@ -730,6 +736,12 @@ export const reorder = async (
 
     if (!card?.list)
       throw new Error(`Card not found for public ID ${args.cardId}`);
+
+    if (args.clearLabels) {
+      await tx
+        .delete(cardsToLabels)
+        .where(eq(cardsToLabels.cardId, args.cardId));
+    }
 
     const currentList = card.list;
     const currentIndex = card.index;

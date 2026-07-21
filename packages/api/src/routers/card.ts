@@ -710,27 +710,25 @@ export const cardRouter = createTRPCRouter({
       );
 
       // Generate presigned URLs for workspace member avatars
-      const workspaceWithAvatarUrls = result.list.board.workspace
-        ? {
-            ...result.list.board.workspace,
-            members: await Promise.all(
-              result.list.board.workspace.members.map(async (member) => {
-                if (!member.user?.image) {
-                  return member;
-                }
+      const workspaceWithAvatarUrls = {
+        ...result.list.board.workspace,
+        members: await Promise.all(
+          result.list.board.workspace.members.map(async (member) => {
+            if (!member.user?.image) {
+              return member;
+            }
 
-                const avatarUrl = await generateAvatarUrl(member.user.image);
-                return {
-                  ...member,
-                  user: {
-                    ...member.user,
-                    image: avatarUrl,
-                  },
-                };
-              }),
-            ),
-          }
-        : result.list.board.workspace;
+            const avatarUrl = await generateAvatarUrl(member.user.image);
+            return {
+              ...member,
+              user: {
+                ...member.user,
+                image: avatarUrl,
+              },
+            };
+          }),
+        ),
+      };
 
       return {
         ...result,
@@ -900,24 +898,33 @@ export const cardRouter = createTRPCRouter({
 
       let newListId: number | undefined;
       let newList:
-        | {
-            id: number;
-            publicId: string;
-            name: string;
-            boardId: number;
-            index: number;
-          }
+        | NonNullable<
+            Awaited<
+              ReturnType<typeof listRepo.getWorkspaceAndListIdByListPublicId>
+            >
+          >
         | undefined;
 
       if (input.listPublicId) {
-        newList = await listRepo.getByPublicId(ctx.db, input.listPublicId);
+        const destinationList =
+          await listRepo.getWorkspaceAndListIdByListPublicId(
+            ctx.db,
+            input.listPublicId,
+          );
 
-        if (!newList)
+        if (!destinationList)
           throw new TRPCError({
             message: `List with public ID ${input.listPublicId} not found`,
             code: "NOT_FOUND",
           });
 
+        if (destinationList.workspaceId !== card.workspaceId)
+          throw new TRPCError({
+            message: `Cards can only be moved within the same workspace`,
+            code: "BAD_REQUEST",
+          });
+
+        newList = destinationList;
         newListId = newList.id;
       }
 
@@ -939,6 +946,9 @@ export const cardRouter = createTRPCRouter({
         | undefined;
 
       const previousDueDate = existingCard.dueDate;
+      const movedToNewBoard = Boolean(
+        newList && newList.boardPublicId !== card.boardPublicId,
+      );
 
       if (input.title || input.description || input.dueDate !== undefined) {
         result = await cardRepo.update(
@@ -957,6 +967,7 @@ export const cardRouter = createTRPCRouter({
           cardId: existingCard.id,
           newIndex: input.index,
           newListId: newListId,
+          clearLabels: movedToNewBoard,
         });
       }
 
@@ -1033,6 +1044,17 @@ export const cardRouter = createTRPCRouter({
         });
       }
 
+      if (movedToNewBoard) {
+        activities.push(
+          ...existingCard.labels.map(({ labelId }) => ({
+            type: "card.updated.label.removed" as const,
+            cardId: result.id,
+            createdBy: userId,
+            labelId,
+          })),
+        );
+      }
+
       if (activities.length > 0) {
         await cardActivityRepo.bulkCreate(ctx.db, activities);
       }
@@ -1055,19 +1077,16 @@ export const cardRouter = createTRPCRouter({
         webhookChanges.dueDate = { from: previousDueDate, to: input.dueDate };
       }
       const movedToNewList = Boolean(
-        newListId && existingCard.listId !== newListId,
+        newList && existingCard.listId !== newList.id,
       );
-      const currentWebhookListPublicId = movedToNewList
-        ? input.listPublicId!
-        : existingCard.list.publicId;
-      const currentWebhookListName = movedToNewList
-        ? (newList?.name ?? card.listName)
-        : existingCard.list.name;
+      const currentWebhookListPublicId =
+        newList?.publicId ?? existingCard.list.publicId;
+      const currentWebhookListName = newList?.name ?? existingCard.list.name;
 
-      if (movedToNewList) {
+      if (movedToNewList && newList) {
         webhookChanges.listId = {
           from: existingCard.list.publicId,
-          to: input.listPublicId!,
+          to: newList.publicId,
         };
       }
 
@@ -1086,8 +1105,12 @@ export const cardRouter = createTRPCRouter({
             listId: currentWebhookListPublicId,
           },
           {
-            boardId: card.boardPublicId,
-            boardName: card.boardName,
+            boardId:
+              movedToNewBoard && newList
+                ? newList.boardPublicId
+                : card.boardPublicId,
+            boardName:
+              movedToNewBoard && newList ? newList.boardName : card.boardName,
             listName: currentWebhookListName,
             user: ctx.user
               ? { id: ctx.user.id, name: ctx.user.name }
@@ -1297,7 +1320,7 @@ export const cardRouter = createTRPCRouter({
         });
       }
 
-      if (input.copyLabels && sourceCard.labels?.length) {
+      if (input.copyLabels && sourceCard.labels.length) {
         const labelPublicIds = sourceCard.labels.map((l) => l.publicId);
         const labels = await labelRepo.getAllByPublicIds(
           ctx.db,
@@ -1319,7 +1342,7 @@ export const cardRouter = createTRPCRouter({
         }
       }
 
-      if (input.copyMembers && sourceCard.members?.length) {
+      if (input.copyMembers && sourceCard.members.length) {
         const memberPublicIds = sourceCard.members.map((m) => m.publicId);
         const members = await workspaceRepo.getAllMembersByPublicIds(
           ctx.db,
@@ -1344,7 +1367,7 @@ export const cardRouter = createTRPCRouter({
         }
       }
 
-      if (input.copyChecklists && sourceCard.checklists?.length) {
+      if (input.copyChecklists && sourceCard.checklists.length) {
         for (const checklist of sourceCard.checklists) {
           const newChecklist = await checklistRepo.create(ctx.db, {
             cardId: newCard.id,
@@ -1352,7 +1375,7 @@ export const cardRouter = createTRPCRouter({
             createdBy: userId,
           });
           if (!newChecklist?.id) continue;
-          if (checklist.items?.length) {
+          if (checklist.items.length) {
             for (const item of checklist.items) {
               await checklistRepo.createItem(ctx.db, {
                 checklistId: newChecklist.id,

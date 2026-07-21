@@ -2,17 +2,19 @@ import { t } from "@lingui/core/macro";
 import { useEffect, useRef } from "react";
 import {
   HiLink,
+  HiOutlineArrowRightCircle,
   HiOutlineCalendar,
   HiOutlineDocumentDuplicate,
   HiOutlineTag,
   HiOutlineTrash,
   HiOutlineUserGroup,
-  HiOutlineArrowRightCircle,
+  HiOutlineViewColumns,
 } from "react-icons/hi2";
 
 export type CardContextMenuAction =
   | "members"
   | "move"
+  | "moveBoard"
   | "labels"
   | "dueDate"
   | "copyLink"
@@ -25,14 +27,15 @@ interface CardContextMenuProps {
   onClose: () => void;
   onAction: (action: CardContextMenuAction) => void;
   canEdit: boolean;
+  canMoveToBoard: boolean;
 }
 
-const MENU_ITEMS: {
+const getMenuItems = (): {
   action: CardContextMenuAction;
   label: string;
   icon: React.ReactNode;
   requiresEdit: boolean;
-}[] = [
+}[] => [
   {
     action: "members",
     label: t`Manage members`,
@@ -43,6 +46,12 @@ const MENU_ITEMS: {
     action: "move",
     label: t`Move to another list`,
     icon: <HiOutlineArrowRightCircle className="h-4 w-4 shrink-0" />,
+    requiresEdit: true,
+  },
+  {
+    action: "moveBoard",
+    label: t`Move to another board`,
+    icon: <HiOutlineViewColumns className="h-4 w-4 shrink-0" />,
     requiresEdit: true,
   },
   {
@@ -83,6 +92,7 @@ export function CardContextMenu({
   onClose,
   onAction,
   canEdit,
+  canMoveToBoard,
 }: CardContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -103,13 +113,28 @@ export function CardContextMenu({
     };
   }, [onClose]);
 
-  const items = MENU_ITEMS.filter((item) => !item.requiresEdit || canEdit);
+  const items = getMenuItems().filter(
+    (item) =>
+      (!item.requiresEdit || canEdit) &&
+      (item.action !== "moveBoard" || canMoveToBoard),
+  );
+  const position =
+    typeof window === "undefined"
+      ? { left: x, top: y }
+      : {
+          ...(x > window.innerWidth / 2
+            ? { right: Math.max(window.innerWidth - x, 8) }
+            : { left: Math.max(x, 8) }),
+          ...(y > window.innerHeight / 2
+            ? { bottom: Math.max(window.innerHeight - y, 8) }
+            : { top: Math.max(y, 8) }),
+        };
 
   return (
     <div
       ref={menuRef}
-      className="fixed z-[200] min-w-[200px] rounded-md border border-light-200 bg-white py-1 shadow-lg dark:border-dark-400 dark:bg-dark-200"
-      style={{ left: x, top: y }}
+      className="fixed z-[200] max-h-[calc(100vh-1rem)] min-w-[200px] overflow-y-auto rounded-md border border-light-200 bg-white py-1 shadow-lg dark:border-dark-400 dark:bg-dark-200"
+      style={position}
     >
       {items.map(({ action, label, icon }) => (
         <button

@@ -44,6 +44,7 @@ import { CardContextDuplicateModal } from "./components/CardContextDuplicateModa
 import { CardContextLabelsModal } from "./components/CardContextLabelsModal";
 import { CardContextMembersModal } from "./components/CardContextMembersModal";
 import { CardContextMenu } from "./components/CardContextMenu";
+import { CardContextMoveBoardModal } from "./components/CardContextMoveBoardModal";
 import { CardContextMoveListModal } from "./components/CardContextMoveListModal";
 import { DeleteBoardConfirmation } from "./components/DeleteBoardConfirmation";
 import { DeleteListConfirmation } from "./components/DeleteListConfirmation";
@@ -150,13 +151,13 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
 
   // Redirect to 404 if board doesn't exist
   useEffect(() => {
-    if (router.isReady && boardId && !isQueryLoading) {
-      if (
-        error?.data?.code === "NOT_FOUND" ||
-        (!boardData && !isQueryLoading)
-      ) {
-        router.replace("/404");
-      }
+    if (
+      router.isReady &&
+      boardId &&
+      !isQueryLoading &&
+      (error?.data?.code === "NOT_FOUND" || !boardData)
+    ) {
+      void router.replace("/404");
     }
   }, [router, boardId, isQueryLoading, error, boardData]);
 
@@ -282,7 +283,7 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
   });
 
   useEffect(() => {
-    if (isSuccess && boardData) {
+    if (isSuccess) {
       setValue("name", boardData.name || "");
     }
   }, [isSuccess, boardData, setValue]);
@@ -336,9 +337,11 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
         ? "CARD_CONTEXT_MEMBERS"
         : action === "move"
           ? "CARD_CONTEXT_MOVE_LIST"
-          : action === "labels"
-            ? "CARD_CONTEXT_LABELS"
-            : "CARD_CONTEXT_DUE_DATE";
+          : action === "moveBoard"
+            ? "CARD_CONTEXT_MOVE_BOARD"
+            : action === "labels"
+              ? "CARD_CONTEXT_LABELS"
+              : "CARD_CONTEXT_DUE_DATE";
     openModal(modalType, cardPublicId);
   };
 
@@ -473,7 +476,7 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
           isVisible={isOpen && modalContentType === "CREATE_TEMPLATE"}
         >
           <NewTemplateForm
-            workspacePublicId={workspace.publicId ?? ""}
+            workspacePublicId={workspace.publicId}
             sourceBoardPublicId={boardId ?? ""}
             sourceBoardName={boardData?.name ?? ""}
           />
@@ -497,6 +500,12 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
           isVisible={isOpen && modalContentType === "CARD_CONTEXT_MOVE_LIST"}
         >
           <CardContextMoveListModal />
+        </Modal>
+        <Modal
+          modalSize="sm"
+          isVisible={isOpen && modalContentType === "CARD_CONTEXT_MOVE_BOARD"}
+        >
+          <CardContextMoveBoardModal />
         </Modal>
         <Modal
           modalSize="sm"
@@ -535,7 +544,7 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
   return (
     <>
       <PageHead
-        title={`${boardData?.name ?? (isTemplate ? t`Board` : t`Template`)} | ${workspace.name ?? t`Workspace`}`}
+        title={`${boardData?.name ?? (isTemplate ? t`Board` : t`Template`)} | ${workspace.name}`}
       />
       <div className="relative flex h-full flex-col">
         <PatternedBackground />
@@ -776,11 +785,11 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
                                             }
                                             labels={card.labels}
                                             members={card.members}
-                                            checklists={card.checklists ?? []}
+                                            checklists={card.checklists}
                                             description={
                                               card.description ?? null
                                             }
-                                            comments={card.comments ?? []}
+                                            comments={card.comments}
                                             attachments={card.attachments}
                                             dueDate={card.dueDate ?? null}
                                           />
@@ -811,6 +820,7 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
             onClose={() => setContextMenu(null)}
             onAction={handleCardContextMenuAction}
             canEdit={!!canEditCard}
+            canMoveToBoard={!isTemplate}
           />
         )}
         {renderModalContent()}
