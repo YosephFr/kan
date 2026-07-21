@@ -43,14 +43,15 @@ function PulseSkeleton() {
 }
 
 export default function PulseView() {
-  const { workspace } = useWorkspace();
+  const { workspace, hasLoaded } = useWorkspace();
   const { dateLocale } = useLocalisation();
   const [period, setPeriod] = useState<Period>("week");
+  const workspaceReady = hasLoaded && workspace.publicId.length >= 12;
   const { data, error, isLoading, isFetching, refetch } =
     api.pulse.summary.useQuery(
       { workspacePublicId: workspace.publicId, period },
       {
-        enabled: workspace.publicId.length >= 12,
+        enabled: workspaceReady,
         refetchInterval: 15_000,
         refetchIntervalInBackground: false,
         refetchOnWindowFocus: "always",
@@ -112,7 +113,7 @@ export default function PulseView() {
               variant="secondary"
               size="sm"
               onClick={() => void refetch()}
-              disabled={isFetching}
+              disabled={!workspaceReady || isFetching}
               iconLeft={
                 <HiArrowPath
                   className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
@@ -134,7 +135,7 @@ export default function PulseView() {
           </span>
         </div>
 
-        {isLoading ? (
+        {!workspaceReady || isLoading ? (
           <PulseSkeleton />
         ) : error || !data ? (
           <section className="rounded-lg border border-red-300 bg-red-50 p-6 dark:border-red-800 dark:bg-red-950/20">
