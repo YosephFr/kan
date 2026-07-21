@@ -174,7 +174,7 @@ export default function PulseView() {
               />
             </div>
 
-            <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(300px,0.8fr)_minmax(0,1.6fr)]">
+            <div className="grid min-w-0 grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(300px,0.8fr)_minmax(0,1.6fr)]">
               <WorkloadList workload={data.workload} />
               <AttentionList
                 attention={data.attention}
