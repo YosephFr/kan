@@ -38,6 +38,33 @@
     ],
     "translation": "{0} | {1}"
   },
+  "mn0MS8": {
+    "message": "{0} blocked",
+    "placeholders": {
+      "0": ["item.blocked"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/components/WorkloadList.tsx", 61]],
+    "translation": ""
+  },
+  "Wmmi9Y": {
+    "message": "{0} d",
+    "placeholders": {
+      "0": ["Math.round((hours / 24) * 10) / 10"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/components/KpiStrip.tsx", 19]],
+    "translation": ""
+  },
+  "CpP8bI": {
+    "message": "{0} days in this stage",
+    "placeholders": {
+      "0": ["card.inactiveDays"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/components/AttentionList.tsx", 84]],
+    "translation": ""
+  },
   "mU+M00": {
     "message": "{0} has been added to your favorites.",
     "placeholders": {
@@ -71,8 +98,27 @@
       "0": ["isTemplate ? \"Template\" : \"Board\""]
     },
     "comments": [],
-    "origin": [["src/views/board/index.tsx", 565]],
+    "origin": [["src/views/board/index.tsx", 574]],
     "translation": "{0} não encontrado"
+  },
+  "QQ692y": {
+    "message": "{0} of {1} completed",
+    "placeholders": {
+      "0": ["checklist.completed"],
+      "1": ["checklist.total"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/components/FlowOverview.tsx", 143]],
+    "translation": ""
+  },
+  "U2lHCx": {
+    "message": "{0} without movement",
+    "placeholders": {
+      "0": ["item.stalled"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/components/WorkloadList.tsx", 62]],
+    "translation": ""
   },
   "0xWkkH": {
     "message": "{boardCount, plural, one {Import board (1)} other {Import boards ({boardCount})}}",
@@ -82,6 +128,34 @@
     "comments": [],
     "origin": [["src/views/boards/components/ImportBoardsForm.tsx", 489]],
     "translation": "{boardCount, plural, one {Importar quadro (1)} other {Importar quadros ({boardCount})}}"
+  },
+  "rjGSvb": {
+    "message": "{cycleSamples} complete transitions",
+    "placeholders": {
+      "cycleSamples": ["cycleSamples"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/components/KpiStrip.tsx", 50]],
+    "translation": ""
+  },
+  "uWT7wF": {
+    "message": "{hours} h",
+    "placeholders": {
+      "hours": ["hours"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/components/KpiStrip.tsx", 18]],
+    "translation": ""
+  },
+  "8VPnyn": {
+    "message": "{label}: {0} delivered",
+    "placeholders": {
+      "0": ["point.delivered"],
+      "label": ["label"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/components/ThroughputChart.tsx", 59]],
+    "translation": ""
   },
   "yndBF+": {
     "message": "{projectCount, plural, one {Import project (1)} other {Import projects ({projectCount})}}",
@@ -125,6 +199,20 @@
     "comments": [],
     "origin": [["src/views/members/components/InviteMemberForm.tsx", 181]],
     "translation": "$8/mês"
+  },
+  "QK6o7W": {
+    "message": "1 complete transition",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/KpiStrip.tsx", 49]],
+    "translation": ""
+  },
+  "C23wNV": {
+    "message": "1 day in this stage",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/AttentionList.tsx", 83]],
+    "translation": ""
   },
   "zMlxCA": {
     "message": "1 user",
@@ -215,6 +303,13 @@
     "origin": [["src/pages/partner/activate.tsx", 56]],
     "translation": "Ative sua conta"
   },
+  "s/ereB": {
+    "message": "active",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/WorkloadList.tsx", 56]],
+    "translation": ""
+  },
   "F6pfE9": {
     "message": "Active",
     "placeholders": {},
@@ -256,7 +351,7 @@
     "message": "Add / edit label",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/components/CardContextMenu.tsx", 50]],
+    "origin": [["src/views/board/components/CardContextMenu.tsx", 59]],
     "translation": "Adicionar / editar etiqueta"
   },
   "B3xxao": {
@@ -580,6 +675,13 @@
     ],
     "translation": "Ocorreu um erro inesperado. Por favor, tente novamente mais tarde."
   },
+  "gnmUgO": {
+    "message": "Analysis period",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 92]],
+    "translation": ""
+  },
   "YkfDoz": {
     "message": "Annual",
     "placeholders": {},
@@ -780,6 +882,20 @@
     "origin": [["src/views/card/components/AttachmentUpload.tsx", 45]],
     "translation": "Anexo enviado"
   },
+  "87BTNJ": {
+    "message": "Attention now",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/AttentionList.tsx", 37]],
+    "translation": ""
+  },
+  "wRUG4H": {
+    "message": "Automatic refresh every 15 seconds",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 133]],
+    "translation": ""
+  },
   "1rWxEw": {
     "message": "Awaiting Customer",
     "placeholders": {},
@@ -882,6 +998,17 @@
     "origin": [["src/views/settings/BillingSettings.tsx", 98]],
     "translation": "Portal de cobrança"
   },
+  "32TndD": {
+    "message": "Blocked",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/pulse/components/AttentionList.tsx", 17],
+      ["src/views/pulse/components/FlowOverview.tsx", 26],
+      ["src/views/pulse/components/FlowOverview.tsx", 41]
+    ],
+    "translation": ""
+  },
   "4RoY9J": {
     "message": "Blog Post",
     "placeholders": {},
@@ -894,7 +1021,8 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/index.tsx", 538],
+      ["src/views/board/components/CardContextMoveBoardModal.tsx", 124],
+      ["src/views/board/index.tsx", 547],
       ["src/views/card/index.tsx", 321],
       ["src/views/public/board/index.tsx", 125]
     ],
@@ -1013,7 +1141,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/SideNavigation.tsx", 98],
+      ["src/components/SideNavigation.tsx", 100],
       ["src/views/pricing/components/FeatureComparisonTable.tsx", 73]
     ],
     "translation": "Quadros"
@@ -1036,7 +1164,7 @@
     "message": "Brand identity",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/settings/WhitelabelSettings.tsx", 155]],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 159]],
     "translation": ""
   },
   "rtu6aD": {
@@ -1044,8 +1172,8 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/settings/WhitelabelSettings.tsx", 173],
-      ["src/views/settings/WhitelabelSettings.tsx", 180]
+      ["src/views/settings/WhitelabelSettings.tsx", 177],
+      ["src/views/settings/WhitelabelSettings.tsx", 184]
     ],
     "translation": ""
   },
@@ -1053,21 +1181,21 @@
     "message": "Brand logo removed",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/settings/WhitelabelSettings.tsx", 126]],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 130]],
     "translation": ""
   },
   "7C7tMy": {
     "message": "Brand name",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/settings/WhitelabelSettings.tsx", 162]],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 166]],
     "translation": ""
   },
   "iP5UYt": {
     "message": "Branding updated",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/settings/WhitelabelSettings.tsx", 103]],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 107]],
     "translation": ""
   },
   "vXemf6": {
@@ -1333,6 +1461,7 @@
       ["src/components/SquareImageCropModal.tsx", 183],
       ["src/components/YouTubeEmbed/EditYouTubeModal.tsx", 176],
       ["src/views/board/components/CardContextDuplicateModal.tsx", 267],
+      ["src/views/board/components/CardContextMoveBoardModal.tsx", 193],
       ["src/views/board/components/DeleteBoardConfirmation.tsx", 44],
       ["src/views/board/components/MoveBoardForm.tsx", 99],
       ["src/views/card/components/Comment.tsx", 195],
@@ -1385,6 +1514,15 @@
     "origin": [["src/views/board/components/MoveBoardForm.tsx", 92]],
     "translation": "As atribuições de membros do cartão serão removidas ao mover para um workspace diferente."
   },
+  "wmwvU1": {
+    "message": "Card moved",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/CardContextMoveBoardModal.tsx", 55]
+    ],
+    "translation": ""
+  },
   "fEY2vP": {
     "message": "Card not found",
     "placeholders": {},
@@ -1407,11 +1545,18 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/index.tsx", 309],
+      ["src/views/board/index.tsx", 310],
       ["src/views/card/components/Dropdown.tsx", 74],
       ["src/views/public/board/CardModal.tsx", 38]
     ],
     "translation": "URL do cartão copiada para a área de transferência"
+  },
+  "1xuzgn": {
+    "message": "Cards with signals that need a decision",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/AttentionList.tsx", 40]],
+    "translation": ""
   },
   "f3cEDO": {
     "message": "Change image",
@@ -1424,7 +1569,7 @@
     "message": "Change logo",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/settings/WhitelabelSettings.tsx", 209]],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 213]],
     "translation": ""
   },
   "VhMDMg": {
@@ -1472,6 +1617,13 @@
     "origin": [["src/views/oss-friends/index.tsx", 61]],
     "translation": "Confira alguns dos nossos projetos open source favoritos."
   },
+  "bdUqaI": {
+    "message": "Check the connection and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 145]],
+    "translation": ""
+  },
   "5IXWmO": {
     "message": "Check your inbox",
     "placeholders": {},
@@ -1490,6 +1642,13 @@
     "origin": [["src/views/card/components/NewChecklistForm.tsx", 119]],
     "translation": "Nome da checklist"
   },
+  "3aVC1Z": {
+    "message": "Checklist progress",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/FlowOverview.tsx", 120]],
+    "translation": ""
+  },
   "EH8IL3": {
     "message": "Checklists",
     "placeholders": {},
@@ -1499,6 +1658,15 @@
       ["src/views/pricing/components/PricingTiers.tsx", 39]
     ],
     "translation": "Checklists"
+  },
+  "CVa6RO": {
+    "message": "Choose a board and destination list.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/CardContextMoveBoardModal.tsx", 96]
+    ],
+    "translation": ""
   },
   "zMquA7": {
     "message": "Choose a plan",
@@ -1513,7 +1681,7 @@
     "comments": [],
     "origin": [
       ["src/components/WorkspaceLogoPicker.tsx", 52],
-      ["src/views/settings/WhitelabelSettings.tsx", 61]
+      ["src/views/settings/WhitelabelSettings.tsx", 65]
     ],
     "translation": ""
   },
@@ -1860,7 +2028,7 @@
     "message": "Copy link to card",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/components/CardContextMenu.tsx", 62]],
+    "origin": [["src/views/board/components/CardContextMenu.tsx", 71]],
     "translation": "Copiar link do cartão"
   },
   "uvH2xS": {
@@ -1984,8 +2152,8 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/index.tsx", 93],
-      ["src/views/board/index.tsx", 683]
+      ["src/views/board/index.tsx", 94],
+      ["src/views/board/index.tsx", 692]
     ],
     "translation": "Criar nova lista"
   },
@@ -2045,6 +2213,20 @@
     "comments": [],
     "origin": [["src/views/settings/components/Avatar.tsx", 253]],
     "translation": "Recortar seu avatar"
+  },
+  "+cCK0g": {
+    "message": "Current flow",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/FlowOverview.tsx", 50]],
+    "translation": ""
+  },
+  "CV95RI": {
+    "message": "Current open work",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/KpiStrip.tsx", 40]],
+    "translation": ""
   },
   "D3C4Yx": {
     "message": "Current password is required",
@@ -2212,7 +2394,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/components/CardContextMenu.tsx", 74],
+      ["src/views/board/components/CardContextMenu.tsx", 83],
       ["src/views/card/components/Dropdown.tsx", 152]
     ],
     "translation": "Excluir cartão"
@@ -2290,6 +2472,27 @@
     "origin": [["src/views/card/components/ActivityList.tsx", 267]],
     "translation": "excluiu o item da checklist <0>{0}</0>"
   },
+  "BTOhSm": {
+    "message": "Delivered",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/KpiStrip.tsx", 31]],
+    "translation": ""
+  },
+  "e+Nhe1": {
+    "message": "Deliveries over time",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/ThroughputChart.tsx", 43]],
+    "translation": ""
+  },
+  "4Oih7e": {
+    "message": "Delivery rhythm",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/ThroughputChart.tsx", 27]],
+    "translation": ""
+  },
   "f8fH8W": {
     "message": "Design",
     "placeholders": {},
@@ -2310,7 +2513,7 @@
     "comments": [],
     "origin": [
       ["src/components/WorkspaceLogoPicker.tsx", 98],
-      ["src/views/settings/WhitelabelSettings.tsx", 219]
+      ["src/views/settings/WhitelabelSettings.tsx", 223]
     ],
     "translation": ""
   },
@@ -2362,6 +2565,13 @@
     "comments": [],
     "origin": [["src/views/settings/components/UpdateDisplayNameForm.tsx", 41]],
     "translation": "Nome de exibição atualizado"
+  },
+  "8G2d7r": {
+    "message": "Distribution of cards by stage",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/FlowOverview.tsx", 65]],
+    "translation": ""
   },
   "evj0lK": {
     "message": "Do you offer a free plan?",
@@ -2425,7 +2635,8 @@
       ["src/views/boards/components/TemplateBoards.tsx", 29],
       ["src/views/boards/components/TemplateBoards.tsx", 35],
       ["src/views/boards/components/TemplateBoards.tsx", 48],
-      ["src/views/boards/components/TemplateBoards.tsx", 61]
+      ["src/views/boards/components/TemplateBoards.tsx", 61],
+      ["src/views/pulse/components/FlowOverview.tsx", 27]
     ],
     "translation": "Concluído"
   },
@@ -2497,7 +2708,7 @@
     "comments": [],
     "origin": [
       ["src/views/board/components/CardContextDuplicateModal.tsx", 111],
-      ["src/views/board/components/CardContextMenu.tsx", 68],
+      ["src/views/board/components/CardContextMenu.tsx", 77],
       ["src/views/card/components/Dropdown.tsx", 130]
     ],
     "translation": "Duplicar cartão"
@@ -3213,7 +3424,7 @@
     "message": "Get started by creating a new list",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/index.tsx", 668]],
+    "origin": [["src/views/board/index.tsx", 677]],
     "translation": "Comece criando uma nova lista"
   },
   "oW13KZ": {
@@ -3290,7 +3501,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/SideNavigation.tsx", 106],
+      ["src/components/SideNavigation.tsx", 108],
       ["src/pages/404.tsx", 44]
     ],
     "translation": "Ir para quadros"
@@ -3306,21 +3517,28 @@
     "message": "Go to members",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/SideNavigation.tsx", 130]],
+    "origin": [["src/components/SideNavigation.tsx", 144]],
     "translation": "Ir para membros"
+  },
+  "9wH5iR": {
+    "message": "Go to pulse",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/SideNavigation.tsx", 120]],
+    "translation": ""
   },
   "1WuwiM": {
     "message": "Go to settings",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/SideNavigation.tsx", 142]],
+    "origin": [["src/components/SideNavigation.tsx", 156]],
     "translation": "Ir para configurações"
   },
   "csFbe+": {
     "message": "Go to templates",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/SideNavigation.tsx", 118]],
+    "origin": [["src/components/SideNavigation.tsx", 132]],
     "translation": "Ir para modelos"
   },
   "SUvm1Y": {
@@ -3370,6 +3588,15 @@
     "comments": [],
     "origin": [["src/views/boards/components/TemplateBoards.tsx", 80]],
     "translation": "Contratado"
+  },
+  "0FwMge": {
+    "message": "History coverage: {coverage}% of cards have recorded list transitions. Cycle time only uses complete transitions.",
+    "placeholders": {
+      "coverage": ["coverage"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 186]],
+    "translation": ""
   },
   "SRvxId": {
     "message": "HMAC secret for signature verification",
@@ -3543,6 +3770,13 @@
     "comments": [],
     "origin": [["src/components/CommandPallette.tsx", 177]],
     "translation": "em"
+  },
+  "/LCAwL": {
+    "message": "In progress",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/FlowOverview.tsx", 25]],
+    "translation": ""
   },
   "WbTDwg": {
     "message": "In Progress",
@@ -3722,6 +3956,13 @@
     ],
     "translation": "Tenha em mente que esta ação é irreversível."
   },
+  "3HekBh": {
+    "message": "Key flow metrics",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/KpiStrip.tsx", 58]],
+    "translation": ""
+  },
   "h7MgpO": {
     "message": "Keyboard Shortcuts",
     "placeholders": {},
@@ -3771,6 +4012,20 @@
     "origin": [["src/components/FontSizeSelector.tsx", 9]],
     "translation": "Grande"
   },
+  "2LMsOq": {
+    "message": "Last 12 months",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/ThroughputChart.tsx", 30]],
+    "translation": ""
+  },
+  "OHEGHA": {
+    "message": "Last 12 weeks",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/ThroughputChart.tsx", 30]],
+    "translation": ""
+  },
   "8Is1ih": {
     "message": "Launch offer",
     "placeholders": {},
@@ -3814,7 +4069,7 @@
     "message": "Leave either field blank to use the standard sign-in copy.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/settings/WhitelabelSettings.tsx", 247]],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 251]],
     "translation": ""
   },
   "vifyyw": {
@@ -3867,7 +4122,7 @@
     "comments": [],
     "origin": [
       ["src/views/board/components/UpdateBoardSlugButton.tsx", 80],
-      ["src/views/board/index.tsx", 307],
+      ["src/views/board/index.tsx", 308],
       ["src/views/card/components/Dropdown.tsx", 72],
       ["src/views/public/board/CardModal.tsx", 36],
       ["src/views/public/board/index.tsx", 77]
@@ -3880,6 +4135,7 @@
     "comments": [],
     "origin": [
       ["src/views/board/components/CardContextDuplicateModal.tsx", 117],
+      ["src/views/board/components/CardContextMoveBoardModal.tsx", 151],
       ["src/views/card/index.tsx", 124]
     ],
     "translation": "Lista"
@@ -3898,12 +4154,26 @@
     "origin": [["src/views/board/components/Filters.tsx", 163]],
     "translation": "Listas"
   },
+  "J94gqa": {
+    "message": "Live distribution across active boards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/FlowOverview.tsx", 53]],
+    "translation": ""
+  },
   "1rVAfU": {
     "message": "Load more activities",
     "placeholders": {},
     "comments": [],
     "origin": [["src/views/card/components/ActivityList.tsx", 579]],
     "translation": "Carregar mais atividades"
+  },
+  "9FRZ0d": {
+    "message": "Loading flow metrics",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 23]],
+    "translation": ""
   },
   "0qyZ4b": {
     "message": "Loading permissions...",
@@ -3918,7 +4188,10 @@
     "message": "Loading...",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/ActivityList.tsx", 579]],
+    "origin": [
+      ["src/views/board/components/CardContextMoveBoardModal.tsx", 101],
+      ["src/views/card/components/ActivityList.tsx", 579]
+    ],
     "translation": "Carregando..."
   },
   "z0t9bb": {
@@ -3984,7 +4257,7 @@
     "comments": [],
     "origin": [
       ["src/views/board/components/CardContextMembersModal.tsx", 51],
-      ["src/views/board/components/CardContextMenu.tsx", 38]
+      ["src/views/board/components/CardContextMenu.tsx", 41]
     ],
     "translation": "Gerenciar membros"
   },
@@ -4010,6 +4283,13 @@
     "comments": [],
     "origin": [["src/views/onboarding/workspace-details/index.tsx", 181]],
     "translation": "Marketing"
+  },
+  "fbTZls": {
+    "message": "Median cycle time",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/KpiStrip.tsx", 45]],
+    "translation": ""
   },
   "agPptk": {
     "message": "Medium",
@@ -4055,7 +4335,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/SideNavigation.tsx", 122],
+      ["src/components/SideNavigation.tsx", 136],
       ["src/views/board/components/Filters.tsx", 147],
       ["src/views/board/components/NewCardForm.tsx", 383],
       ["src/views/card/index.tsx", 143],
@@ -4090,6 +4370,13 @@
       ["src/views/settings/components/UpdateWeekStartDayForm.tsx", 53]
     ],
     "translation": "Segunda-feira"
+  },
+  "HajiZl": {
+    "message": "Month",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 106]],
+    "translation": ""
   },
   "+8Nek/": {
     "message": "Monthly",
@@ -4130,11 +4417,30 @@
     "origin": [["src/views/board/components/MoveBoardForm.tsx", 64]],
     "translation": "Mover quadro para outro workspace"
   },
+  "TnU3pN": {
+    "message": "Move card",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/CardContextMoveBoardModal.tsx", 207]
+    ],
+    "translation": ""
+  },
+  "CluBqG": {
+    "message": "Move to another board",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/CardContextMenu.tsx", 53],
+      ["src/views/board/components/CardContextMoveBoardModal.tsx", 93]
+    ],
+    "translation": ""
+  },
   "51UCsN": {
     "message": "Move to another list",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/components/CardContextMenu.tsx", 44]],
+    "origin": [["src/views/board/components/CardContextMenu.tsx", 47]],
     "translation": "Mover para outra lista"
   },
   "J4+OTA": {
@@ -4262,7 +4568,7 @@
     "comments": [],
     "origin": [
       ["src/views/board/components/NewListForm.tsx", 113],
-      ["src/views/board/index.tsx", 632]
+      ["src/views/board/index.tsx", 641]
     ],
     "translation": "Nova lista"
   },
@@ -4377,6 +4683,20 @@
     "origin": [["src/views/card/components/AttachmentThumbnails.tsx", 143]],
     "translation": "Nenhuma URL de download disponível para este anexo."
   },
+  "9pJvyr": {
+    "message": "No immediate flow risks",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/AttentionList.tsx", 47]],
+    "translation": ""
+  },
+  "dejGov": {
+    "message": "No items",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/FlowOverview.tsx", 127]],
+    "translation": ""
+  },
   "TXO5TM": {
     "message": "No keyboard shortcuts registered.",
     "placeholders": {},
@@ -4395,14 +4715,14 @@
     "message": "No lists",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/index.tsx", 664]],
+    "origin": [["src/views/board/index.tsx", 673]],
     "translation": "Nenhuma lista"
   },
   "fvLNDy": {
     "message": "No lists have been created yet",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/index.tsx", 669]],
+    "origin": [["src/views/board/index.tsx", 678]],
     "translation": "Nenhuma lista foi criada ainda"
   },
   "i30J2U": {
@@ -4427,6 +4747,13 @@
     "comments": [],
     "origin": [["src/views/settings/components/RolePermissions.tsx", 110]],
     "translation": "Nenhuma função encontrada para este workspace ainda."
+  },
+  "4FNAEh": {
+    "message": "No sample",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/KpiStrip.tsx", 17]],
+    "translation": ""
   },
   "TX0bT7": {
     "message": "No webhooks configured. Add a webhook to receive notifications.",
@@ -4478,6 +4805,20 @@
     "comments": [],
     "origin": [["src/views/settings/WorkspaceSettings.tsx", 97]],
     "translation": "Depois de excluir seu workspace, não há como voltar atrás. Esta ação não pode ser desfeita."
+  },
+  "gGwWif": {
+    "message": "Only open cards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/FlowOverview.tsx", 123]],
+    "translation": ""
+  },
+  "1TNIig": {
+    "message": "Open",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/FlowOverview.tsx", 40]],
+    "translation": ""
   },
   "69b7aE": {
     "message": "Open command menu",
@@ -4533,11 +4874,22 @@
     ],
     "translation": "Amigos OSS"
   },
+  "HJ0Qv8": {
+    "message": "Other stage",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/FlowOverview.tsx", 28]],
+    "translation": ""
+  },
   "ddrz1m": {
     "message": "Overdue",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/components/Filters.tsx", 112]],
+    "origin": [
+      ["src/views/board/components/Filters.tsx", 112],
+      ["src/views/pulse/components/AttentionList.tsx", 18],
+      ["src/views/pulse/components/FlowOverview.tsx", 42]
+    ],
     "translation": "Atrasado"
   },
   "P6dJdq": {
@@ -4745,7 +5097,8 @@
     "comments": [],
     "origin": [
       ["src/views/boards/components/TemplateBoards.tsx", 29],
-      ["src/views/boards/components/TemplateBoards.tsx", 35]
+      ["src/views/boards/components/TemplateBoards.tsx", 35],
+      ["src/views/pulse/components/FlowOverview.tsx", 24]
     ],
     "translation": "Planejado"
   },
@@ -4834,8 +5187,8 @@
       ["src/views/board/components/NewTemplateForm.tsx", 77],
       ["src/views/board/components/UpdateBoardSlugForm.tsx", 73],
       ["src/views/board/components/VisibilityButton.tsx", 57],
-      ["src/views/board/index.tsx", 219],
-      ["src/views/board/index.tsx", 275],
+      ["src/views/board/index.tsx", 220],
+      ["src/views/board/index.tsx", 276],
       ["src/views/boards/components/ImportBoardsForm.tsx", 243],
       ["src/views/boards/components/ImportBoardsForm.tsx", 395],
       ["src/views/card/components/AttachmentThumbnails.tsx", 74],
@@ -4895,24 +5248,25 @@
     "origin": [
       ["src/components/WorkspaceMenu.tsx", 61],
       ["src/views/board/components/CardContextDuplicateModal.tsx", 76],
+      ["src/views/board/components/CardContextMoveBoardModal.tsx", 64],
       ["src/views/board/components/CardContextMoveListModal.tsx", 42],
-      ["src/views/board/index.tsx", 316],
+      ["src/views/board/index.tsx", 317],
       ["src/views/card/components/Dropdown.tsx", 55],
       ["src/views/card/components/Dropdown.tsx", 81],
       ["src/views/card/components/Dropdown.tsx", 100],
       ["src/views/public/board/CardModal.tsx", 45],
       ["src/views/public/board/index.tsx", 86],
-      ["src/views/settings/WhitelabelSettings.tsx", 110],
-      ["src/views/settings/WhitelabelSettings.tsx", 133]
+      ["src/views/settings/WhitelabelSettings.tsx", 114],
+      ["src/views/settings/WhitelabelSettings.tsx", 137]
     ],
     "translation": "Por favor, tente novamente."
   },
   "EsSrMh": {
-    "translation": "",
     "message": "Please try another image.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/SquareImageCropModal.tsx", 136]]
+    "origin": [["src/components/SquareImageCropModal.tsx", 136]],
+    "translation": ""
   },
   "xsRUI3": {
     "message": "PNG, JPG, or WebP. Square images work best.",
@@ -4925,7 +5279,7 @@
     "message": "PNG, JPG, or WebP. Wide transparent images work best.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/settings/WhitelabelSettings.tsx", 236]],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 240]],
     "translation": ""
   },
   "nYNMZZ": {
@@ -5033,6 +5387,32 @@
     "origin": [["src/views/boards/components/TemplateBoards.tsx", 47]],
     "translation": "Publicação"
   },
+  "epgPr1": {
+    "message": "Pulse",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/components/SideNavigation.tsx", 112],
+      ["src/views/pulse/index.tsx", 82]
+    ],
+    "translation": ""
+  },
+  "+b4m0C": {
+    "message": "Pulse | {0}",
+    "placeholders": {
+      "0": ["workspace.name"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 77]],
+    "translation": ""
+  },
+  "YYqr3g": {
+    "message": "Pulse could not be loaded",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 142]],
+    "translation": ""
+  },
   "bfgr/e": {
     "message": "Question",
     "placeholders": {},
@@ -5061,6 +5441,13 @@
     "origin": [["src/views/boards/components/TemplateBoards.tsx", 73]],
     "translation": "Recrutamento"
   },
+  "lCF0wC": {
+    "message": "Refresh",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 122]],
+    "translation": ""
+  },
   "ekCRTP": {
     "message": "Rejected",
     "placeholders": {},
@@ -5082,7 +5469,7 @@
     "origin": [
       ["src/components/WorkspaceLogoPicker.tsx", 110],
       ["src/views/members/components/DeleteMemberConfirmation.tsx", 58],
-      ["src/views/settings/WhitelabelSettings.tsx", 231]
+      ["src/views/settings/WhitelabelSettings.tsx", 235]
     ],
     "translation": "Remover"
   },
@@ -5313,7 +5700,7 @@
     "comments": [],
     "origin": [
       ["src/views/settings/components/NewWebhookModal.tsx", 344],
-      ["src/views/settings/WhitelabelSettings.tsx", 279]
+      ["src/views/settings/WhitelabelSettings.tsx", 283]
     ],
     "translation": "Salvar alterações"
   },
@@ -5394,6 +5781,13 @@
     ],
     "translation": "Segurança"
   },
+  "syvo9Z": {
+    "message": "See flow, load, and risks across every active board in this workspace.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 85]],
+    "translation": ""
+  },
   "K3iLeO": {
     "message": "See what our users are saying about Kan",
     "placeholders": {},
@@ -5401,12 +5795,22 @@
     "origin": [["src/views/home/components/Testimonials.tsx", 239]],
     "translation": "Veja o que nossos usuários estão dizendo sobre o Kan"
   },
+  "ksgFyQ": {
+    "message": "Select a board",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/CardContextMoveBoardModal.tsx", 134]
+    ],
+    "translation": ""
+  },
   "zYRVNp": {
     "message": "Select a list",
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/components/CardContextDuplicateModal.tsx", 131]
+      ["src/views/board/components/CardContextDuplicateModal.tsx", 131],
+      ["src/views/board/components/CardContextMoveBoardModal.tsx", 162]
     ],
     "translation": "Selecione uma lista"
   },
@@ -5496,7 +5900,7 @@
     "comments": [],
     "origin": [
       ["src/views/board/components/CardContextDueDateModal.tsx", 20],
-      ["src/views/board/components/CardContextMenu.tsx", 56],
+      ["src/views/board/components/CardContextMenu.tsx", 65],
       ["src/views/card/components/DueDateSelector.tsx", 121]
     ],
     "translation": "Definir data de vencimento"
@@ -5533,7 +5937,7 @@
     "comments": [],
     "origin": [
       ["src/components/SettingsLayout.tsx", 112],
-      ["src/components/SideNavigation.tsx", 134]
+      ["src/components/SideNavigation.tsx", 148]
     ],
     "translation": "Configurações"
   },
@@ -5583,7 +5987,7 @@
     "message": "Settings | Whitelabel",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/settings/WhitelabelSettings.tsx", 148]],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 152]],
     "translation": ""
   },
   "Ci/KUX": {
@@ -5692,7 +6096,7 @@
     "message": "Sign-in experience",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/settings/WhitelabelSettings.tsx", 244]],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 248]],
     "translation": ""
   },
   "m2nk0i": {
@@ -5793,9 +6197,9 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/SideNavigation.tsx", 224],
-      ["src/components/SideNavigation.tsx", 225],
-      ["src/components/SideNavigation.tsx", 235]
+      ["src/components/SideNavigation.tsx", 238],
+      ["src/components/SideNavigation.tsx", 239],
+      ["src/components/SideNavigation.tsx", 249]
     ],
     "translation": "Iniciar teste gratuito"
   },
@@ -5897,6 +6301,13 @@
     ],
     "translation": "Plano de equipe"
   },
+  "ye45rN": {
+    "message": "Team workload",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/WorkloadList.tsx", 18]],
+    "translation": ""
+  },
   "CAL6E9": {
     "message": "Teams",
     "placeholders": {},
@@ -5913,8 +6324,8 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/index.tsx", 538],
-      ["src/views/board/index.tsx", 574]
+      ["src/views/board/index.tsx", 547],
+      ["src/views/board/index.tsx", 583]
     ],
     "translation": "Modelo"
   },
@@ -5951,7 +6362,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/SideNavigation.tsx", 110],
+      ["src/components/SideNavigation.tsx", 124],
       ["src/views/home/components/Features.tsx", 115]
     ],
     "translation": "Templates"
@@ -6048,7 +6459,7 @@
     "message": "The brand name will be shown as text.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/settings/WhitelabelSettings.tsx", 127]],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 131]],
     "translation": ""
   },
   "nKBUeF": {
@@ -6059,6 +6470,17 @@
       ["src/views/board/components/CardContextDuplicateModal.tsx", 69]
     ],
     "translation": "O cartão foi duplicado."
+  },
+  "loYRe+": {
+    "message": "The card was moved to {0}.",
+    "placeholders": {
+      "0": ["selectedBoard?.name ?? \"\""]
+    },
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/CardContextMoveBoardModal.tsx", 56]
+    ],
+    "translation": ""
   },
   "jlB2RY": {
     "message": "The current password you entered is incorrect.",
@@ -6111,7 +6533,7 @@
     "message": "The sidebar and sign-in page now use these settings.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/settings/WhitelabelSettings.tsx", 104]],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 108]],
     "translation": ""
   },
   "fQCrjt": {
@@ -6148,6 +6570,36 @@
     "origin": [["src/components/UserMenu.tsx", 131]],
     "translation": "Tema"
   },
+  "MLB2ai": {
+    "message": "There are no blocked, overdue, stalled, or unassigned open cards.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/AttentionList.tsx", 50]],
+    "translation": ""
+  },
+  "BC+cNg": {
+    "message": "There are no cards to measure yet.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/FlowOverview.tsx", 58]],
+    "translation": ""
+  },
+  "BPNJWo": {
+    "message": "There are no other active boards in this workspace.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/CardContextMoveBoardModal.tsx", 115]
+    ],
+    "translation": ""
+  },
+  "TvW7Y+": {
+    "message": "There is no assigned work in progress.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/WorkloadList.tsx", 27]],
+    "translation": ""
+  },
   "Yf9FAx": {
     "message": "They won't be able to access this workspace.",
     "placeholders": {},
@@ -6177,6 +6629,15 @@
     "origin": [["src/views/settings/components/NewApiKeyModal.tsx", 129]],
     "translation": "Esta chave de API será mostrada apenas uma vez. Por favor, salve-a em um local seguro."
   },
+  "RL9JcZ": {
+    "message": "This board has no lists.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/CardContextMoveBoardModal.tsx", 174]
+    ],
+    "translation": ""
+  },
   "l4asa1": {
     "message": "This board is private or does not exist",
     "placeholders": {},
@@ -6190,6 +6651,15 @@
     "comments": [],
     "origin": [["src/views/board/components/UpdateBoardSlugForm.tsx", 136]],
     "translation": "Esta URL de quadro já foi utilizada"
+  },
+  "rrjIqt": {
+    "message": "This card's labels will be removed because labels belong to the current board.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/CardContextMoveBoardModal.tsx", 183]
+    ],
+    "translation": ""
   },
   "mTwGOf": {
     "message": "This invitation link is invalid or has expired.",
@@ -6335,6 +6805,13 @@
     "origin": [["src/views/settings/IntegrationsSettings.tsx", 19]],
     "translation": "Token é obrigatório"
   },
+  "9dFlbS": {
+    "message": "total delivered",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/ThroughputChart.tsx", 38]],
+    "translation": ""
+  },
   "eEQyz+": {
     "message": "Track all card changes with detailed activity history.",
     "placeholders": {},
@@ -6380,6 +6857,13 @@
     "origin": [["src/views/home/components/Logos.tsx", 67]],
     "translation": "Confiado por equipes ágeis<0/>ao redor do mundo"
   },
+  "KDw4GX": {
+    "message": "Try again",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 154]],
+    "translation": ""
+  },
   "bZSICm": {
     "message": "Unable to add checklist item",
     "placeholders": {},
@@ -6420,7 +6904,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/index.tsx", 314],
+      ["src/views/board/index.tsx", 315],
       ["src/views/card/components/Dropdown.tsx", 79],
       ["src/views/public/board/CardModal.tsx", 43],
       ["src/views/public/board/index.tsx", 84]
@@ -6476,11 +6960,11 @@
     "translation": "Não foi possível criar workspace"
   },
   "VL2rAP": {
-    "translation": "",
     "message": "Unable to crop image",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/SquareImageCropModal.tsx", 135]]
+    "origin": [["src/components/SquareImageCropModal.tsx", 135]],
+    "translation": ""
   },
   "WHHLh9": {
     "message": "Unable to delete attachment",
@@ -6538,6 +7022,15 @@
     ],
     "translation": "Não foi possível duplicar o cartão"
   },
+  "bwpWC2": {
+    "message": "Unable to load boards. Please try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/CardContextMoveBoardModal.tsx", 111]
+    ],
+    "translation": ""
+  },
   "d196/6": {
     "message": "Unable to move board",
     "placeholders": {},
@@ -6549,14 +7042,17 @@
     "message": "Unable to move card",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/components/CardContextMoveListModal.tsx", 41]],
+    "origin": [
+      ["src/views/board/components/CardContextMoveBoardModal.tsx", 63],
+      ["src/views/board/components/CardContextMoveListModal.tsx", 41]
+    ],
     "translation": "Não foi possível mover o cartão"
   },
   "KOX/pP": {
     "message": "Unable to remove brand logo",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/settings/WhitelabelSettings.tsx", 132]],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 136]],
     "translation": ""
   },
   "8yFGGF": {
@@ -6649,7 +7145,7 @@
     "message": "Unable to update branding",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/settings/WhitelabelSettings.tsx", 109]],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 113]],
     "translation": ""
   },
   "o9WLwO": {
@@ -6657,7 +7153,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/index.tsx", 274],
+      ["src/views/board/index.tsx", 275],
       ["src/views/card/index.tsx", 235]
     ],
     "translation": "Não foi possível atualizar o cartão"
@@ -6702,7 +7198,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/index.tsx", 218],
+      ["src/views/board/index.tsx", 219],
       ["src/views/card/components/ListSelector.tsx", 54]
     ],
     "translation": "Não foi possível atualizar a lista"
@@ -6753,7 +7249,7 @@
     "comments": [],
     "origin": [
       ["src/components/WorkspaceLogoPicker.tsx", 51],
-      ["src/views/settings/WhitelabelSettings.tsx", 60]
+      ["src/views/settings/WhitelabelSettings.tsx", 64]
     ],
     "translation": ""
   },
@@ -6763,6 +7259,17 @@
     "comments": [],
     "origin": [["src/views/board/components/BoardDropdown.tsx", 115]],
     "translation": "Desarquivar quadro"
+  },
+  "EbMPZJ": {
+    "message": "Unassigned",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/pulse/components/AttentionList.tsx", 20],
+      ["src/views/pulse/components/FlowOverview.tsx", 43],
+      ["src/views/pulse/components/WorkloadList.tsx", 33]
+    ],
+    "translation": ""
   },
   "E8zYtd": {
     "message": "unassigned <0>{0}</0> from the card",
@@ -6945,6 +7452,15 @@
     "origin": [["src/views/card/components/ActivityList.tsx", 136]],
     "translation": "atualizou um item da checklist"
   },
+  "miyxvl": {
+    "message": "Updated at {0}",
+    "placeholders": {
+      "0": ["format(new Date(data.refreshedAt), \"HH:mm:ss\")"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 132]],
+    "translation": ""
+  },
   "tGwwnq": {
     "message": "updated the description",
     "placeholders": {},
@@ -7019,7 +7535,7 @@
     "message": "Upload logo",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/settings/WhitelabelSettings.tsx", 209]],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 213]],
     "translation": ""
   },
   "BBUDfW": {
@@ -7097,7 +7613,7 @@
     "message": "Used in the main navigation and on the sign-in page.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/settings/WhitelabelSettings.tsx", 158]],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 162]],
     "translation": ""
   },
   "n6EWYz": {
@@ -7294,6 +7810,13 @@
     ],
     "translation": "Webhooks"
   },
+  "zx4BuL": {
+    "message": "Week",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 106]],
+    "translation": ""
+  },
   "xLTZVf": {
     "message": "Week start day",
     "placeholders": {},
@@ -7307,7 +7830,7 @@
     "comments": [],
     "origin": [
       ["src/views/auth/login/index.tsx", 47],
-      ["src/views/settings/WhitelabelSettings.tsx", 257]
+      ["src/views/settings/WhitelabelSettings.tsx", 261]
     ],
     "translation": "Bem-vindo de volta"
   },
@@ -7315,14 +7838,14 @@
     "message": "Welcome message",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/settings/WhitelabelSettings.tsx", 262]],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 266]],
     "translation": ""
   },
   "D/tFLm": {
     "message": "Welcome title",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/settings/WhitelabelSettings.tsx", 251]],
+    "origin": [["src/views/settings/WhitelabelSettings.tsx", 255]],
     "translation": ""
   },
   "xEbBrW": {
@@ -7360,6 +7883,34 @@
     "origin": [["src/views/home/components/Faqs.tsx", 22]],
     "translation": "Por que fazer um Trello de código aberto?"
   },
+  "d/n+6M": {
+    "message": "Without movement",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/pulse/components/AttentionList.tsx", 19],
+      ["src/views/pulse/components/KpiStrip.tsx", 38]
+    ],
+    "translation": ""
+  },
+  "3Q0RB+": {
+    "message": "Without movement: {0} d in progress · {1} d blocked · {2} d planned",
+    "placeholders": {
+      "0": ["data.configuration.inProgressStaleDays"],
+      "1": ["data.configuration.blockedStaleDays"],
+      "2": ["data.configuration.plannedStaleDays"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 189]],
+    "translation": ""
+  },
+  "JPuUUD": {
+    "message": "Work in progress for balancing capacity, not performance ranking",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/WorkloadList.tsx", 21]],
+    "translation": ""
+  },
   "pmUArF": {
     "message": "Workspace",
     "placeholders": {},
@@ -7367,7 +7918,6 @@
     "origin": [
       ["src/components/SettingsLayout.tsx", 51],
       ["src/components/WorkspaceLogoPicker.tsx", 67],
-      ["src/views/board/index.tsx", 538],
       ["src/views/boards/index.tsx", 48],
       ["src/views/members/index.tsx", 278],
       ["src/views/public/board/index.tsx", 125],
@@ -7643,8 +8193,8 @@
       ["src/views/board/components/List.tsx", 117],
       ["src/views/board/components/UpdateBoardSlugButton.tsx", 58],
       ["src/views/board/components/VisibilityButton.tsx", 72],
-      ["src/views/board/index.tsx", 616],
-      ["src/views/board/index.tsx", 674],
+      ["src/views/board/index.tsx", 625],
+      ["src/views/board/index.tsx", 683],
       ["src/views/boards/components/BoardsList.tsx", 71],
       ["src/views/boards/index.tsx", 59],
       ["src/views/boards/index.tsx", 80]
@@ -7917,133 +8467,5 @@
     "comments": [],
     "origin": [["src/components/YouTubeEmbed/EditYouTubeModal.tsx", 147]],
     "translation": "URL do YouTube"
-  },
-  "wmwvU1": {
-    "message": "Card moved",
-    "placeholders": {},
-    "comments": [],
-    "origin": [
-      [
-        "src/views/board/components/CardContextMoveBoardModal.tsx",
-        50
-      ]
-    ],
-    "translation": ""
-  },
-  "CVa6RO": {
-    "message": "Choose a board and destination list.",
-    "placeholders": {},
-    "comments": [],
-    "origin": [
-      [
-        "src/views/board/components/CardContextMoveBoardModal.tsx",
-        91
-      ]
-    ],
-    "translation": ""
-  },
-  "TnU3pN": {
-    "message": "Move card",
-    "placeholders": {},
-    "comments": [],
-    "origin": [
-      [
-        "src/views/board/components/CardContextMoveBoardModal.tsx",
-        202
-      ]
-    ],
-    "translation": ""
-  },
-  "CluBqG": {
-    "message": "Move to another board",
-    "placeholders": {},
-    "comments": [],
-    "origin": [
-      [
-        "src/views/board/components/CardContextMenu.tsx",
-        53
-      ],
-      [
-        "src/views/board/components/CardContextMoveBoardModal.tsx",
-        88
-      ]
-    ],
-    "translation": ""
-  },
-  "ksgFyQ": {
-    "message": "Select a board",
-    "placeholders": {},
-    "comments": [],
-    "origin": [
-      [
-        "src/views/board/components/CardContextMoveBoardModal.tsx",
-        129
-      ]
-    ],
-    "translation": ""
-  },
-  "loYRe+": {
-    "message": "The card was moved to {0}.",
-    "placeholders": {
-      "0": [
-        "selectedBoard?.name ?? \"\""
-      ]
-    },
-    "comments": [],
-    "origin": [
-      [
-        "src/views/board/components/CardContextMoveBoardModal.tsx",
-        51
-      ]
-    ],
-    "translation": ""
-  },
-  "BPNJWo": {
-    "message": "There are no other active boards in this workspace.",
-    "placeholders": {},
-    "comments": [],
-    "origin": [
-      [
-        "src/views/board/components/CardContextMoveBoardModal.tsx",
-        110
-      ]
-    ],
-    "translation": ""
-  },
-  "RL9JcZ": {
-    "message": "This board has no lists.",
-    "placeholders": {},
-    "comments": [],
-    "origin": [
-      [
-        "src/views/board/components/CardContextMoveBoardModal.tsx",
-        169
-      ]
-    ],
-    "translation": ""
-  },
-  "rrjIqt": {
-    "message": "This card's labels will be removed because labels belong to the current board.",
-    "placeholders": {},
-    "comments": [],
-    "origin": [
-      [
-        "src/views/board/components/CardContextMoveBoardModal.tsx",
-        178
-      ]
-    ],
-    "translation": ""
-  },
-  "bwpWC2": {
-    "message": "Unable to load boards. Please try again.",
-    "placeholders": {},
-    "comments": [],
-    "origin": [
-      [
-        "src/views/board/components/CardContextMoveBoardModal.tsx",
-        106
-      ]
-    ],
-    "translation": ""
   }
 }

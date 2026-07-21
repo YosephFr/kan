@@ -16,6 +16,8 @@ import type { Subscription } from "@kan/shared/utils";
 import { hasActiveSubscription } from "@kan/shared/utils";
 
 import type { KeyboardShortcut } from "~/providers/keyboard-shortcuts";
+import activityIconDark from "~/assets/activity-logs-dark.json";
+import activityIconLight from "~/assets/activity-logs-light.json";
 import boardsIconDark from "~/assets/boards-dark.json";
 import boardsIconLight from "~/assets/boards-light.json";
 import membersIconDark from "~/assets/members-dark.json";
@@ -104,6 +106,18 @@ export default function SideNavigation({
         action: () => void router.push("/boards"),
         group: "NAVIGATION",
         description: t`Go to boards`,
+      },
+    },
+    {
+      name: t`Pulse`,
+      href: "/pulse",
+      icon: isDarkMode ? activityIconDark : activityIconLight,
+      keyboardShortcut: {
+        type: "SEQUENCE",
+        strokes: [{ key: "G" }, { key: "P" }],
+        action: () => void router.push("/pulse"),
+        group: "NAVIGATION",
+        description: t`Go to pulse`,
       },
     },
     {
