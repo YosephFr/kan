@@ -16,8 +16,6 @@ on:
     workflows: ["Translate"]
     types: [completed]
     branches: [main]
-    # Docker builds after Translate completes (success or failure)
-    # This ensures Docker always has the latest translations
 
 env:
   # Use docker.io for Docker Hub if empty
@@ -28,6 +26,7 @@ env:
 
 jobs:
   build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     concurrency:
       group: docker-build-${{ github.ref }}
       cancel-in-progress: true
@@ -41,9 +40,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
 
       # Install the cosign tool except on PR
       # https://github.com/sigstore/cosign-installer

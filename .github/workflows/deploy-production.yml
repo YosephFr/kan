@@ -1,0 +1,87 @@
+name: Deploy production
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: work-imanleads-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy tested revision
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    environment:
+      name: production
+      url: https://work.imanleads.com
+    env:
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+      SSH_HOST: ${{ secrets.KAN_PRODUCTION_HOST }}
+      SSH_USER: ${{ secrets.KAN_PRODUCTION_USER }}
+    steps:
+      - name: Validate deployment credentials
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.KAN_PRODUCTION_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.KAN_PRODUCTION_KNOWN_HOSTS }}
+        run: |
+          test -n "$SSH_HOST"
+          test -n "$SSH_USER"
+          test -n "$SSH_PRIVATE_KEY"
+          test -n "$SSH_KNOWN_HOSTS"
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+
+      - name: Configure restricted SSH access
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.KAN_PRODUCTION_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.KAN_PRODUCTION_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          install -m 600 /dev/null ~/.ssh/kan_production
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/kan_production
+          install -m 600 /dev/null ~/.ssh/known_hosts
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh-keygen -y -f ~/.ssh/kan_production >/dev/null
+
+      - name: Deploy exact tested revision
+        id: release
+        run: |
+          set +e
+          ssh \
+            -i ~/.ssh/kan_production \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" "deploy $RELEASE_SHA"
+          status=$?
+          set -e
+          if [[ "$status" == "75" ]]; then
+            echo "deployed=false" >> "$GITHUB_OUTPUT"
+            echo "A newer main revision superseded $RELEASE_SHA." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [[ "$status" != "0" ]]; then
+            exit "$status"
+          fi
+          echo "deployed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Verify public production health
+        run: |
+          response="$(curl --fail --show-error --silent --retry 6 --retry-all-errors --retry-delay 5 https://work.imanleads.com/api/v1/health)"
+          jq -e '.status == "ok" and .database == "ok" and .storage == "ok"' <<<"$response"
+          {
+            echo "### work.imanleads.com"
+            echo "- Revision: \`$RELEASE_SHA\`"
+            echo "- Deployed by this run: \`${{ steps.release.outputs.deployed }}\`"
+            echo "- Health: application, database, and storage are healthy"
+          } >> "$GITHUB_STEP_SUMMARY"

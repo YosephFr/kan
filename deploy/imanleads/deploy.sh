@@ -2,6 +2,20 @@
 set -euo pipefail
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+lock_file="/home/ubuntu/.cache/kan-deploy.lock"
+expected_sha="${1:-}"
+
+if [[ -n "$expected_sha" && ! "$expected_sha" =~ ^[0-9a-f]{40}$ ]]; then
+  printf '%s\n' "Expected revision must be a full Git SHA" >&2
+  exit 64
+fi
+
+if [[ "${KAN_DEPLOY_LOCK_HELD:-}" != "1" ]]; then
+  mkdir -p "$(dirname "$lock_file")"
+  export KAN_DEPLOY_LOCK_HELD=1
+  exec flock -w 2700 "$lock_file" "$0" "$@"
+fi
+
 cd "$repo_dir"
 
 if [[ ! -s .env ]]; then
@@ -21,14 +35,31 @@ if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
 fi
 
 git fetch origin main
+origin_sha="$(git rev-parse origin/main)"
+
+if [[ -n "$expected_sha" && "$origin_sha" != "$expected_sha" ]]; then
+  printf '%s\n' "Revision $expected_sha was superseded by $origin_sha" >&2
+  exit 75
+fi
+
 git merge --ff-only origin/main
+
+deployed_sha="$(git rev-parse HEAD)"
+if [[ -n "$expected_sha" && "$deployed_sha" != "$expected_sha" ]]; then
+  printf '%s\n' "Production checkout resolved to $deployed_sha instead of $expected_sha" >&2
+  exit 1
+fi
 
 set -a
 source .env
 set +a
 
-export KAN_IMAGE_TAG="$(git rev-parse --short=12 HEAD)"
+KAN_IMAGE_TAG="$(git rev-parse --short=12 HEAD)"
+export KAN_IMAGE_TAG
 compose=(docker compose --env-file "$repo_dir/.env" -f "$repo_dir/deploy/imanleads/compose.yaml")
+
+mkdir -p /home/ubuntu/.local/bin
+install -m 755 "$repo_dir/deploy/imanleads/ci-deploy-entrypoint.sh" /home/ubuntu/.local/bin/kan-ci-deploy
 
 mkdir -p /home/ubuntu/backups/kan/minio-current
 

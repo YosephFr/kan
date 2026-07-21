@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CI: "true"
+    steps:
+      - name: Checkout tested revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with:
+          version: 9.14.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 20.18.1
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check changed file formatting
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          base_sha="$BASE_SHA"
+          if [[ ! "$base_sha" =~ ^[0-9a-f]{40}$ ]] || [[ "$base_sha" == "0000000000000000000000000000000000000000" ]] || ! git cat-file -e "$base_sha^{commit}"; then
+            base_sha="$(git rev-parse HEAD^)"
+          fi
+          mapfile -t files < <(
+            git diff --name-only --diff-filter=ACMRT "$base_sha" "$GITHUB_SHA" -- \
+              '*.css' '*.js' '*.jsx' '*.json' '*.md' '*.mjs' '*.ts' '*.tsx' '*.yaml' '*.yml' |
+              grep -Ev '^apps/web/src/locales/[^/]+/messages\.(json|ts)$' || true
+          )
+          if (( ${#files[@]} > 0 )); then
+            pnpm exec prettier --check "${files[@]}"
+          fi
+
+      - name: Validate compiled translations
+        run: |
+          pnpm --filter @kan/web lingui:compile
+          git diff --exit-code -- apps/web/src/locales
+
+      - name: Lint changed source files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          base_sha="$BASE_SHA"
+          if [[ ! "$base_sha" =~ ^[0-9a-f]{40}$ ]] || [[ "$base_sha" == "0000000000000000000000000000000000000000" ]] || ! git cat-file -e "$base_sha^{commit}"; then
+            base_sha="$(git rev-parse HEAD^)"
+          fi
+          mapfile -t files < <(
+            git diff --name-only --diff-filter=ACMRT "$base_sha" "$GITHUB_SHA" -- \
+              'apps/**/*.cjs' 'apps/**/*.js' 'apps/**/*.jsx' 'apps/**/*.mjs' 'apps/**/*.ts' 'apps/**/*.tsx' \
+              'packages/**/*.cjs' 'packages/**/*.js' 'packages/**/*.jsx' 'packages/**/*.mjs' 'packages/**/*.ts' 'packages/**/*.tsx' \
+              'tooling/**/*.cjs' 'tooling/**/*.js' 'tooling/**/*.jsx' 'tooling/**/*.mjs' 'tooling/**/*.ts' 'tooling/**/*.tsx' |
+              grep -Ev '^apps/web/src/locales/[^/]+/messages\.ts$' || true
+          )
+          for file in "${files[@]}"; do
+            package_dir="$(dirname "$file")"
+            while [[ "$package_dir" != "." ]] && [[ ! -f "$package_dir/eslint.config.js" ]] && [[ ! -f "$package_dir/eslint.config.mjs" ]] && [[ ! -f "$package_dir/eslint.config.cjs" ]]; do
+              package_dir="$(dirname "$package_dir")"
+            done
+            if [[ "$package_dir" == "." ]]; then
+              echo "No ESLint configuration found for $file" >&2
+              exit 1
+            fi
+            relative_file="${file#"$package_dir"/}"
+            (cd "$package_dir" && pnpm exec eslint --no-warn-ignored "$relative_file")
+          done
+
+      - name: Lint MCP server
+        run: pnpm --filter @kan/mcp lint
+
+      - name: Check deployment shell scripts
+        run: >-
+          shellcheck -e SC1091,SC2016
+          deploy/imanleads/backup.sh
+          deploy/imanleads/ci-deploy-entrypoint.sh
+          deploy/imanleads/deploy.sh
+          deploy/imanleads/init-minio.sh
+          deploy/imanleads/install-nginx.sh
+
+      - name: Typecheck production targets
+        run: >-
+          pnpm exec turbo run typecheck
+          --filter='@kan/web...'
+          --filter='@kan/mcp'
+
+      - name: Run test suites
+        run: >-
+          pnpm --recursive --workspace-concurrency=2
+          --filter @kan/web
+          --filter @kan/api
+          --filter @kan/auth
+          --filter @kan/shared
+          --filter @kan/mcp
+          run test
+
+      - name: Build production targets
+        run: >-
+          pnpm exec turbo run build
+          --filter='@kan/web...'
+          --filter='@kan/mcp'
+
+      - name: Validate patch integrity
+        run: git diff --check
