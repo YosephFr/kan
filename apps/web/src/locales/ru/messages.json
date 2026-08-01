@@ -47,6 +47,29 @@
     "origin": [["src/views/pulse/components/WorkloadList.tsx", 61]],
     "translation": ""
   },
+  "LldCXQ": {
+    "message": "{0} cards were moved to {1}.",
+    "placeholders": {
+      "0": ["cardPublicIds.length"],
+      "1": ["selectedBoard?.name ?? \"\""]
+    },
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/card-context-move-many-board-modal.tsx", 56]
+    ],
+    "translation": ""
+  },
+  "JuBg66": {
+    "message": "{0} cards will move together to one destination list.",
+    "placeholders": {
+      "0": ["cardPublicIds.length"]
+    },
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/card-context-move-many-board-modal.tsx", 98]
+    ],
+    "translation": ""
+  },
   "Wmmi9Y": {
     "message": "{0} d",
     "placeholders": {
@@ -98,7 +121,7 @@
       "0": ["isTemplate ? \"Template\" : \"Board\""]
     },
     "comments": [],
-    "origin": [["src/views/board/index.tsx", 574]],
+    "origin": [["src/views/board/index.tsx", 634]],
     "translation": "{0} не найдено"
   },
   "QQ692y": {
@@ -165,6 +188,15 @@
     "comments": [],
     "origin": [["src/views/boards/components/ImportBoardsForm.tsx", 341]],
     "translation": "{projectCount, plural, one {Импортировать проект (1)} few {Импортировать проекта ({projectCount})} many {Импортировать проектов ({projectCount})} other {Импортировать проекта ({projectCount})}}"
+  },
+  "iiWOuH": {
+    "message": "{selectedCount} selected cards",
+    "placeholders": {
+      "selectedCount": ["selectedCount"]
+    },
+    "comments": [],
+    "origin": [["src/views/board/components/card-selection-toolbar.tsx", 30]],
+    "translation": ""
   },
   "9lFfqv": {
     "message": "/month",
@@ -358,7 +390,7 @@
     "message": "Add a card",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/components/List.tsx", 136]],
+    "origin": [["src/views/board/components/List.tsx", 138]],
     "translation": "Добавить карточку"
   },
   "qtE5nt": {
@@ -588,6 +620,15 @@
     "origin": [["src/views/pricing/components/PricingTiers.tsx", 97]],
     "translation": "Расширенная безопасность, соответствие требованиям и выделенная поддержка для крупных организаций."
   },
+  "wHHpm9": {
+    "message": "All assigned members will remain on every card.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/card-context-move-many-board-modal.tsx", 183]
+    ],
+    "translation": ""
+  },
   "h2ztFt": {
     "message": "All Free features +",
     "placeholders": {},
@@ -679,7 +720,7 @@
     "message": "Analysis period",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 92]],
+    "origin": [["src/views/pulse/index.tsx", 93]],
     "translation": ""
   },
   "YkfDoz": {
@@ -893,7 +934,7 @@
     "message": "Automatic refresh every 15 seconds",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 133]],
+    "origin": [["src/views/pulse/index.tsx", 134]],
     "translation": ""
   },
   "1rWxEw": {
@@ -1021,8 +1062,12 @@
     "placeholders": {},
     "comments": [],
     "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        126
+      ],
       ["src/views/board/components/CardContextMoveBoardModal.tsx", 124],
-      ["src/views/board/index.tsx", 547],
+      ["src/views/board/index.tsx", 607],
       ["src/views/card/index.tsx", 321],
       ["src/views/public/board/index.tsx", 125]
     ],
@@ -1460,6 +1505,11 @@
       ["src/components/DeleteLabelConfirmation.tsx", 49],
       ["src/components/SquareImageCropModal.tsx", 183],
       ["src/components/YouTubeEmbed/EditYouTubeModal.tsx", 176],
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        200
+      ],
+      ["src/views/board/components/card-selection-toolbar.tsx", 46],
       ["src/views/board/components/CardContextDuplicateModal.tsx", 267],
       ["src/views/board/components/CardContextMoveBoardModal.tsx", 193],
       ["src/views/board/components/DeleteBoardConfirmation.tsx", 44],
@@ -1482,6 +1532,13 @@
       ["src/views/settings/components/UpgradeToProConfirmation.tsx", 108]
     ],
     "translation": "Отмена"
+  },
+  "CAJr0p": {
+    "message": "Cancel card selection",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/board/components/board-header-actions.tsx", 108]],
+    "translation": ""
   },
   "kryGs+": {
     "message": "Card",
@@ -1533,6 +1590,13 @@
     ],
     "translation": "Карточка не найдена"
   },
+  "NCrAr7": {
+    "message": "Card selection actions",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/board/components/card-selection-toolbar.tsx", 25]],
+    "translation": ""
+  },
   "ZH7TVS": {
     "message": "Card title",
     "placeholders": {},
@@ -1545,11 +1609,20 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/index.tsx", 310],
+      ["src/views/board/index.tsx", 356],
       ["src/views/card/components/Dropdown.tsx", 74],
       ["src/views/public/board/CardModal.tsx", 38]
     ],
     "translation": "URL карточки скопирован в буфер обмена"
+  },
+  "mQa9Gv": {
+    "message": "Cards moved",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/card-context-move-many-board-modal.tsx", 55]
+    ],
+    "translation": ""
   },
   "1xuzgn": {
     "message": "Cards with signals that need a decision",
@@ -1621,7 +1694,7 @@
     "message": "Check the connection and try again.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 145]],
+    "origin": [["src/views/pulse/index.tsx", 146]],
     "translation": ""
   },
   "5IXWmO": {
@@ -1694,6 +1767,13 @@
       ["src/views/settings/BillingSettings.tsx", 80]
     ],
     "translation": "Выберите тариф"
+  },
+  "MshlzN": {
+    "message": "Choose the cards you want to move.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/board/components/card-selection-toolbar.tsx", 35]],
+    "translation": ""
   },
   "VHS0aJ": {
     "message": "Clear all custom permissions?",
@@ -2152,8 +2232,8 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/index.tsx", 94],
-      ["src/views/board/index.tsx", 692]
+      ["src/views/board/index.tsx", 91],
+      ["src/views/board/index.tsx", 695]
     ],
     "translation": "Создать новый список"
   },
@@ -2410,7 +2490,7 @@
     "message": "Delete list",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/components/List.tsx", 147]],
+    "origin": [["src/views/board/components/List.tsx", 149]],
     "translation": "Удалить список"
   },
   "DFjdv0": {
@@ -3424,7 +3504,7 @@
     "message": "Get started by creating a new list",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/index.tsx", 677]],
+    "origin": [["src/views/board/index.tsx", 680]],
     "translation": "Начните с создания нового списка"
   },
   "oW13KZ": {
@@ -3595,7 +3675,7 @@
       "coverage": ["coverage"]
     },
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 186]],
+    "origin": [["src/views/pulse/index.tsx", 187]],
     "translation": ""
   },
   "SRvxId": {
@@ -3998,6 +4078,15 @@
     "origin": [["src/views/home/components/Features.tsx", 100]],
     "translation": "Метки и фильтры"
   },
+  "HazrhG": {
+    "message": "Labels on selected cards will be removed because labels belong to the current board.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/card-context-move-many-board-modal.tsx", 190]
+    ],
+    "translation": ""
+  },
   "vXIe7J": {
     "message": "Language",
     "placeholders": {},
@@ -4122,7 +4211,7 @@
     "comments": [],
     "origin": [
       ["src/views/board/components/UpdateBoardSlugButton.tsx", 80],
-      ["src/views/board/index.tsx", 308],
+      ["src/views/board/index.tsx", 354],
       ["src/views/card/components/Dropdown.tsx", 72],
       ["src/views/public/board/CardModal.tsx", 36],
       ["src/views/public/board/index.tsx", 77]
@@ -4134,6 +4223,10 @@
     "placeholders": {},
     "comments": [],
     "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        153
+      ],
       ["src/views/board/components/CardContextDuplicateModal.tsx", 117],
       ["src/views/board/components/CardContextMoveBoardModal.tsx", 151],
       ["src/views/card/index.tsx", 124]
@@ -4189,6 +4282,10 @@
     "placeholders": {},
     "comments": [],
     "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        103
+      ],
       ["src/views/board/components/CardContextMoveBoardModal.tsx", 101],
       ["src/views/card/components/ActivityList.tsx", 579]
     ],
@@ -4375,7 +4472,7 @@
     "message": "Month",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 106]],
+    "origin": [["src/views/pulse/index.tsx", 107]],
     "translation": ""
   },
   "+8Nek/": {
@@ -4395,6 +4492,13 @@
     "comments": [],
     "origin": [["src/views/members/components/InviteMemberForm.tsx", 170]],
     "translation": "ежемесячная оплата"
+  },
+  "QWdKwH": {
+    "message": "Move",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/board/components/card-selection-toolbar.tsx", 55]],
+    "translation": ""
   },
   "mR0tVq": {
     "message": "Move and resize the square crop before using the image.",
@@ -4423,6 +4527,24 @@
     "comments": [],
     "origin": [
       ["src/views/board/components/CardContextMoveBoardModal.tsx", 207]
+    ],
+    "translation": ""
+  },
+  "NSKF2n": {
+    "message": "Move cards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/card-context-move-many-board-modal.tsx", 214]
+    ],
+    "translation": ""
+  },
+  "EI4FPr": {
+    "message": "Move selected cards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/card-context-move-many-board-modal.tsx", 95]
     ],
     "translation": ""
   },
@@ -4567,8 +4689,8 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/components/NewListForm.tsx", 113],
-      ["src/views/board/index.tsx", 641]
+      ["src/views/board/components/board-header-actions.tsx", 133],
+      ["src/views/board/components/NewListForm.tsx", 113]
     ],
     "translation": "Новый список"
   },
@@ -4662,6 +4784,15 @@
     "origin": [["src/views/boards/components/ImportBoardsForm.tsx", 432]],
     "translation": "Доски не найдены"
   },
+  "cg9Kke": {
+    "message": "No cards were moved. Please try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/card-context-move-many-board-modal.tsx", 65]
+    ],
+    "translation": ""
+  },
   "OpNhRn": {
     "message": "No credit card required",
     "placeholders": {},
@@ -4715,14 +4846,14 @@
     "message": "No lists",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/index.tsx", 673]],
+    "origin": [["src/views/board/index.tsx", 676]],
     "translation": "Нет списков"
   },
   "fvLNDy": {
     "message": "No lists have been created yet",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/index.tsx", 678]],
+    "origin": [["src/views/board/index.tsx", 681]],
     "translation": "Списки ещё не созданы"
   },
   "i30J2U": {
@@ -5187,8 +5318,8 @@
       ["src/views/board/components/NewTemplateForm.tsx", 77],
       ["src/views/board/components/UpdateBoardSlugForm.tsx", 73],
       ["src/views/board/components/VisibilityButton.tsx", 57],
-      ["src/views/board/index.tsx", 220],
-      ["src/views/board/index.tsx", 276],
+      ["src/views/board/index.tsx", 236],
+      ["src/views/board/index.tsx", 292],
       ["src/views/boards/components/ImportBoardsForm.tsx", 243],
       ["src/views/boards/components/ImportBoardsForm.tsx", 395],
       ["src/views/card/components/AttachmentThumbnails.tsx", 74],
@@ -5250,7 +5381,7 @@
       ["src/views/board/components/CardContextDuplicateModal.tsx", 76],
       ["src/views/board/components/CardContextMoveBoardModal.tsx", 64],
       ["src/views/board/components/CardContextMoveListModal.tsx", 42],
-      ["src/views/board/index.tsx", 317],
+      ["src/views/board/index.tsx", 363],
       ["src/views/card/components/Dropdown.tsx", 55],
       ["src/views/card/components/Dropdown.tsx", 81],
       ["src/views/card/components/Dropdown.tsx", 100],
@@ -5393,7 +5524,7 @@
     "comments": [],
     "origin": [
       ["src/components/SideNavigation.tsx", 112],
-      ["src/views/pulse/index.tsx", 82]
+      ["src/views/pulse/index.tsx", 83]
     ],
     "translation": ""
   },
@@ -5403,14 +5534,14 @@
       "0": ["workspace.name"]
     },
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 77]],
+    "origin": [["src/views/pulse/index.tsx", 78]],
     "translation": ""
   },
   "YYqr3g": {
     "message": "Pulse could not be loaded",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 142]],
+    "origin": [["src/views/pulse/index.tsx", 143]],
     "translation": ""
   },
   "bfgr/e": {
@@ -5445,7 +5576,7 @@
     "message": "Refresh",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 122]],
+    "origin": [["src/views/pulse/index.tsx", 123]],
     "translation": ""
   },
   "ekCRTP": {
@@ -5785,7 +5916,7 @@
     "message": "See flow, load, and risks across every active board in this workspace.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 85]],
+    "origin": [["src/views/pulse/index.tsx", 86]],
     "translation": ""
   },
   "K3iLeO": {
@@ -5800,6 +5931,10 @@
     "placeholders": {},
     "comments": [],
     "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        136
+      ],
       ["src/views/board/components/CardContextMoveBoardModal.tsx", 134]
     ],
     "translation": ""
@@ -5809,6 +5944,10 @@
     "placeholders": {},
     "comments": [],
     "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        164
+      ],
       ["src/views/board/components/CardContextDuplicateModal.tsx", 131],
       ["src/views/board/components/CardContextMoveBoardModal.tsx", 162]
     ],
@@ -5838,12 +5977,29 @@
     "origin": [["src/views/settings/components/NewWebhookModal.tsx", 32]],
     "translation": "Выберите хотя бы одно событие"
   },
+  "bLbLju": {
+    "message": "Select cards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/board-header-actions.tsx", 108],
+      ["src/views/board/components/board-header-actions.tsx", 111]
+    ],
+    "translation": ""
+  },
   "rYUZIe": {
     "message": "Select source",
     "placeholders": {},
     "comments": [],
     "origin": [["src/views/boards/components/ImportBoardsForm.tsx", 195]],
     "translation": "Выбрать источник"
+  },
+  "Zr07t3": {
+    "message": "Selecting cards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/board/components/board-header-actions.tsx", 111]],
+    "translation": ""
   },
   "ppaRWv": {
     "message": "Self Host",
@@ -6324,8 +6480,8 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/index.tsx", 547],
-      ["src/views/board/index.tsx", 583]
+      ["src/views/board/components/board-header-actions.tsx", 60],
+      ["src/views/board/index.tsx", 607]
     ],
     "translation": "Шаблон"
   },
@@ -6589,6 +6745,10 @@
     "placeholders": {},
     "comments": [],
     "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        117
+      ],
       ["src/views/board/components/CardContextMoveBoardModal.tsx", 115]
     ],
     "translation": ""
@@ -6598,6 +6758,13 @@
     "placeholders": {},
     "comments": [],
     "origin": [["src/views/pulse/components/WorkloadList.tsx", 27]],
+    "translation": ""
+  },
+  "eiU1dv": {
+    "message": "They will move together to one destination list.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/board/components/card-selection-toolbar.tsx", 34]],
     "translation": ""
   },
   "Yf9FAx": {
@@ -6634,6 +6801,10 @@
     "placeholders": {},
     "comments": [],
     "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        176
+      ],
       ["src/views/board/components/CardContextMoveBoardModal.tsx", 174]
     ],
     "translation": ""
@@ -6861,7 +7032,7 @@
     "message": "Try again",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 154]],
+    "origin": [["src/views/pulse/index.tsx", 155]],
     "translation": ""
   },
   "bZSICm": {
@@ -6904,7 +7075,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/index.tsx", 315],
+      ["src/views/board/index.tsx", 361],
       ["src/views/card/components/Dropdown.tsx", 79],
       ["src/views/public/board/CardModal.tsx", 43],
       ["src/views/public/board/index.tsx", 84]
@@ -7027,6 +7198,10 @@
     "placeholders": {},
     "comments": [],
     "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        113
+      ],
       ["src/views/board/components/CardContextMoveBoardModal.tsx", 111]
     ],
     "translation": ""
@@ -7047,6 +7222,15 @@
       ["src/views/board/components/CardContextMoveListModal.tsx", 41]
     ],
     "translation": "Невозможно переместить карточку"
+  },
+  "6h/hI0": {
+    "message": "Unable to move cards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/board/components/card-context-move-many-board-modal.tsx", 64]
+    ],
+    "translation": ""
   },
   "KOX/pP": {
     "message": "Unable to remove brand logo",
@@ -7153,7 +7337,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/index.tsx", 275],
+      ["src/views/board/index.tsx", 291],
       ["src/views/card/index.tsx", 235]
     ],
     "translation": "Не удалось обновить карточку"
@@ -7198,7 +7382,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/index.tsx", 219],
+      ["src/views/board/index.tsx", 235],
       ["src/views/card/components/ListSelector.tsx", 54]
     ],
     "translation": "Не удалось обновить список"
@@ -7458,7 +7642,7 @@
       "0": ["format(new Date(data.refreshedAt), \"HH:mm:ss\")"]
     },
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 132]],
+    "origin": [["src/views/pulse/index.tsx", 133]],
     "translation": ""
   },
   "tGwwnq": {
@@ -7814,7 +7998,7 @@
     "message": "Week",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 106]],
+    "origin": [["src/views/pulse/index.tsx", 107]],
     "translation": ""
   },
   "xLTZVf": {
@@ -7901,7 +8085,7 @@
       "2": ["data.configuration.plannedStaleDays"]
     },
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 189]],
+    "origin": [["src/views/pulse/index.tsx", 190]],
     "translation": ""
   },
   "JPuUUD": {
@@ -8190,11 +8374,11 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/components/List.tsx", 117],
+      ["src/views/board/components/board-header-actions.tsx", 119],
+      ["src/views/board/components/List.tsx", 119],
       ["src/views/board/components/UpdateBoardSlugButton.tsx", 58],
       ["src/views/board/components/VisibilityButton.tsx", 72],
-      ["src/views/board/index.tsx", 625],
-      ["src/views/board/index.tsx", 683],
+      ["src/views/board/index.tsx", 686],
       ["src/views/boards/components/BoardsList.tsx", 71],
       ["src/views/boards/index.tsx", 59],
       ["src/views/boards/index.tsx", 80]

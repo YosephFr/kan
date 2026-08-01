@@ -1,18 +1,12 @@
 import type { DropResult } from "react-beautiful-dnd";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useRouter } from "next/router";
 import { t } from "@lingui/core/macro";
 import { keepPreviousData } from "@tanstack/react-query";
-import { env } from "next-runtime-env";
 import { useEffect, useState } from "react";
-import { DragDropContext, Draggable } from "react-beautiful-dnd";
+import { DragDropContext } from "react-beautiful-dnd";
 import { useForm } from "react-hook-form";
-import {
-  HiOutlinePlusSmall,
-  HiOutlineRectangleStack,
-  HiOutlineSquare3Stack3D,
-} from "react-icons/hi2";
+import { HiOutlineSquare3Stack3D } from "react-icons/hi2";
 
 import type { UpdateBoardInput } from "@kan/api/types";
 
@@ -37,8 +31,10 @@ import { useWorkspace } from "~/providers/workspace";
 import { api } from "~/utils/api";
 import { formatToArray } from "~/utils/helpers";
 import { DeleteCardConfirmation } from "~/views/card/components/DeleteCardConfirmation";
-import BoardDropdown from "./components/BoardDropdown";
-import Card from "./components/Card";
+import { BoardCard } from "./components/board-card";
+import { BoardHeaderActions } from "./components/board-header-actions";
+import { CardContextMoveManyBoardModal } from "./components/card-context-move-many-board-modal";
+import { CardSelectionToolbar } from "./components/card-selection-toolbar";
 import { CardContextDueDateModal } from "./components/CardContextDueDateModal";
 import { CardContextDuplicateModal } from "./components/CardContextDuplicateModal";
 import { CardContextLabelsModal } from "./components/CardContextLabelsModal";
@@ -48,15 +44,12 @@ import { CardContextMoveBoardModal } from "./components/CardContextMoveBoardModa
 import { CardContextMoveListModal } from "./components/CardContextMoveListModal";
 import { DeleteBoardConfirmation } from "./components/DeleteBoardConfirmation";
 import { DeleteListConfirmation } from "./components/DeleteListConfirmation";
-import Filters from "./components/Filters";
 import List from "./components/List";
 import { MoveBoardForm } from "./components/MoveBoardForm";
 import { NewCardForm } from "./components/NewCardForm";
 import { NewListForm } from "./components/NewListForm";
 import { NewTemplateForm } from "./components/NewTemplateForm";
-import UpdateBoardSlugButton from "./components/UpdateBoardSlugButton";
 import { UpdateBoardSlugForm } from "./components/UpdateBoardSlugForm";
-import VisibilityButton from "./components/VisibilityButton";
 
 type PublicListId = string;
 
@@ -71,6 +64,10 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
   const [selectedPublicListId, setSelectedPublicListId] =
     useState<PublicListId>("");
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isSelectingCards, setIsSelectingCards] = useState(false);
+  const [selectedCardPublicIds, setSelectedCardPublicIds] = useState<string[]>(
+    [],
+  );
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -172,6 +169,25 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
   }, [boardId]);
 
   const isLoading = isInitialLoading || isQueryLoading;
+  const selectedCardPublicIdSet = new Set(selectedCardPublicIds);
+  const orderedSelectedCardPublicIds =
+    boardData?.lists.flatMap((list) =>
+      list.cards
+        .filter((card) => selectedCardPublicIdSet.has(card.publicId))
+        .map((card) => card.publicId),
+    ) ?? [];
+  const selectedCardsHaveLabels =
+    boardData?.lists.some((list) =>
+      list.cards.some(
+        (card) =>
+          selectedCardPublicIdSet.has(card.publicId) && card.labels.length > 0,
+      ),
+    ) ?? false;
+
+  useEffect(() => {
+    setIsSelectingCards(false);
+    setSelectedCardPublicIds([]);
+  }, [boardId]);
 
   useScrollRestore(
     boardId,
@@ -293,6 +309,36 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
     setSelectedPublicListId(publicBoardId);
   };
 
+  const cancelCardSelection = () => {
+    setIsSelectingCards(false);
+    setSelectedCardPublicIds([]);
+    setContextMenu(null);
+  };
+
+  const toggleCardSelection = (cardPublicId: string) => {
+    setSelectedCardPublicIds((current) =>
+      current.includes(cardPublicId)
+        ? current.filter((publicId) => publicId !== cardPublicId)
+        : [...current, cardPublicId],
+    );
+  };
+
+  const toggleCardSelectionMode = () => {
+    if (isSelectingCards) {
+      cancelCardSelection();
+      return;
+    }
+
+    setContextMenu(null);
+    setSelectedCardPublicIds([]);
+    setIsSelectingCards(true);
+  };
+
+  const openMoveSelectedCardsModal = () => {
+    if (orderedSelectedCardPublicIds.length === 0) return;
+    openModal("CARD_CONTEXT_MOVE_MANY_BOARD");
+  };
+
   const handleCardContextMenuAction = (action: CardContextMenuAction) => {
     const cardPublicId = contextMenu?.cardPublicId;
     if (!cardPublicId) return;
@@ -351,7 +397,7 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
     draggableId,
     type,
   }: DropResult): void => {
-    if (!destination) {
+    if (!destination || isSelectingCards) {
       return;
     }
 
@@ -509,6 +555,20 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
         </Modal>
         <Modal
           modalSize="sm"
+          isVisible={
+            isOpen && modalContentType === "CARD_CONTEXT_MOVE_MANY_BOARD"
+          }
+        >
+          <CardContextMoveManyBoardModal
+            cardPublicIds={orderedSelectedCardPublicIds}
+            currentBoardPublicId={boardId ?? ""}
+            workspacePublicId={workspace.publicId}
+            hasLabels={selectedCardsHaveLabels}
+            onMoved={cancelCardSelection}
+          />
+        </Modal>
+        <Modal
+          modalSize="sm"
           isVisible={isOpen && modalContentType === "CARD_CONTEXT_LABELS"}
         >
           <CardContextLabelsModal />
@@ -574,82 +634,25 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
               {t`${isTemplate ? "Template" : "Board"} not found`}
             </p>
           )}
-          <div className="order-1 mb-4 flex items-center justify-end space-x-2 md:order-2 md:mb-0">
-            {isTemplate && (
-              <div className="inline-flex cursor-default items-center justify-center whitespace-nowrap rounded-md border-[1px] border-light-300 bg-light-50 px-3 py-2 text-sm font-semibold text-light-950 shadow-sm dark:border-dark-300 dark:bg-dark-50 dark:text-dark-950">
-                <span className="mr-2">
-                  <HiOutlineRectangleStack />
-                </span>
-                {t`Template`}
-              </div>
-            )}
-            {!isTemplate && (
-              <>
-                <UpdateBoardSlugButton
-                  handleOnClick={() => openModal("UPDATE_BOARD_SLUG")}
-                  isLoading={isLoading}
-                  workspaceSlug={workspace.slug ?? ""}
-                  boardSlug={boardData?.slug ?? ""}
-                  boardPublicId={boardId ?? ""}
-                  visibility={
-                    boardData?.visibility === "public" ? "public" : "private"
-                  }
-                  canEdit={canEditBoard}
-                />
-                <VisibilityButton
-                  visibility={
-                    boardData?.visibility === "public" ? "public" : "private"
-                  }
-                  boardPublicId={boardId ?? ""}
-                  boardSlug={boardData?.slug ?? ""}
-                  queryParams={queryParams}
-                  isLoading={!boardData}
-                  isAdmin={workspace.role === "admin"}
-                />
-                {boardData && (
-                  <Filters
-                    labels={boardData.labels}
-                    members={boardData.workspace.members.filter(
-                      (member) => member.user !== null,
-                    )}
-                    lists={boardData.allLists}
-                    position="left"
-                    isLoading={!boardData}
-                  />
-                )}
-              </>
-            )}
-            <Tooltip
-              content={
-                !canCreateList
-                  ? t`You don't have permission`
-                  : createListShortcutTooltipContent
-              }
-            >
-              <Button
-                iconLeft={
-                  <HiOutlinePlusSmall
-                    className="-mr-0.5 h-5 w-5"
-                    aria-hidden="true"
-                  />
-                }
-                onClick={() => {
-                  if (boardId && canCreateList) openNewListForm(boardId);
-                }}
-                disabled={!boardData || !canCreateList}
-              >
-                {t`New list`}
-              </Button>
-            </Tooltip>
-            <BoardDropdown
-              isTemplate={!!isTemplate}
-              isLoading={!boardData}
-              boardPublicId={boardId ?? ""}
-              isArchived={boardData?.isArchived ?? false}
-              isFavorite={boardData?.favorite}
-              boardName={boardData?.name}
-            />
-          </div>
+          <BoardHeaderActions
+            isTemplate={!!isTemplate}
+            isSelectingCards={isSelectingCards}
+            isLoading={isLoading}
+            boardId={boardId ?? ""}
+            boardData={boardData}
+            workspaceSlug={workspace.slug ?? ""}
+            workspaceRole={workspace.role}
+            canEditBoard={!!canEditBoard}
+            canEditCard={!!canEditCard}
+            canCreateList={!!canCreateList}
+            queryParams={queryParams}
+            createListShortcutTooltipContent={createListShortcutTooltipContent}
+            onOpenUpdateSlug={() => openModal("UPDATE_BOARD_SLUG")}
+            onToggleCardSelection={toggleCardSelectionMode}
+            onCreateList={() => {
+              if (boardId && canCreateList) openNewListForm(boardId);
+            }}
+          />
         </div>
 
         <div
@@ -710,8 +713,9 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
                         {boardData.lists.map((list, index) => (
                           <List
                             index={index}
-                            key={index}
+                            key={list.publicId}
                             list={list}
+                            isSelectionMode={isSelectingCards}
                             setSelectedPublicListId={(publicListId) =>
                               setSelectedPublicListId(publicListId)
                             }
@@ -727,75 +731,31 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
                                   className="scrollbar-track-rounded-[4px] scrollbar-thumb-rounded-[4px] scrollbar-w-[8px] z-10 h-full max-h-[calc(100vh-225px)] min-h-[2rem] overflow-y-auto pr-1 scrollbar dark:scrollbar-track-dark-100 dark:scrollbar-thumb-dark-600"
                                 >
                                   {list.cards.map((card, index) => (
-                                    <Draggable
+                                    <BoardCard
                                       key={card.publicId}
-                                      draggableId={card.publicId}
+                                      card={card}
                                       index={index}
-                                      isDragDisabled={!canEditCard}
-                                    >
-                                      {(provided) => (
-                                        <Link
-                                          onClick={(e) => {
-                                            if (
-                                              card.publicId.startsWith(
-                                                "PLACEHOLDER",
-                                              )
-                                            )
-                                              e.preventDefault();
-                                          }}
-                                          onContextMenu={(e) => {
-                                            if (
-                                              card.publicId.startsWith(
-                                                "PLACEHOLDER",
-                                              ) ||
-                                              env("NEXT_PUBLIC_KAN_ENV") ===
-                                                "cloud"
-                                            )
-                                              return;
-                                            e.preventDefault();
-                                            setContextMenu({
-                                              x: e.clientX,
-                                              y: e.clientY,
-                                              cardPublicId: card.publicId,
-                                            });
-                                          }}
-                                          key={card.publicId}
-                                          href={
-                                            isTemplate
-                                              ? `/templates/${boardId}/cards/${card.publicId}`
-                                              : `/cards/${card.publicId}`
-                                          }
-                                          className={`mb-2 flex !cursor-pointer flex-col ${
-                                            card.publicId.startsWith(
-                                              "PLACEHOLDER",
-                                            )
-                                              ? "pointer-events-none"
-                                              : ""
-                                          }`}
-                                          ref={provided.innerRef}
-                                          {...provided.draggableProps}
-                                          {...provided.dragHandleProps}
-                                        >
-                                          <Card
-                                            title={card.title}
-                                            ticketNumber={
-                                              card.cardNumber != null
-                                                ? `${boardData.workspace.cardPrefix}-${card.cardNumber}`
-                                                : null
-                                            }
-                                            labels={card.labels}
-                                            members={card.members}
-                                            checklists={card.checklists}
-                                            description={
-                                              card.description ?? null
-                                            }
-                                            comments={card.comments}
-                                            attachments={card.attachments}
-                                            dueDate={card.dueDate ?? null}
-                                          />
-                                        </Link>
+                                      boardPublicId={boardId ?? ""}
+                                      cardPrefix={
+                                        boardData.workspace.cardPrefix
+                                      }
+                                      isTemplate={!!isTemplate}
+                                      canEdit={!!canEditCard}
+                                      isSelectionMode={isSelectingCards}
+                                      isSelected={selectedCardPublicIdSet.has(
+                                        card.publicId,
                                       )}
-                                    </Draggable>
+                                      onToggle={toggleCardSelection}
+                                      onOpenContextMenu={(
+                                        cardPublicId,
+                                        position,
+                                      ) =>
+                                        setContextMenu({
+                                          ...position,
+                                          cardPublicId,
+                                        })
+                                      }
+                                    />
                                   ))}
                                   {provided.placeholder}
                                 </div>
@@ -813,6 +773,13 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
             </>
           ) : null}
         </div>
+        {isSelectingCards && (
+          <CardSelectionToolbar
+            selectedCount={orderedSelectedCardPublicIds.length}
+            onCancel={cancelCardSelection}
+            onMove={openMoveSelectedCardsModal}
+          />
+        )}
         {contextMenu && (
           <CardContextMenu
             x={contextMenu.x}

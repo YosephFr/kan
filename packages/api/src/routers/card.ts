@@ -30,8 +30,10 @@ import {
   createCardWebhookPayload,
   sendWebhooksForWorkspace,
 } from "../utils/webhook";
+import { cardMoveManyProcedure } from "./card-move-many";
 
 export const cardRouter = createTRPCRouter({
+  moveMany: cardMoveManyProcedure,
   create: protectedProcedure
     .meta({
       openapi: {

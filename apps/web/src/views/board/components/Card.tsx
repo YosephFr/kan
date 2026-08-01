@@ -3,6 +3,7 @@ import { HiOutlinePaperClip } from "react-icons/hi";
 import {
   HiBars3BottomLeft,
   HiChatBubbleLeft,
+  HiCheck,
   HiOutlineClock,
 } from "react-icons/hi2";
 import { twMerge } from "tailwind-merge";
@@ -24,6 +25,8 @@ const Card = ({
   comments,
   attachments,
   dueDate,
+  isSelectionMode = false,
+  isSelected = false,
 }: {
   title: string;
   ticketNumber?: string | null;
@@ -47,6 +50,8 @@ const Card = ({
   comments: { publicId: string }[];
   attachments?: { publicId: string }[];
   dueDate?: Date | null;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
 }) => {
   const { dateLocale } = useLocalisation();
   const showYear = dueDate ? !isSameYear(dueDate, new Date()) : false;
@@ -68,7 +73,29 @@ const Card = ({
   const hasDueDate = !!dueDate;
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-md border border-light-200 bg-light-50 px-3 py-2 text-sm text-neutral-900 dark:border-dark-200 dark:bg-dark-200 dark:text-dark-1000 dark:hover:bg-dark-300">
+    <div
+      className={twMerge(
+        "relative flex flex-col overflow-hidden rounded-md border bg-light-50 px-3 py-2 text-sm text-neutral-900 transition-[border-color,box-shadow,background-color] duration-300 dark:bg-dark-200 dark:text-dark-1000",
+        isSelectionMode
+          ? "border-light-500 pr-10 hover:bg-light-100 dark:border-dark-500 dark:hover:bg-dark-300"
+          : "border-light-200 dark:border-dark-200 dark:hover:bg-dark-300",
+        isSelected &&
+          "border-light-1000 shadow-[inset_0_0_0_1px] shadow-light-1000 dark:border-dark-1000 dark:shadow-dark-1000",
+      )}
+    >
+      {isSelectionMode && (
+        <span
+          className={twMerge(
+            "absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded border transition-colors duration-300",
+            isSelected
+              ? "border-light-1000 bg-light-1000 text-light-50 dark:border-dark-1000 dark:bg-dark-1000 dark:text-dark-50"
+              : "border-light-600 bg-light-50 text-transparent dark:border-dark-600 dark:bg-dark-200",
+          )}
+          aria-hidden="true"
+        >
+          <HiCheck className="h-3.5 w-3.5" />
+        </span>
+      )}
       {ticketNumber && (
         <span className="mb-1 text-xs text-light-700 dark:text-dark-800">
           {ticketNumber}
@@ -98,7 +125,7 @@ const Card = ({
                   <HiBars3BottomLeft className="h-4 w-4" />
                 </div>
               )}
-              {hasDueDate && dueDate && (
+              {dueDate && (
                 <div
                   className={twMerge(
                     "flex items-center gap-1",

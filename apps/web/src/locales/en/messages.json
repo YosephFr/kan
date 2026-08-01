@@ -80,6 +80,41 @@
     ],
     "translation": "{0} blocked"
   },
+  "LldCXQ": {
+    "message": "{0} cards were moved to {1}.",
+    "placeholders": {
+      "0": [
+        "cardPublicIds.length"
+      ],
+      "1": [
+        "selectedBoard?.name ?? \"\""
+      ]
+    },
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        56
+      ]
+    ],
+    "translation": "{0} cards were moved to {1}."
+  },
+  "JuBg66": {
+    "message": "{0} cards will move together to one destination list.",
+    "placeholders": {
+      "0": [
+        "cardPublicIds.length"
+      ]
+    },
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        98
+      ]
+    ],
+    "translation": "{0} cards will move together to one destination list."
+  },
   "Wmmi9Y": {
     "message": "{0} d",
     "placeholders": {
@@ -171,7 +206,7 @@
     "origin": [
       [
         "src/views/board/index.tsx",
-        574
+        634
       ]
     ],
     "translation": "{0} not found"
@@ -293,6 +328,22 @@
       ]
     ],
     "translation": "{projectCount, plural, one {Import project (1)} other {Import projects ({projectCount})}}"
+  },
+  "iiWOuH": {
+    "message": "{selectedCount} selected cards",
+    "placeholders": {
+      "selectedCount": [
+        "selectedCount"
+      ]
+    },
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/card-selection-toolbar.tsx",
+        30
+      ]
+    ],
+    "translation": "{selectedCount} selected cards"
   },
   "9lFfqv": {
     "message": "/month",
@@ -613,7 +664,7 @@
     "origin": [
       [
         "src/views/board/components/List.tsx",
-        136
+        138
       ]
     ],
     "translation": "Add a card"
@@ -1012,6 +1063,18 @@
     ],
     "translation": "Advanced security, compliance, and dedicated support for large organizations."
   },
+  "wHHpm9": {
+    "message": "All assigned members will remain on every card.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        183
+      ]
+    ],
+    "translation": "All assigned members will remain on every card."
+  },
   "h2ztFt": {
     "message": "All Free features +",
     "placeholders": {},
@@ -1155,7 +1218,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        92
+        93
       ]
     ],
     "translation": "Analysis period"
@@ -1503,7 +1566,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        133
+        134
       ]
     ],
     "translation": "Automatic refresh every 15 seconds"
@@ -1722,12 +1785,16 @@
     "comments": [],
     "origin": [
       [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        126
+      ],
+      [
         "src/views/board/components/CardContextMoveBoardModal.tsx",
         124
       ],
       [
         "src/views/board/index.tsx",
-        547
+        607
       ],
       [
         "src/views/card/index.tsx",
@@ -2446,6 +2513,14 @@
         176
       ],
       [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        200
+      ],
+      [
+        "src/views/board/components/card-selection-toolbar.tsx",
+        46
+      ],
+      [
         "src/views/board/components/CardContextDuplicateModal.tsx",
         267
       ],
@@ -2515,6 +2590,18 @@
       ]
     ],
     "translation": "Cancel"
+  },
+  "CAJr0p": {
+    "message": "Cancel card selection",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/board-header-actions.tsx",
+        108
+      ]
+    ],
+    "translation": "Cancel card selection"
   },
   "kryGs+": {
     "message": "Card",
@@ -2596,6 +2683,18 @@
     ],
     "translation": "Card not found"
   },
+  "NCrAr7": {
+    "message": "Card selection actions",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/card-selection-toolbar.tsx",
+        25
+      ]
+    ],
+    "translation": "Card selection actions"
+  },
   "ZH7TVS": {
     "message": "Card title",
     "placeholders": {},
@@ -2615,7 +2714,7 @@
     "origin": [
       [
         "src/views/board/index.tsx",
-        310
+        356
       ],
       [
         "src/views/card/components/Dropdown.tsx",
@@ -2627,6 +2726,18 @@
       ]
     ],
     "translation": "Card URL copied to clipboard"
+  },
+  "mQa9Gv": {
+    "message": "Cards moved",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        55
+      ]
+    ],
+    "translation": "Cards moved"
   },
   "1xuzgn": {
     "message": "Cards with signals that need a decision",
@@ -2751,7 +2862,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        145
+        146
       ]
     ],
     "translation": "Check the connection and try again."
@@ -2871,6 +2982,18 @@
       ]
     ],
     "translation": "Choose plan"
+  },
+  "MshlzN": {
+    "message": "Choose the cards you want to move.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/card-selection-toolbar.tsx",
+        35
+      ]
+    ],
+    "translation": "Choose the cards you want to move."
   },
   "VHS0aJ": {
     "message": "Clear all custom permissions?",
@@ -3619,11 +3742,11 @@
     "origin": [
       [
         "src/views/board/index.tsx",
-        94
+        91
       ],
       [
         "src/views/board/index.tsx",
-        692
+        695
       ]
     ],
     "translation": "Create new list"
@@ -4068,7 +4191,7 @@
     "origin": [
       [
         "src/views/board/components/List.tsx",
-        147
+        149
       ]
     ],
     "translation": "Delete list"
@@ -5785,7 +5908,7 @@
     "origin": [
       [
         "src/views/board/index.tsx",
-        677
+        680
       ]
     ],
     "translation": "Get started by creating a new list"
@@ -6073,7 +6196,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        186
+        187
       ]
     ],
     "translation": "History coverage: {coverage}% of cards have recorded list transitions. Cycle time only uses complete transitions."
@@ -6747,6 +6870,18 @@
     ],
     "translation": "Labels & Filters"
   },
+  "HazrhG": {
+    "message": "Labels on selected cards will be removed because labels belong to the current board.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        190
+      ]
+    ],
+    "translation": "Labels on selected cards will be removed because labels belong to the current board."
+  },
   "vXIe7J": {
     "message": "Language",
     "placeholders": {},
@@ -6955,7 +7090,7 @@
       ],
       [
         "src/views/board/index.tsx",
-        308
+        354
       ],
       [
         "src/views/card/components/Dropdown.tsx",
@@ -6977,6 +7112,10 @@
     "placeholders": {},
     "comments": [],
     "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        153
+      ],
       [
         "src/views/board/components/CardContextDuplicateModal.tsx",
         117
@@ -7069,6 +7208,10 @@
     "placeholders": {},
     "comments": [],
     "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        103
+      ],
       [
         "src/views/board/components/CardContextMoveBoardModal.tsx",
         101
@@ -7392,7 +7535,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        106
+        107
       ]
     ],
     "translation": "Month"
@@ -7428,6 +7571,18 @@
       ]
     ],
     "translation": "monthly billing"
+  },
+  "QWdKwH": {
+    "message": "Move",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/card-selection-toolbar.tsx",
+        55
+      ]
+    ],
+    "translation": "Move"
   },
   "mR0tVq": {
     "message": "Move and resize the square crop before using the image.",
@@ -7476,6 +7631,30 @@
       ]
     ],
     "translation": "Move card"
+  },
+  "NSKF2n": {
+    "message": "Move cards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        214
+      ]
+    ],
+    "translation": "Move cards"
+  },
+  "EI4FPr": {
+    "message": "Move selected cards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        95
+      ]
+    ],
+    "translation": "Move selected cards"
   },
   "CluBqG": {
     "message": "Move to another board",
@@ -7722,12 +7901,12 @@
     "comments": [],
     "origin": [
       [
-        "src/views/board/components/NewListForm.tsx",
-        113
+        "src/views/board/components/board-header-actions.tsx",
+        133
       ],
       [
-        "src/views/board/index.tsx",
-        641
+        "src/views/board/components/NewListForm.tsx",
+        113
       ]
     ],
     "translation": "New list"
@@ -7880,6 +8059,18 @@
     ],
     "translation": "No boards found"
   },
+  "cg9Kke": {
+    "message": "No cards were moved. Please try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        65
+      ]
+    ],
+    "translation": "No cards were moved. Please try again."
+  },
   "OpNhRn": {
     "message": "No credit card required",
     "placeholders": {},
@@ -7971,7 +8162,7 @@
     "origin": [
       [
         "src/views/board/index.tsx",
-        673
+        676
       ]
     ],
     "translation": "No lists"
@@ -7983,7 +8174,7 @@
     "origin": [
       [
         "src/views/board/index.tsx",
-        678
+        681
       ]
     ],
     "translation": "No lists have been created yet"
@@ -8771,11 +8962,11 @@
       ],
       [
         "src/views/board/index.tsx",
-        220
+        236
       ],
       [
         "src/views/board/index.tsx",
-        276
+        292
       ],
       [
         "src/views/boards/components/ImportBoardsForm.tsx",
@@ -8975,7 +9166,7 @@
       ],
       [
         "src/views/board/index.tsx",
-        317
+        363
       ],
       [
         "src/views/card/components/Dropdown.tsx",
@@ -9243,7 +9434,7 @@
       ],
       [
         "src/views/pulse/index.tsx",
-        82
+        83
       ]
     ],
     "translation": "Pulse"
@@ -9259,7 +9450,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        77
+        78
       ]
     ],
     "translation": "Pulse | {0}"
@@ -9271,7 +9462,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        142
+        143
       ]
     ],
     "translation": "Pulse could not be loaded"
@@ -9331,7 +9522,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        122
+        123
       ]
     ],
     "translation": "Refresh"
@@ -9902,7 +10093,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        85
+        86
       ]
     ],
     "translation": "See flow, load, and risks across every active board in this workspace."
@@ -9925,6 +10116,10 @@
     "comments": [],
     "origin": [
       [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        136
+      ],
+      [
         "src/views/board/components/CardContextMoveBoardModal.tsx",
         134
       ]
@@ -9936,6 +10131,10 @@
     "placeholders": {},
     "comments": [],
     "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        164
+      ],
       [
         "src/views/board/components/CardContextDuplicateModal.tsx",
         131
@@ -9987,6 +10186,22 @@
     ],
     "translation": "Select at least one event"
   },
+  "bLbLju": {
+    "message": "Select cards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/board-header-actions.tsx",
+        108
+      ],
+      [
+        "src/views/board/components/board-header-actions.tsx",
+        111
+      ]
+    ],
+    "translation": "Select cards"
+  },
   "rYUZIe": {
     "message": "Select source",
     "placeholders": {},
@@ -9998,6 +10213,18 @@
       ]
     ],
     "translation": "Select source"
+  },
+  "Zr07t3": {
+    "message": "Selecting cards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/board-header-actions.tsx",
+        111
+      ]
+    ],
+    "translation": "Selecting cards"
   },
   "ppaRWv": {
     "message": "Self Host",
@@ -10801,12 +11028,12 @@
     "comments": [],
     "origin": [
       [
-        "src/views/board/index.tsx",
-        547
+        "src/views/board/components/board-header-actions.tsx",
+        60
       ],
       [
         "src/views/board/index.tsx",
-        583
+        607
       ]
     ],
     "translation": "Template"
@@ -11233,6 +11460,10 @@
     "comments": [],
     "origin": [
       [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        117
+      ],
+      [
         "src/views/board/components/CardContextMoveBoardModal.tsx",
         115
       ]
@@ -11250,6 +11481,18 @@
       ]
     ],
     "translation": "There is no assigned work in progress."
+  },
+  "eiU1dv": {
+    "message": "They will move together to one destination list.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/card-selection-toolbar.tsx",
+        34
+      ]
+    ],
+    "translation": "They will move together to one destination list."
   },
   "Yf9FAx": {
     "message": "They won't be able to access this workspace.",
@@ -11308,6 +11551,10 @@
     "placeholders": {},
     "comments": [],
     "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        176
+      ],
       [
         "src/views/board/components/CardContextMoveBoardModal.tsx",
         174
@@ -11666,7 +11913,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        154
+        155
       ]
     ],
     "translation": "Try again"
@@ -11738,7 +11985,7 @@
     "origin": [
       [
         "src/views/board/index.tsx",
-        315
+        361
       ],
       [
         "src/views/card/components/Dropdown.tsx",
@@ -11941,6 +12188,10 @@
     "comments": [],
     "origin": [
       [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        113
+      ],
+      [
         "src/views/board/components/CardContextMoveBoardModal.tsx",
         111
       ]
@@ -11974,6 +12225,18 @@
       ]
     ],
     "translation": "Unable to move card"
+  },
+  "6h/hI0": {
+    "message": "Unable to move cards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/board/components/card-context-move-many-board-modal.tsx",
+        64
+      ]
+    ],
+    "translation": "Unable to move cards"
   },
   "KOX/pP": {
     "message": "Unable to remove brand logo",
@@ -12142,7 +12405,7 @@
     "origin": [
       [
         "src/views/board/index.tsx",
-        275
+        291
       ],
       [
         "src/views/card/index.tsx",
@@ -12218,7 +12481,7 @@
     "origin": [
       [
         "src/views/board/index.tsx",
-        219
+        235
       ],
       [
         "src/views/card/components/ListSelector.tsx",
@@ -12678,7 +12941,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        132
+        133
       ]
     ],
     "translation": "Updated at {0}"
@@ -13270,7 +13533,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        106
+        107
       ]
     ],
     "translation": "Week"
@@ -13420,7 +13683,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        189
+        190
       ]
     ],
     "translation": "Without movement: {0} d in progress · {1} d blocked · {2} d planned"
@@ -13888,8 +14151,12 @@
     "comments": [],
     "origin": [
       [
+        "src/views/board/components/board-header-actions.tsx",
+        119
+      ],
+      [
         "src/views/board/components/List.tsx",
-        117
+        119
       ],
       [
         "src/views/board/components/UpdateBoardSlugButton.tsx",
@@ -13901,11 +14168,7 @@
       ],
       [
         "src/views/board/index.tsx",
-        625
-      ],
-      [
-        "src/views/board/index.tsx",
-        683
+        686
       ],
       [
         "src/views/boards/components/BoardsList.tsx",

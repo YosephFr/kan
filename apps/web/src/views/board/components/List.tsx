@@ -21,6 +21,7 @@ interface ListProps {
   children: ReactNode;
   index: number;
   list: List;
+  isSelectionMode?: boolean;
   setSelectedPublicListId: (publicListId: PublicListId) => void;
 }
 
@@ -41,6 +42,7 @@ export default function List({
   children,
   index,
   list,
+  isSelectionMode = false,
   setSelectedPublicListId,
 }: ListProps) {
   const { openModal } = useModal();
@@ -87,7 +89,7 @@ export default function List({
       key={list.publicId}
       draggableId={list.publicId}
       index={index}
-      isDragDisabled={!canDrag}
+      isDragDisabled={!canDrag || isSelectionMode}
     >
       {(provided) => (
         <div
