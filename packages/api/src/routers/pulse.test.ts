@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as pulseRepo from "@kan/db/repository/pulse.repo";
 import * as workspaceRepo from "@kan/db/repository/workspace.repo";
+import { generateWorkspaceLogoUrl } from "@kan/shared/utils";
 
 import { assertPermission } from "../utils/permissions";
 
@@ -13,6 +14,10 @@ vi.mock("@kan/db/repository/pulse.repo", () => ({
 
 vi.mock("@kan/db/repository/workspace.repo", () => ({
   getByPublicId: vi.fn(),
+}));
+
+vi.mock("@kan/shared/utils", () => ({
+  generateWorkspaceLogoUrl: vi.fn(),
 }));
 
 vi.mock("../utils/permissions", () => ({
@@ -28,6 +33,9 @@ const mockGetWorkspace = workspaceRepo.getByPublicId as ReturnType<
   typeof vi.fn
 >;
 const mockAssertPermission = assertPermission as ReturnType<typeof vi.fn>;
+const mockGenerateWorkspaceLogoUrl = generateWorkspaceLogoUrl as ReturnType<
+  typeof vi.fn
+>;
 
 describe("pulse.summary", () => {
   const db = {} as never;
@@ -62,7 +70,7 @@ describe("pulse.summary", () => {
         id: 12,
         publicId: "workspace1234",
         name: "Imanleads",
-        logo: null,
+        logo: "workspace-logo-key",
         weekStartDay: 1,
         cardPrefix: "IMA",
       },
@@ -78,6 +86,9 @@ describe("pulse.summary", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockAssertPermission.mockResolvedValue(undefined);
+    mockGenerateWorkspaceLogoUrl.mockResolvedValue(
+      "https://assets.example.com/workspace.png",
+    );
   });
 
   it("rejects unauthenticated requests", async () => {
@@ -139,8 +150,14 @@ describe("pulse.summary", () => {
       .portfolio({ period: "week" });
 
     expect(mockGetPortfolioSource).toHaveBeenCalledWith(db, user.id);
+    expect(mockGenerateWorkspaceLogoUrl).toHaveBeenCalledWith(
+      "workspace-logo-key",
+    );
     expect(result.totals.companies).toBe(1);
     expect(result.companies[0]?.name).toBe("Imanleads");
+    expect(result.companies[0]?.logo).toBe(
+      "https://assets.example.com/workspace.png",
+    );
   });
 
   it("rejects drill-down requests for inaccessible workspaces", async () => {

@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import * as pulseRepo from "@kan/db/repository/pulse.repo";
 import * as workspaceRepo from "@kan/db/repository/workspace.repo";
+import { generateWorkspaceLogoUrl } from "@kan/shared/utils";
 
 import { buildPulseSummary } from "../pulse/metrics";
 import {
@@ -41,7 +42,17 @@ export const pulseRouter = createTRPCRouter({
         });
 
       const source = await pulseRepo.getPortfolioSourceByUserId(ctx.db, userId);
-      return buildPortfolioSummary(source, input.period);
+      const portfolio = buildPortfolioSummary(source, input.period);
+
+      return {
+        ...portfolio,
+        companies: await Promise.all(
+          portfolio.companies.map(async (company) => ({
+            ...company,
+            logo: await generateWorkspaceLogoUrl(company.logo),
+          })),
+        ),
+      };
     }),
   detail: protectedProcedure
     .meta({
