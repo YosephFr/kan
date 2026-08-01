@@ -229,8 +229,17 @@ export default function PulseDetailsView() {
                               )}
                             </span>
                           )}
+                          {item.changedBy &&
+                            metric !== "stalled" &&
+                            metric !== "open" && (
+                              <span>
+                                {t`Moved by`} {item.changedBy}
+                              </span>
+                            )}
                           {item.assignees.length > 0 && (
-                            <span>{item.assignees.join(", ")}</span>
+                            <span>
+                              {t`Assignees`}: {item.assignees.join(", ")}
+                            </span>
                           )}
                         </div>
                       </div>

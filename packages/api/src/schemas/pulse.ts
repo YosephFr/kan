@@ -195,6 +195,7 @@ export const pulsePortfolioDetailSchema = z.object({
       status: pulseStatusSchema,
       fromListName: z.string().nullable(),
       toListName: z.string().nullable(),
+      changedBy: z.string().nullable(),
       lastChangedAt: z.string().datetime().nullable(),
       inactiveDays: z.number().int().nonnegative(),
       assignees: z.array(z.string()),

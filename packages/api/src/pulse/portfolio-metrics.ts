@@ -355,6 +355,7 @@ export const buildPortfolioDetail = (
 
     const activity =
       matchingPeriodActivities.at(-1) ?? cardActivities.at(-1) ?? null;
+    const actor = activity ? prepared.actorForActivity(activity) : undefined;
 
     return [
       {
@@ -378,6 +379,7 @@ export const buildPortfolioDetail = (
           activity?.toListId === null || activity === null
             ? null
             : (prepared.listById.get(activity.toListId)?.name ?? null),
+        changedBy: actor?.name ?? actor?.email ?? null,
         lastChangedAt: activity?.createdAt.toISOString() ?? null,
         inactiveDays: prepared.inactiveDaysByCardId.get(card.id) ?? 0,
         assignees: memberIds

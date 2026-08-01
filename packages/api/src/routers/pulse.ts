@@ -18,6 +18,18 @@ import {
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { assertPermission } from "../utils/permissions";
 
+const resolvePortfolioLogos = async (
+  source: Awaited<ReturnType<typeof pulseRepo.getPortfolioSourceByUserId>>,
+) => ({
+  ...source,
+  workspaces: await Promise.all(
+    source.workspaces.map(async (workspace) => ({
+      ...workspace,
+      logo: await generateWorkspaceLogoUrl(workspace.logo),
+    })),
+  ),
+});
+
 export const pulseRouter = createTRPCRouter({
   portfolio: protectedProcedure
     .meta({
@@ -42,17 +54,10 @@ export const pulseRouter = createTRPCRouter({
         });
 
       const source = await pulseRepo.getPortfolioSourceByUserId(ctx.db, userId);
-      const portfolio = buildPortfolioSummary(source, input.period);
-
-      return {
-        ...portfolio,
-        companies: await Promise.all(
-          portfolio.companies.map(async (company) => ({
-            ...company,
-            logo: await generateWorkspaceLogoUrl(company.logo),
-          })),
-        ),
-      };
+      return buildPortfolioSummary(
+        await resolvePortfolioLogos(source),
+        input.period,
+      );
     }),
   detail: protectedProcedure
     .meta({
@@ -83,7 +88,9 @@ export const pulseRouter = createTRPCRouter({
           message: "User not authenticated",
         });
 
-      const source = await pulseRepo.getPortfolioSourceByUserId(ctx.db, userId);
+      const source = await resolvePortfolioLogos(
+        await pulseRepo.getPortfolioSourceByUserId(ctx.db, userId),
+      );
       const workspace = input.workspacePublicId
         ? source.workspaces.find(
             (item) => item.publicId === input.workspacePublicId,

@@ -269,6 +269,7 @@ describe("buildPortfolioDetail", () => {
         workspaceName: "Imanleads",
         fromListName: "Por hacer",
         toListName: "En curso",
+        changedBy: "Christan",
       }),
     ]);
   });

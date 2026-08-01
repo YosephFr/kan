@@ -172,4 +172,21 @@ describe("pulse.summary", () => {
       }),
     ).rejects.toThrow(TRPCError);
   });
+
+  it("resolves the workspace logo in drill-down responses", async () => {
+    const { pulseRouter } = await import("./pulse");
+    mockGetPortfolioSource.mockResolvedValueOnce(portfolioSource);
+
+    const result = await pulseRouter
+      .createCaller({ user, db } as never)
+      .detail({
+        metric: "open",
+        period: "week",
+        workspacePublicId: "workspace1234",
+      });
+
+    expect(result.workspace?.logo).toBe(
+      "https://assets.example.com/workspace.png",
+    );
+  });
 });

@@ -129,7 +129,7 @@
     "origin": [
       [
         "src/views/pulse/details.tsx",
-        147
+        150
       ]
     ],
     "translation": "{0} cards"
@@ -228,7 +228,7 @@
     "origin": [
       [
         "src/views/pulse/details.tsx",
-        215
+        218
       ]
     ],
     "translation": "{0} days without movement"
@@ -308,7 +308,7 @@
     "origin": [
       [
         "src/views/pulse/components/CompanyProgress.tsx",
-        72
+        74
       ]
     ],
     "translation": "{0} movement"
@@ -542,7 +542,7 @@
     "origin": [
       [
         "src/views/pulse/details.tsx",
-        147
+        150
       ]
     ],
     "translation": "1 card"
@@ -578,7 +578,7 @@
     "origin": [
       [
         "src/views/pulse/details.tsx",
-        214
+        217
       ]
     ],
     "translation": "1 day without movement"
@@ -1204,11 +1204,11 @@
     "origin": [
       [
         "src/views/pulse/components/CompanyProgress.tsx",
-        75
+        78
       ],
       [
         "src/views/pulse/components/CompanyProgress.tsx",
-        116
+        119
       ],
       [
         "src/views/pulse/components/PortfolioKpiStrip.tsx",
@@ -1757,6 +1757,10 @@
       [
         "src/views/pricing/components/FeatureComparisonTable.tsx",
         199
+      ],
+      [
+        "src/views/pulse/details.tsx",
+        241
       ]
     ],
     "translation": "Assignees"
@@ -3140,7 +3144,7 @@
     "origin": [
       [
         "src/views/pulse/details.tsx",
-        161
+        164
       ]
     ],
     "translation": "Change the period or return to the company overview."
@@ -4753,7 +4757,7 @@
     "origin": [
       [
         "src/views/pulse/components/CompanyProgress.tsx",
-        121
+        124
       ],
       [
         "src/views/pulse/components/KpiStrip.tsx",
@@ -7690,7 +7694,7 @@
     "origin": [
       [
         "src/views/pulse/details.tsx",
-        125
+        127
       ]
     ],
     "translation": "Loading detail"
@@ -8225,6 +8229,18 @@
     ],
     "translation": "Move to workspace"
   },
+  "7kdbJh": {
+    "translation": "Moved by",
+    "message": "Moved by",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/details.tsx",
+        236
+      ]
+    ]
+  },
   "BOqTi5": {
     "message": "moved the card from <0>{0}</0> to<1>{1}</1>",
     "placeholders": {
@@ -8607,7 +8623,7 @@
     "origin": [
       [
         "src/views/pulse/details.tsx",
-        158
+        161
       ]
     ],
     "translation": "No cards match this statistic"
@@ -8887,7 +8903,7 @@
     "origin": [
       [
         "src/views/pulse/components/CompanyProgress.tsx",
-        131
+        134
       ],
       [
         "src/views/pulse/components/FlowOverview.tsx",
@@ -10425,7 +10441,7 @@
     "origin": [
       [
         "src/views/pulse/details.tsx",
-        136
+        139
       ]
     ],
     "translation": "Return to the Dashboard and try again."
@@ -11138,7 +11154,7 @@
     "origin": [
       [
         "src/views/pulse/details.tsx",
-        239
+        255
       ]
     ],
     "translation": "Showing the first 200 cards."
@@ -11430,11 +11446,11 @@
     "origin": [
       [
         "src/views/pulse/components/CompanyProgress.tsx",
-        94
+        97
       ],
       [
         "src/views/pulse/components/CompanyProgress.tsx",
-        126
+        129
       ]
     ],
     "translation": "Stalled"
@@ -12014,7 +12030,7 @@
     "origin": [
       [
         "src/views/pulse/details.tsx",
-        133
+        136
       ]
     ],
     "translation": "The metric detail could not be loaded"
@@ -13642,7 +13658,7 @@
     "origin": [
       [
         "src/views/pulse/details.tsx",
-        151
+        154
       ],
       [
         "src/views/pulse/index.tsx",
