@@ -3,7 +3,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { env } from "next-runtime-env";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { authClient } from "@kan/auth/client";
 
@@ -31,7 +31,11 @@ export default function LoginPage() {
   const { data: branding } = api.branding.get.useQuery();
   const brandName = branding?.brandName ?? "kan.bn";
 
-  if (data?.user.id) router.push(redirect ?? APP_HOME_PATH);
+  useEffect(() => {
+    if (data?.user.id) {
+      router.replace(redirect ?? APP_HOME_PATH);
+    }
+  }, [data?.user.id, redirect, router]);
 
   return (
     <>
