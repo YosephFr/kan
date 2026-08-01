@@ -15,6 +15,7 @@ import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
 import { useWorkspace } from "~/providers/workspace";
 import { api } from "~/utils/api";
+import { buildWorkspaceCreateInput } from "~/utils/workspace";
 import LoadingSpinner from "./LoadingSpinner";
 
 const schema = z.object({
@@ -170,10 +171,7 @@ export function NewWorkspaceForm() {
       return;
     }
 
-    createWorkspace.mutate({
-      name: values.name,
-      slug: values.slug,
-    });
+    createWorkspace.mutate(buildWorkspaceCreateInput(values.name, values.slug));
   };
 
   const isSlugAvailable =
