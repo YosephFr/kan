@@ -8,7 +8,9 @@ import { APP_HOME_PATH } from "./utils/navigation";
 export function middleware(request: NextRequest) {
   if (request.nextUrl.pathname === "/") {
     if (env("NEXT_PUBLIC_KAN_ENV") !== "cloud") {
-      const destination = getSessionCookie(request) ? APP_HOME_PATH : "/login";
+      const destination = getSessionCookie(request, { cookiePrefix: "kan" })
+        ? APP_HOME_PATH
+        : "/login";
       return NextResponse.redirect(new URL(destination, request.url));
     }
   }

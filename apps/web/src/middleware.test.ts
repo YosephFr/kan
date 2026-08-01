@@ -19,7 +19,7 @@ describe("root middleware", () => {
   it("sends an authenticated user directly to the dashboard", () => {
     const request = new NextRequest("https://work.imanleads.com/", {
       headers: {
-        cookie: "better-auth.session_token=test-session",
+        cookie: "kan.session_token=test-session",
       },
     });
 
