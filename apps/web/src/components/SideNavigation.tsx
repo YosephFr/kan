@@ -16,6 +16,7 @@ import type { Subscription } from "@kan/shared/utils";
 import { hasActiveSubscription } from "@kan/shared/utils";
 
 import type { KeyboardShortcut } from "~/providers/keyboard-shortcuts";
+import type { PrimaryNavigationKey } from "~/utils/navigation";
 import activityIconDark from "~/assets/activity-logs-dark.json";
 import activityIconLight from "~/assets/activity-logs-light.json";
 import boardsIconDark from "~/assets/boards-dark.json";
@@ -26,6 +27,7 @@ import settingsIconDark from "~/assets/settings-dark.json";
 import settingsIconLight from "~/assets/settings-light.json";
 import templatesIconDark from "~/assets/templates-dark.json";
 import templatesIconLight from "~/assets/templates-light.json";
+import BoardsNavigation from "~/components/BoardsNavigation";
 import { BrandMark } from "~/components/BrandMark";
 import ButtonComponent from "~/components/Button";
 import ReactiveButton from "~/components/ReactiveButton";
@@ -33,6 +35,11 @@ import UserMenu from "~/components/UserMenu";
 import WorkspaceMenu from "~/components/WorkspaceMenu";
 import { useWorkspace } from "~/providers/workspace";
 import { api } from "~/utils/api";
+import {
+  APP_HOME_PATH,
+  BOARDS_PATH,
+  PRIMARY_NAVIGATION_ORDER,
+} from "~/utils/navigation";
 
 interface SideNavigationProps {
   user: UserType;
@@ -82,7 +89,7 @@ export default function SideNavigation({
     }
   }, [isCollapsed, isInitialised]);
 
-  const { pathname } = router;
+  const currentPath = router.asPath.split("?")[0] ?? "";
 
   const { resolvedTheme } = useTheme();
 
@@ -90,37 +97,40 @@ export default function SideNavigation({
 
   const isDarkMode = resolvedTheme === "dark";
 
-  const navigation: {
-    name: string;
-    href: string;
-    icon: object;
-    keyboardShortcut: KeyboardShortcut;
-  }[] = [
+  const navigation: Record<
+    PrimaryNavigationKey,
     {
+      name: string;
+      href: string;
+      icon: object;
+      keyboardShortcut: KeyboardShortcut;
+    }
+  > = {
+    dashboard: {
+      name: t`Dashboard`,
+      href: APP_HOME_PATH,
+      icon: isDarkMode ? activityIconDark : activityIconLight,
+      keyboardShortcut: {
+        type: "SEQUENCE",
+        strokes: [{ key: "G" }, { key: "D" }],
+        action: () => void router.push(APP_HOME_PATH),
+        group: "NAVIGATION",
+        description: t`Go to dashboard`,
+      },
+    },
+    boards: {
       name: t`Boards`,
-      href: "/boards",
+      href: BOARDS_PATH,
       icon: isDarkMode ? boardsIconDark : boardsIconLight,
       keyboardShortcut: {
         type: "SEQUENCE",
         strokes: [{ key: "G" }, { key: "B" }],
-        action: () => void router.push("/boards"),
+        action: () => void router.push(BOARDS_PATH),
         group: "NAVIGATION",
         description: t`Go to boards`,
       },
     },
-    {
-      name: t`Pulse`,
-      href: "/pulse",
-      icon: isDarkMode ? activityIconDark : activityIconLight,
-      keyboardShortcut: {
-        type: "SEQUENCE",
-        strokes: [{ key: "G" }, { key: "P" }],
-        action: () => void router.push("/pulse"),
-        group: "NAVIGATION",
-        description: t`Go to pulse`,
-      },
-    },
-    {
+    templates: {
       name: t`Templates`,
       href: "/templates",
       icon: isDarkMode ? templatesIconDark : templatesIconLight,
@@ -132,7 +142,7 @@ export default function SideNavigation({
         description: t`Go to templates`,
       },
     },
-    {
+    members: {
       name: t`Members`,
       href: "/members",
       icon: isDarkMode ? membersIconDark : membersIconLight,
@@ -144,7 +154,7 @@ export default function SideNavigation({
         description: t`Go to members`,
       },
     },
-    {
+    settings: {
       name: t`Settings`,
       href: "/settings",
       icon: isDarkMode ? settingsIconDark : settingsIconLight,
@@ -156,7 +166,7 @@ export default function SideNavigation({
         description: t`Go to settings`,
       },
     },
-  ];
+  };
 
   const toggleCollapse = () => {
     setIsCollapsed(!isCollapsed);
@@ -173,7 +183,7 @@ export default function SideNavigation({
         <div>
           <div className="hidden h-[45px] items-center justify-between pb-3 md:flex">
             {!isCollapsed && (
-              <Link href="/" className="block">
+              <Link href={APP_HOME_PATH} className="block">
                 <BrandMark className="ml-2" />
               </Link>
             )}
@@ -201,19 +211,36 @@ export default function SideNavigation({
 
           <WorkspaceMenu isCollapsed={isCollapsed} />
           <ul role="list" className="space-y-1">
-            {navigation.map((item) => (
-              <li key={item.name}>
-                <ReactiveButton
-                  href={item.href}
-                  current={pathname.includes(item.href)}
-                  name={item.name}
-                  json={item.icon}
-                  isCollapsed={isCollapsed}
-                  onCloseSideNav={onCloseSideNav}
-                  keyboardShortcut={item.keyboardShortcut}
-                />
-              </li>
-            ))}
+            {PRIMARY_NAVIGATION_ORDER.map((key) => {
+              const item = navigation[key];
+
+              return (
+                <li key={key}>
+                  {key === "boards" ? (
+                    <BoardsNavigation
+                      icon={item.icon}
+                      isCollapsed={isCollapsed}
+                      keyboardShortcut={item.keyboardShortcut}
+                      onCloseSideNav={onCloseSideNav}
+                      onExpandSidebar={() => setIsCollapsed(false)}
+                    />
+                  ) : (
+                    <ReactiveButton
+                      href={item.href}
+                      current={
+                        currentPath === item.href ||
+                        currentPath.startsWith(`${item.href}/`)
+                      }
+                      name={item.name}
+                      json={item.icon}
+                      isCollapsed={isCollapsed}
+                      onCloseSideNav={onCloseSideNav}
+                      keyboardShortcut={item.keyboardShortcut}
+                    />
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
 

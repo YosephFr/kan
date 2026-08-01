@@ -1,10 +1,11 @@
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { env } from "next-runtime-env";
+import { useEffect } from "react";
 
 import { authClient } from "@kan/auth/client";
 
 import { PageHead } from "~/components/PageHead";
+import { APP_HOME_PATH } from "~/utils/navigation";
 import SelectPlanView from "~/views/onboarding/select-plan";
 
 export default function SelectPlanPage() {
@@ -16,7 +17,7 @@ export default function SelectPlanPage() {
       router.push("/login");
     }
     if (!isPending && env("NEXT_PUBLIC_KAN_ENV") !== "cloud") {
-      router.push("/boards");
+      router.push(APP_HOME_PATH);
     }
   }, [session, isPending, router]);
 

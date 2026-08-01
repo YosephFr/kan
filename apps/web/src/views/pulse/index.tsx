@@ -75,12 +75,12 @@ export default function PulseView() {
 
   return (
     <>
-      <PageHead title={t`Pulse | ${workspace.name}`} />
+      <PageHead title={t`Dashboard | ${workspace.name}`} />
       <main className="mx-auto min-h-full w-full max-w-[1380px] px-4 py-6 sm:px-6 md:px-10 md:py-10 lg:px-12">
         <header className="mb-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-xl font-bold tracking-tight text-light-1000 dark:text-dark-1000">
-              {t`Pulse`}
+              {t`Dashboard`}
             </h1>
             <p className="mt-1 max-w-2xl text-sm text-light-800 dark:text-dark-800">
               {t`See flow, load, and risks across every active board in this workspace.`}
@@ -140,7 +140,7 @@ export default function PulseView() {
         ) : error || !data ? (
           <section className="rounded-lg border border-red-300 bg-red-50 p-6 dark:border-red-800 dark:bg-red-950/20">
             <h2 className="text-sm font-semibold text-red-900 dark:text-red-200">
-              {t`Pulse could not be loaded`}
+              {t`Dashboard could not be loaded`}
             </h2>
             <p className="mt-1 text-sm text-red-800 dark:text-red-300">
               {t`Check the connection and try again.`}

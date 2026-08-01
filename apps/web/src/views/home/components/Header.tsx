@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
 import Button from "~/components/Button";
+import { APP_HOME_PATH } from "~/utils/navigation";
 
 const Header = ({ isLoggedIn }: { isLoggedIn: boolean }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -97,7 +98,7 @@ const Header = ({ isLoggedIn }: { isLoggedIn: boolean }) => {
             <div className="flex items-center justify-end gap-4 lg:w-[200px]">
               <div className="justify-end gap-2">
                 {isLoggedIn ? (
-                  <Button href="/boards">{t`Go to app`}</Button>
+                  <Button href={APP_HOME_PATH}>{t`Go to app`}</Button>
                 ) : (
                   <div className="flex items-center justify-end gap-2">
                     <Button href="/login" variant="ghost">

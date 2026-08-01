@@ -10,6 +10,7 @@ import { authClient } from "@kan/auth/client";
 import { Auth } from "~/components/AuthForm";
 import { PageHead } from "~/components/PageHead";
 import PatternedBackground from "~/components/PatternedBackground";
+import { APP_HOME_PATH } from "~/utils/navigation";
 
 export default function PartnerActivatePage() {
   const router = useRouter();
@@ -35,7 +36,7 @@ export default function PartnerActivatePage() {
         `/api/partner/link?license_key=${encodeURIComponent(licenseKey)}`,
       );
     } else if (!isPending && session?.user && !licenseKey) {
-      router.push("/boards");
+      router.push(APP_HOME_PATH);
     }
   }, [session, isPending, licenseKey, router]);
 
@@ -85,7 +86,7 @@ export default function PartnerActivatePage() {
                     callbackURL={
                       licenseKey
                         ? `/api/partner/link?license_key=${encodeURIComponent(licenseKey)}`
-                        : "/boards"
+                        : APP_HOME_PATH
                     }
                   />
                 </div>

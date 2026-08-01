@@ -10,6 +10,7 @@ import { authClient } from "@kan/auth/client";
 import { Auth } from "~/components/AuthForm";
 import { PageHead } from "~/components/PageHead";
 import PatternedBackground from "~/components/PatternedBackground";
+import { APP_HOME_PATH } from "~/utils/navigation";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export default function SignUpPage() {
 
   const { data } = authClient.useSession();
 
-  if (data?.user.id) router.push(redirect ?? "/boards");
+  if (data?.user.id) router.push(redirect ?? APP_HOME_PATH);
 
   const handleMagicLinkSent = (value: boolean, recipient: string) => {
     setIsMagicLinkSent(value);

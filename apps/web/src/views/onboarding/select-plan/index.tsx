@@ -10,6 +10,7 @@ import { authClient } from "@kan/auth/client";
 
 import Button from "~/components/Button";
 import { api } from "~/utils/api";
+import { APP_HOME_PATH } from "~/utils/navigation";
 
 type PlanId = "solo" | "team" | "pro";
 type Billing = "monthly" | "annual";
@@ -47,7 +48,7 @@ export default function SelectPlanView() {
   const [billing, setBilling] = useState<Billing>(
     (searchParams.get("billing") as Billing | null) ?? "annual",
   );
-  const returnUrl = searchParams.get("returnUrl") ?? "/boards";
+  const returnUrl = searchParams.get("returnUrl") ?? APP_HOME_PATH;
   const workspacePublicId = searchParams.get("workspacePublicId");
   const { data: workspaces } = api.workspace.all.useQuery();
   const { data: session } = authClient.useSession();

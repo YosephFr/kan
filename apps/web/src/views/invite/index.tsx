@@ -10,6 +10,7 @@ import LoadingSpinner from "~/components/LoadingSpinner";
 import { PageHead } from "~/components/PageHead";
 import PatternedBackground from "~/components/PatternedBackground";
 import { api } from "~/utils/api";
+import { APP_HOME_PATH } from "~/utils/navigation";
 
 export default function InvitePage() {
   const router = useRouter();
@@ -27,13 +28,13 @@ export default function InvitePage() {
     onSuccess: (result) => {
       if (result.success) {
         return router.push(
-          `/boards?workspacePublicId=${result.workspacePublicId}`,
+          `${APP_HOME_PATH}?workspacePublicId=${result.workspacePublicId}`,
         );
       }
     },
     onError: (error) => {
       if (error.data?.code === "CONFLICT") {
-        return router.push(`/boards`);
+        return router.push(APP_HOME_PATH);
       }
 
       if (
@@ -151,7 +152,7 @@ export default function InvitePage() {
           </div>
           <div className="flex justify-center gap-2">
             {session?.user.id ? (
-              <Button href={`/boards`} variant="primary" size="md">
+              <Button href={APP_HOME_PATH} variant="primary" size="md">
                 {t`Go to app`}
               </Button>
             ) : (

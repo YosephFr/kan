@@ -556,7 +556,7 @@
     "origin": [
       [
         "src/pages/partner/activate.tsx",
-        46
+        47
       ]
     ],
     "translation": "Activate | kan.bn"
@@ -568,7 +568,7 @@
     "origin": [
       [
         "src/pages/partner/activate.tsx",
-        56
+        57
       ]
     ],
     "translation": "Activate your account"
@@ -1075,6 +1075,18 @@
     ],
     "translation": "All assigned members will remain on every card."
   },
+  "me3LEG": {
+    "message": "All boards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/BoardsNavigation.tsx",
+        158
+      ]
+    ],
+    "translation": "All boards"
+  },
   "h2ztFt": {
     "message": "All Free features +",
     "placeholders": {},
@@ -1154,11 +1166,11 @@
     "origin": [
       [
         "src/pages/partner/activate.tsx",
-        96
+        97
       ],
       [
         "src/views/auth/signup/index.tsx",
-        90
+        91
       ]
     ],
     "translation": "Already have an account? <0><1>Sign in</1></0>"
@@ -1230,7 +1242,7 @@
     "origin": [
       [
         "src/views/onboarding/select-plan/index.tsx",
-        64
+        65
       ]
     ],
     "translation": "Annual"
@@ -1674,7 +1686,7 @@
     "origin": [
       [
         "src/views/onboarding/select-plan/index.tsx",
-        87
+        88
       ]
     ],
     "translation": "Best for small teams who want to collaborate and move faster together."
@@ -1989,8 +2001,16 @@
     "comments": [],
     "origin": [
       [
+        "src/components/BoardsNavigation.tsx",
+        94
+      ],
+      [
+        "src/components/BoardsNavigation.tsx",
+        110
+      ],
+      [
         "src/components/SideNavigation.tsx",
-        100
+        122
       ],
       [
         "src/views/pricing/components/FeatureComparisonTable.tsx",
@@ -1998,6 +2018,18 @@
       ]
     ],
     "translation": "Boards"
+  },
+  "csr2Fx": {
+    "message": "Boards could not be loaded",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/BoardsNavigation.tsx",
+        172
+      ]
+    ],
+    "translation": "Boards could not be loaded"
   },
   "0RE1AJ": {
     "message": "Boards you archive will appear here.",
@@ -2558,7 +2590,7 @@
       ],
       [
         "src/views/onboarding/select-plan/index.tsx",
-        236
+        237
       ],
       [
         "src/views/settings/components/Avatar.tsx",
@@ -2874,15 +2906,15 @@
     "origin": [
       [
         "src/pages/partner/activate.tsx",
-        56
+        57
       ],
       [
         "src/views/auth/login/index.tsx",
-        46
+        47
       ],
       [
         "src/views/auth/signup/index.tsx",
-        71
+        72
       ]
     ],
     "translation": "Check your inbox"
@@ -2946,7 +2978,7 @@
     "origin": [
       [
         "src/views/onboarding/select-plan/index.tsx",
-        149
+        150
       ]
     ],
     "translation": "Choose a plan"
@@ -3058,11 +3090,11 @@
     "origin": [
       [
         "src/views/auth/login/index.tsx",
-        57
+        58
       ],
       [
         "src/views/auth/signup/index.tsx",
-        76
+        77
       ]
     ],
     "translation": "Click on the link we've sent to {magicLinkRecipient} to sign in."
@@ -3366,7 +3398,7 @@
       ],
       [
         "src/views/home/components/Header.tsx",
-        42
+        43
       ]
     ],
     "translation": "Contact"
@@ -3422,7 +3454,7 @@
     "origin": [
       [
         "src/views/onboarding/select-plan/index.tsx",
-        242
+        243
       ],
       [
         "src/views/onboarding/workspace-details/index.tsx",
@@ -3438,7 +3470,7 @@
     "origin": [
       [
         "src/components/AuthForm.tsx",
-        442
+        443
       ]
     ],
     "translation": "Continue with "
@@ -3454,7 +3486,7 @@
     "origin": [
       [
         "src/components/AuthForm.tsx",
-        360
+        361
       ]
     ],
     "translation": "Continue with {0}"
@@ -3782,7 +3814,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        280
+        278
       ],
       [
         "src/components/WorkspaceMenu.tsx",
@@ -4039,6 +4071,50 @@
       ]
     ],
     "translation": "Dark"
+  },
+  "7p5kLi": {
+    "message": "Dashboard",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/SideNavigation.tsx",
+        110
+      ],
+      [
+        "src/views/pulse/index.tsx",
+        83
+      ]
+    ],
+    "translation": "Dashboard"
+  },
+  "JExhcW": {
+    "message": "Dashboard | {0}",
+    "placeholders": {
+      "0": [
+        "workspace.name"
+      ]
+    },
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/index.tsx",
+        78
+      ]
+    ],
+    "translation": "Dashboard | {0}"
+  },
+  "DRTGVZ": {
+    "message": "Dashboard could not be loaded",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/index.tsx",
+        143
+      ]
+    ],
+    "translation": "Dashboard could not be loaded"
   },
   "cp1rsD": {
     "message": "Deactivate invite link",
@@ -4511,7 +4587,7 @@
     "origin": [
       [
         "src/views/home/components/Header.tsx",
-        20
+        21
       ]
     ],
     "translation": "Docs"
@@ -4543,7 +4619,7 @@
       ],
       [
         "src/views/home/components/Header.tsx",
-        36
+        37
       ]
     ],
     "translation": "Documentation"
@@ -4555,7 +4631,7 @@
     "origin": [
       [
         "src/views/auth/login/index.tsx",
-        72
+        73
       ]
     ],
     "translation": "Don't have an account? <0><1>Sign up</1></0>"
@@ -4871,7 +4947,7 @@
     "origin": [
       [
         "src/components/AuthForm.tsx",
-        443
+        444
       ]
     ],
     "translation": "email"
@@ -5027,7 +5103,7 @@
     "origin": [
       [
         "src/components/AuthForm.tsx",
-        407
+        408
       ]
     ],
     "translation": "Enter your email address"
@@ -5039,7 +5115,7 @@
     "origin": [
       [
         "src/components/AuthForm.tsx",
-        395
+        396
       ]
     ],
     "translation": "Enter your name"
@@ -5063,7 +5139,7 @@
     "origin": [
       [
         "src/components/AuthForm.tsx",
-        421
+        422
       ]
     ],
     "translation": "Enter your password"
@@ -5400,7 +5476,7 @@
     "origin": [
       [
         "src/views/invite/index.tsx",
-        52
+        53
       ]
     ],
     "translation": "Failed to accept invitation. Please try again later, or contact customer support."
@@ -5480,7 +5556,7 @@
     "origin": [
       [
         "src/components/AuthForm.tsx",
-        296
+        297
       ]
     ],
     "translation": "Failed to login with {0}. Please try again."
@@ -5532,7 +5608,7 @@
     "origin": [
       [
         "src/views/home/components/Header.tsx",
-        41
+        42
       ]
     ],
     "translation": "FAQ"
@@ -5600,11 +5676,11 @@
       ],
       [
         "src/views/home/components/Header.tsx",
-        17
+        18
       ],
       [
         "src/views/home/components/Header.tsx",
-        33
+        34
       ]
     ],
     "translation": "Features"
@@ -5704,11 +5780,11 @@
     "origin": [
       [
         "src/views/onboarding/select-plan/index.tsx",
-        78
+        79
       ],
       [
         "src/views/onboarding/select-plan/index.tsx",
-        79
+        80
       ],
       [
         "src/views/pricing/components/FeatureComparisonTable.tsx",
@@ -5844,7 +5920,7 @@
     "origin": [
       [
         "src/views/auth/signup/index.tsx",
-        71
+        72
       ],
       [
         "src/views/home/components/Cta.tsx",
@@ -5852,7 +5928,7 @@
       ],
       [
         "src/views/home/components/Header.tsx",
-        106
+        107
       ],
       [
         "src/views/pricing/components/PricingTiers.tsx",
@@ -6008,7 +6084,7 @@
     "origin": [
       [
         "src/views/invite/index.tsx",
-        124
+        125
       ]
     ],
     "translation": "Go Home"
@@ -6020,11 +6096,11 @@
     "origin": [
       [
         "src/views/home/components/Header.tsx",
-        100
+        101
       ],
       [
         "src/views/invite/index.tsx",
-        155
+        156
       ]
     ],
     "translation": "Go to app"
@@ -6036,7 +6112,7 @@
     "origin": [
       [
         "src/components/SideNavigation.tsx",
-        108
+        130
       ],
       [
         "src/pages/404.tsx",
@@ -6044,6 +6120,18 @@
       ]
     ],
     "translation": "Go to boards"
+  },
+  "10Xyas": {
+    "message": "Go to dashboard",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/SideNavigation.tsx",
+        118
+      ]
+    ],
+    "translation": "Go to dashboard"
   },
   "XEoGkQ": {
     "message": "Go to homepage",
@@ -6064,7 +6152,7 @@
     "origin": [
       [
         "src/components/SideNavigation.tsx",
-        144
+        154
       ]
     ],
     "translation": "Go to members"
@@ -6079,7 +6167,8 @@
         120
       ]
     ],
-    "translation": "Go to pulse"
+    "translation": "Go to pulse",
+    "obsolete": true
   },
   "1WuwiM": {
     "message": "Go to settings",
@@ -6088,7 +6177,7 @@
     "origin": [
       [
         "src/components/SideNavigation.tsx",
-        156
+        166
       ]
     ],
     "translation": "Go to settings"
@@ -6100,7 +6189,7 @@
     "origin": [
       [
         "src/components/SideNavigation.tsx",
-        132
+        142
       ]
     ],
     "translation": "Go to templates"
@@ -6112,7 +6201,7 @@
     "origin": [
       [
         "src/views/onboarding/select-plan/index.tsx",
-        80
+        81
       ]
     ],
     "translation": "Good for individuals starting out who just need the essentials."
@@ -6608,7 +6697,7 @@
     "origin": [
       [
         "src/views/invite/index.tsx",
-        116
+        117
       ]
     ],
     "translation": "Invalid invitation"
@@ -6725,11 +6814,11 @@
     "origin": [
       [
         "src/views/invite/index.tsx",
-        90
+        91
       ],
       [
         "src/views/invite/index.tsx",
-        140
+        141
       ]
     ],
     "translation": "Join workspace"
@@ -6741,7 +6830,7 @@
     "origin": [
       [
         "src/views/invite/index.tsx",
-        102
+        103
       ]
     ],
     "translation": "Join workspace | kan.bn"
@@ -7230,7 +7319,7 @@
     "origin": [
       [
         "src/views/auth/login/index.tsx",
-        37
+        38
       ]
     ],
     "translation": "Login"
@@ -7303,7 +7392,7 @@
     "origin": [
       [
         "src/components/AuthForm.tsx",
-        443
+        444
       ]
     ],
     "translation": "magic link"
@@ -7463,7 +7552,7 @@
     "origin": [
       [
         "src/components/SideNavigation.tsx",
-        136
+        146
       ],
       [
         "src/views/board/components/Filters.tsx",
@@ -7547,7 +7636,7 @@
     "origin": [
       [
         "src/views/onboarding/select-plan/index.tsx",
-        63
+        64
       ],
       [
         "src/views/pricing/components/Pricing.tsx",
@@ -7978,7 +8067,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        189
+        187
       ]
     ],
     "translation": "New workspace"
@@ -8023,6 +8112,18 @@
     ],
     "translation": "No {0}"
   },
+  "TyTfCz": {
+    "message": "No active boards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/components/BoardsNavigation.tsx",
+        178
+      ]
+    ],
+    "translation": "No active boards"
+  },
   "tlhgDC": {
     "message": "No archived boards",
     "placeholders": {},
@@ -8042,7 +8143,7 @@
     "origin": [
       [
         "src/components/AuthForm.tsx",
-        374
+        375
       ]
     ],
     "translation": "No authentication methods are currently available"
@@ -8394,7 +8495,7 @@
     "origin": [
       [
         "src/components/AuthForm.tsx",
-        385
+        386
       ]
     ],
     "translation": "or"
@@ -8538,7 +8639,7 @@
     "origin": [
       [
         "src/components/AuthForm.tsx",
-        263
+        264
       ]
     ],
     "translation": "Password is required to login."
@@ -8550,7 +8651,7 @@
     "origin": [
       [
         "src/components/AuthForm.tsx",
-        262
+        263
       ]
     ],
     "translation": "Password is required to sign up."
@@ -8750,7 +8851,7 @@
     "origin": [
       [
         "src/views/onboarding/select-plan/index.tsx",
-        152
+        153
       ]
     ],
     "translation": "Pick a plan to get started. All paid plans include a 14-day free trial."
@@ -8846,7 +8947,7 @@
     "origin": [
       [
         "src/components/AuthForm.tsx",
-        411
+        412
       ]
     ],
     "translation": "Please enter a valid email address"
@@ -8858,7 +8959,7 @@
     "origin": [
       [
         "src/components/AuthForm.tsx",
-        399
+        400
       ]
     ],
     "translation": "Please enter a valid name"
@@ -8870,7 +8971,7 @@
     "origin": [
       [
         "src/components/AuthForm.tsx",
-        426
+        427
       ]
     ],
     "translation": "Please enter a valid password"
@@ -8930,7 +9031,7 @@
       ],
       [
         "src/components/NewWorkspaceForm.tsx",
-        153
+        154
       ],
       [
         "src/views/board/components/BoardDropdown.tsx",
@@ -9258,11 +9359,11 @@
       ],
       [
         "src/views/home/components/Header.tsx",
-        18
+        19
       ],
       [
         "src/views/home/components/Header.tsx",
-        34
+        35
       ],
       [
         "src/views/pricing/components/Pricing.tsx",
@@ -9334,7 +9435,7 @@
     "origin": [
       [
         "src/views/onboarding/select-plan/index.tsx",
-        92
+        93
       ],
       [
         "src/views/pricing/components/FeatureComparisonTable.tsx",
@@ -9437,7 +9538,8 @@
         83
       ]
     ],
-    "translation": "Pulse"
+    "translation": "Pulse",
+    "obsolete": true
   },
   "+b4m0C": {
     "message": "Pulse | {0}",
@@ -9453,7 +9555,8 @@
         78
       ]
     ],
-    "translation": "Pulse | {0}"
+    "translation": "Pulse | {0}",
+    "obsolete": true
   },
   "YYqr3g": {
     "message": "Pulse could not be loaded",
@@ -9465,7 +9568,8 @@
         143
       ]
     ],
-    "translation": "Pulse could not be loaded"
+    "translation": "Pulse could not be loaded",
+    "obsolete": true
   },
   "bfgr/e": {
     "message": "Question",
@@ -9841,11 +9945,11 @@
       ],
       [
         "src/views/home/components/Header.tsx",
-        13
+        14
       ],
       [
         "src/views/home/components/Header.tsx",
-        28
+        29
       ],
       [
         "src/views/onboarding/workspace-details/index.tsx",
@@ -10389,7 +10493,7 @@
       ],
       [
         "src/components/SideNavigation.tsx",
-        148
+        158
       ]
     ],
     "translation": "Settings"
@@ -10525,7 +10629,7 @@
     "origin": [
       [
         "src/views/home/components/Header.tsx",
-        104
+        105
       ]
     ],
     "translation": "Sign in"
@@ -10537,7 +10641,7 @@
     "origin": [
       [
         "src/views/invite/index.tsx",
-        165
+        166
       ]
     ],
     "translation": "Sign In"
@@ -10553,7 +10657,7 @@
     "origin": [
       [
         "src/pages/partner/activate.tsx",
-        62
+        63
       ]
     ],
     "translation": "Sign in or create an account to activate your {partnerName} license"
@@ -10565,7 +10669,7 @@
     "origin": [
       [
         "src/pages/partner/activate.tsx",
-        67
+        68
       ]
     ],
     "translation": "Sign in or create an account to activate your license"
@@ -10577,7 +10681,7 @@
     "origin": [
       [
         "src/views/onboarding/select-plan/index.tsx",
-        315
+        316
       ],
       [
         "src/views/onboarding/workspace-details/index.tsx",
@@ -10593,7 +10697,7 @@
     "origin": [
       [
         "src/views/invite/index.tsx",
-        173
+        174
       ]
     ],
     "translation": "Sign Up"
@@ -10605,11 +10709,11 @@
     "origin": [
       [
         "src/views/auth/signup/index.tsx",
-        36
+        37
       ],
       [
         "src/views/auth/signup/index.tsx",
-        61
+        62
       ]
     ],
     "translation": "Sign up | kan.bn"
@@ -10621,7 +10725,7 @@
     "origin": [
       [
         "src/views/auth/signup/index.tsx",
-        46
+        47
       ]
     ],
     "translation": "Sign up disabled"
@@ -10633,7 +10737,7 @@
     "origin": [
       [
         "src/views/auth/signup/index.tsx",
-        49
+        50
       ]
     ],
     "translation": "Sign up is currently disabled. Please try again later."
@@ -10645,7 +10749,7 @@
     "origin": [
       [
         "src/components/AuthForm.tsx",
-        442
+        443
       ]
     ],
     "translation": "Sign up with "
@@ -10745,7 +10849,7 @@
     "origin": [
       [
         "src/views/onboarding/select-plan/index.tsx",
-        77
+        78
       ]
     ],
     "translation": "Solo"
@@ -10757,7 +10861,7 @@
     "origin": [
       [
         "src/pages/partner/activate.tsx",
-        73
+        74
       ]
     ],
     "translation": "Something went wrong during activation. Please try again."
@@ -10817,15 +10921,15 @@
     "origin": [
       [
         "src/components/SideNavigation.tsx",
-        238
+        265
       ],
       [
         "src/components/SideNavigation.tsx",
-        239
+        266
       ],
       [
         "src/components/SideNavigation.tsx",
-        249
+        276
       ]
     ],
     "translation": "Start free trial"
@@ -10885,11 +10989,11 @@
     "origin": [
       [
         "src/components/AuthForm.tsx",
-        220
+        221
       ],
       [
         "src/components/AuthForm.tsx",
-        237
+        238
       ]
     ],
     "translation": "Success"
@@ -10965,7 +11069,7 @@
     "origin": [
       [
         "src/views/onboarding/select-plan/index.tsx",
-        84
+        85
       ]
     ],
     "translation": "Team"
@@ -11093,7 +11197,7 @@
     "origin": [
       [
         "src/components/SideNavigation.tsx",
-        124
+        134
       ],
       [
         "src/views/home/components/Features.tsx",
@@ -11605,7 +11709,7 @@
     "origin": [
       [
         "src/views/invite/index.tsx",
-        119
+        120
       ]
     ],
     "translation": "This invitation link is invalid or has expired."
@@ -11689,7 +11793,7 @@
     "origin": [
       [
         "src/views/invite/index.tsx",
-        44
+        45
       ]
     ],
     "translation": "This workspace has reached its member limit. The workspace owner will need to upgrade their plan."
@@ -11701,7 +11805,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        242
+        240
       ]
     ],
     "translation": "This workspace URL has already been taken"
@@ -11713,7 +11817,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        244
+        242
       ]
     ],
     "translation": "This workspace URL is reserved"
@@ -11801,7 +11905,7 @@
     "origin": [
       [
         "src/views/home/components/Header.tsx",
-        114
+        115
       ]
     ],
     "translation": "Toggle menu"
@@ -12073,7 +12177,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        152
+        153
       ],
       [
         "src/views/onboarding/workspace-details/index.tsx",
@@ -12805,7 +12909,7 @@
     "origin": [
       [
         "src/views/onboarding/select-plan/index.tsx",
-        95
+        96
       ]
     ],
     "translation": "Unlimited members and a custom workspace username for teams ready to scale."
@@ -13009,7 +13113,7 @@
       ],
       [
         "src/views/onboarding/select-plan/index.tsx",
-        241
+        242
       ]
     ],
     "translation": "Upgrade"
@@ -13113,7 +13217,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        32
+        33
       ],
       [
         "src/views/settings/components/UpdateWorkspaceUrlForm.tsx",
@@ -13141,7 +13245,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        30
+        31
       ],
       [
         "src/views/settings/components/UpdateWorkspaceUrlForm.tsx",
@@ -13157,7 +13261,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        28
+        29
       ],
       [
         "src/views/settings/components/UpdateWorkspaceUrlForm.tsx",
@@ -13369,7 +13473,7 @@
     "origin": [
       [
         "src/pages/partner/activate.tsx",
-        60
+        61
       ]
     ],
     "translation": "We sent a link to {magicLinkRecipient}"
@@ -13557,7 +13661,7 @@
     "origin": [
       [
         "src/views/auth/login/index.tsx",
-        47
+        48
       ],
       [
         "src/views/settings/WhitelabelSettings.tsx",
@@ -13752,7 +13856,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        123
+        124
       ]
     ],
     "translation": "Workspace created without image"
@@ -13884,7 +13988,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        208
+        206
       ],
       [
         "src/views/onboarding/workspace-details/index.tsx",
@@ -13904,7 +14008,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        24
+        25
       ],
       [
         "src/views/settings/components/UpdateWorkspaceNameForm.tsx",
@@ -13920,7 +14024,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        23
+        24
       ]
     ],
     "translation": "Workspace name is required"
@@ -14004,7 +14108,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        231
+        229
       ]
     ],
     "translation": "workspace-url"
@@ -14128,7 +14232,7 @@
     "origin": [
       [
         "src/components/NewWorkspaceForm.tsx",
-        124
+        125
       ]
     ],
     "translation": "You can upload the workspace image from settings."
@@ -14192,7 +14296,7 @@
     "origin": [
       [
         "src/components/AuthForm.tsx",
-        238
+        239
       ]
     ],
     "translation": "You have been logged in successfully."
@@ -14204,7 +14308,7 @@
     "origin": [
       [
         "src/components/AuthForm.tsx",
-        221
+        222
       ]
     ],
     "translation": "You have been signed up successfully."
@@ -14265,7 +14369,7 @@
     "origin": [
       [
         "src/views/invite/index.tsx",
-        145
+        146
       ]
     ],
     "translation": "You've been invited to join a workspace on kan.bn."
@@ -14277,7 +14381,7 @@
     "origin": [
       [
         "src/views/invite/index.tsx",
-        146
+        147
       ]
     ],
     "translation": "You've been invited to join a workspace."
@@ -14329,7 +14433,7 @@
     "origin": [
       [
         "src/views/onboarding/select-plan/index.tsx",
-        260
+        261
       ]
     ],
     "translation": "Your avatar"

@@ -12,6 +12,7 @@ import { BrandMark } from "~/components/BrandMark";
 import { PageHead } from "~/components/PageHead";
 import PatternedBackground from "~/components/PatternedBackground";
 import { api } from "~/utils/api";
+import { APP_HOME_PATH } from "~/utils/navigation";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -30,7 +31,7 @@ export default function LoginPage() {
   const { data: branding } = api.branding.get.useQuery();
   const brandName = branding?.brandName ?? "kan.bn";
 
-  if (data?.user.id) router.push(redirect ?? "/boards");
+  if (data?.user.id) router.push(redirect ?? APP_HOME_PATH);
 
   return (
     <>

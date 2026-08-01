@@ -34,6 +34,7 @@ import { authClient } from "@kan/auth/client";
 import Button from "~/components/Button";
 import Input from "~/components/Input";
 import { usePopup } from "~/providers/popup";
+import { APP_HOME_PATH } from "~/utils/navigation";
 
 type AuthProvider = SocialProvider | "oidc";
 
@@ -170,7 +171,7 @@ export function Auth({
   const passwordRef = useRef<HTMLInputElement | null>(null);
 
   const redirect = useSearchParams().get("next");
-  const callbackURL = callbackURLProp ?? redirect ?? "/boards";
+  const callbackURL = callbackURLProp ?? redirect ?? APP_HOME_PATH;
 
   // Safely get environment variables on client side to avoid hydration mismatch
   useEffect(() => {

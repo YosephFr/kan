@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { authClient } from "@kan/auth/client";
 
 import { PageHead } from "~/components/PageHead";
+import { APP_HOME_PATH } from "~/utils/navigation";
 import WorkspaceDetailsView from "~/views/onboarding/workspace-details";
 
 export default function WorkspaceDetailsPage() {
@@ -14,7 +15,7 @@ export default function WorkspaceDetailsPage() {
   useEffect(() => {
     if (!isPending && !session?.user) router.push("/login");
     if (!isPending && env("NEXT_PUBLIC_KAN_ENV") !== "cloud")
-      router.push("/boards");
+      router.push(APP_HOME_PATH);
   }, [session, isPending, router]);
 
   if (isPending || !session?.user) return null;
