@@ -5,11 +5,99 @@ import * as pulseRepo from "@kan/db/repository/pulse.repo";
 import * as workspaceRepo from "@kan/db/repository/workspace.repo";
 
 import { buildPulseSummary } from "../pulse/metrics";
-import { pulseSummarySchema } from "../schemas";
+import {
+  buildPortfolioDetail,
+  buildPortfolioSummary,
+} from "../pulse/portfolio-metrics";
+import {
+  pulsePortfolioDetailSchema,
+  pulsePortfolioSummarySchema,
+  pulseSummarySchema,
+} from "../schemas";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { assertPermission } from "../utils/permissions";
 
 export const pulseRouter = createTRPCRouter({
+  portfolio: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/pulse/portfolio",
+        summary: "Get company portfolio progress",
+        description:
+          "Returns movement, delivery, stagnation, and team contribution across every workspace accessible to the user",
+        tags: ["Workspaces"],
+        protect: true,
+      },
+    })
+    .input(z.object({ period: z.enum(["week", "month"]) }))
+    .output(pulsePortfolioSummarySchema)
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.user?.id;
+      if (!userId)
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "User not authenticated",
+        });
+
+      const source = await pulseRepo.getPortfolioSourceByUserId(ctx.db, userId);
+      return buildPortfolioSummary(source, input.period);
+    }),
+  detail: protectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/pulse/details",
+        summary: "Get the cards behind a portfolio metric",
+        description:
+          "Returns the accessible cards represented by a company or team progress statistic",
+        tags: ["Workspaces"],
+        protect: true,
+      },
+    })
+    .input(
+      z.object({
+        metric: z.enum(["advanced", "delivered", "stalled", "open"]),
+        period: z.enum(["week", "month"]),
+        workspacePublicId: z.string().min(12).optional(),
+        memberPublicId: z.string().min(12).optional(),
+      }),
+    )
+    .output(pulsePortfolioDetailSchema)
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.user?.id;
+      if (!userId)
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "User not authenticated",
+        });
+
+      const source = await pulseRepo.getPortfolioSourceByUserId(ctx.db, userId);
+      const workspace = input.workspacePublicId
+        ? source.workspaces.find(
+            (item) => item.publicId === input.workspacePublicId,
+          )
+        : undefined;
+      const member = input.memberPublicId
+        ? source.members.find((item) => item.publicId === input.memberPublicId)
+        : undefined;
+
+      if (input.workspacePublicId && !workspace)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Workspace not found",
+        });
+      if (
+        input.memberPublicId &&
+        (!member || (workspace && member.workspaceId !== workspace.id))
+      )
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Workspace member not found",
+        });
+
+      return buildPortfolioDetail(source, input);
+    }),
   summary: protectedProcedure
     .meta({
       openapi: {

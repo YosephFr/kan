@@ -7,6 +7,7 @@ import * as workspaceRepo from "@kan/db/repository/workspace.repo";
 import { assertPermission } from "../utils/permissions";
 
 vi.mock("@kan/db/repository/pulse.repo", () => ({
+  getPortfolioSourceByUserId: vi.fn(),
   getSourceByWorkspaceId: vi.fn(),
 }));
 
@@ -21,6 +22,8 @@ vi.mock("../utils/permissions", () => ({
 const mockGetSource = pulseRepo.getSourceByWorkspaceId as ReturnType<
   typeof vi.fn
 >;
+const mockGetPortfolioSource =
+  pulseRepo.getPortfolioSourceByUserId as ReturnType<typeof vi.fn>;
 const mockGetWorkspace = workspaceRepo.getByPublicId as ReturnType<
   typeof vi.fn
 >;
@@ -52,6 +55,24 @@ describe("pulse.summary", () => {
     members: [],
     assignments: [],
     checklistItems: [],
+  };
+  const portfolioSource = {
+    workspaces: [
+      {
+        id: 12,
+        publicId: "workspace1234",
+        name: "Imanleads",
+        logo: null,
+        weekStartDay: 1,
+        cardPrefix: "IMA",
+      },
+    ],
+    boards: [],
+    lists: [],
+    cards: [],
+    activities: [],
+    members: [],
+    assignments: [],
   };
 
   beforeEach(() => {
@@ -107,5 +128,31 @@ describe("pulse.summary", () => {
       cardPrefix: "IMA",
     });
     expect(result.kpis.delivered).toBe(0);
+  });
+
+  it("returns a portfolio built only from the user's accessible workspaces", async () => {
+    const { pulseRouter } = await import("./pulse");
+    mockGetPortfolioSource.mockResolvedValueOnce(portfolioSource);
+
+    const result = await pulseRouter
+      .createCaller({ user, db } as never)
+      .portfolio({ period: "week" });
+
+    expect(mockGetPortfolioSource).toHaveBeenCalledWith(db, user.id);
+    expect(result.totals.companies).toBe(1);
+    expect(result.companies[0]?.name).toBe("Imanleads");
+  });
+
+  it("rejects drill-down requests for inaccessible workspaces", async () => {
+    const { pulseRouter } = await import("./pulse");
+    mockGetPortfolioSource.mockResolvedValueOnce(portfolioSource);
+
+    await expect(
+      pulseRouter.createCaller({ user, db } as never).detail({
+        metric: "stalled",
+        period: "month",
+        workspacePublicId: "inaccessible1",
+      }),
+    ).rejects.toThrow(TRPCError);
   });
 });

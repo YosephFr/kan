@@ -64,6 +64,44 @@
     ],
     "translation": "{0} | {1}"
   },
+  "ghAjYH": {
+    "message": "{0} active boards · {1} cards",
+    "placeholders": {
+      "0": [
+        "company.boards"
+      ],
+      "1": [
+        "company.cards"
+      ]
+    },
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/components/CompanyProgress.tsx",
+        66
+      ]
+    ],
+    "translation": "{0} active boards · {1} cards"
+  },
+  "iwU9zt": {
+    "message": "{0} advanced · {1} delivered",
+    "placeholders": {
+      "0": [
+        "member.totalAdvanced"
+      ],
+      "1": [
+        "member.totalDelivered"
+      ]
+    },
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/components/TeamProgress.tsx",
+        55
+      ]
+    ],
+    "translation": "{0} advanced · {1} delivered"
+  },
   "mn0MS8": {
     "message": "{0} blocked",
     "placeholders": {
@@ -79,6 +117,22 @@
       ]
     ],
     "translation": "{0} blocked"
+  },
+  "UtDeek": {
+    "message": "{0} cards",
+    "placeholders": {
+      "0": [
+        "data.total"
+      ]
+    },
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/details.tsx",
+        147
+      ]
+    ],
+    "translation": "{0} cards"
   },
   "LldCXQ": {
     "message": "{0} cards were moved to {1}.",
@@ -115,6 +169,22 @@
     ],
     "translation": "{0} cards will move together to one destination list."
   },
+  "4UrqBK": {
+    "message": "{0} companies",
+    "placeholders": {
+      "0": [
+        "data.totals.companies"
+      ]
+    },
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/index.tsx",
+        91
+      ]
+    ],
+    "translation": "{0} companies"
+  },
   "Wmmi9Y": {
     "message": "{0} d",
     "placeholders": {
@@ -146,6 +216,38 @@
       ]
     ],
     "translation": "{0} days in this stage"
+  },
+  "bgxVQG": {
+    "message": "{0} days without movement",
+    "placeholders": {
+      "0": [
+        "item.inactiveDays"
+      ]
+    },
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/details.tsx",
+        215
+      ]
+    ],
+    "translation": "{0} days without movement"
+  },
+  "0xpQVj": {
+    "message": "{0} delivered",
+    "placeholders": {
+      "0": [
+        "company.delivered"
+      ]
+    },
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/components/TeamProgress.tsx",
+        77
+      ]
+    ],
+    "translation": "{0} delivered"
   },
   "mU+M00": {
     "message": "{0} has been added to your favorites.",
@@ -194,6 +296,22 @@
       ]
     ],
     "translation": "{0} labels"
+  },
+  "HeK8S5": {
+    "message": "{0} movement",
+    "placeholders": {
+      "0": [
+        "company.name"
+      ]
+    },
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/components/CompanyProgress.tsx",
+        72
+      ]
+    ],
+    "translation": "{0} movement"
   },
   "9x4DAL": {
     "message": "{0} not found",
@@ -345,6 +463,22 @@
     ],
     "translation": "{selectedCount} selected cards"
   },
+  "hzZB1+": {
+    "message": "{title} | Dashboard",
+    "placeholders": {
+      "title": [
+        "title"
+      ]
+    },
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/details.tsx",
+        88
+      ]
+    ],
+    "translation": "{title} | Dashboard"
+  },
   "9lFfqv": {
     "message": "/month",
     "placeholders": {},
@@ -401,6 +535,18 @@
     ],
     "translation": "$8/month"
   },
+  "nWiKv4": {
+    "message": "1 card",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/details.tsx",
+        147
+      ]
+    ],
+    "translation": "1 card"
+  },
   "QK6o7W": {
     "message": "1 complete transition",
     "placeholders": {},
@@ -424,6 +570,18 @@
       ]
     ],
     "translation": "1 day in this stage"
+  },
+  "O7/CGy": {
+    "message": "1 day without movement",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/details.tsx",
+        214
+      ]
+    ],
+    "translation": "1 day without movement"
   },
   "zMlxCA": {
     "message": "1 user",
@@ -500,6 +658,18 @@
       ]
     ],
     "translation": "A powerful, flexible kanban app that helps you organise work, track progress, and deliver results—all in one place."
+  },
+  "N44dbu": {
+    "message": "A zero may mean that no stage change was recorded, not necessarily that no work happened. Coverage will improve as the team uses the boards.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/index.tsx",
+        179
+      ]
+    ],
+    "translation": "A zero may mean that no stage change was recorded, not necessarily that no work happened. Coverage will improve as the team uses the boards."
   },
   "AeXO77": {
     "message": "Account",
@@ -1027,6 +1197,26 @@
     ],
     "translation": "Admin roles"
   },
+  "sxkWRg": {
+    "message": "Advanced",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/components/CompanyProgress.tsx",
+        75
+      ],
+      [
+        "src/views/pulse/components/CompanyProgress.tsx",
+        116
+      ],
+      [
+        "src/views/pulse/components/PortfolioKpiStrip.tsx",
+        25
+      ]
+    ],
+    "translation": "Advanced"
+  },
   "Kec+/t": {
     "message": "Advanced admin controls",
     "placeholders": {},
@@ -1051,6 +1241,18 @@
     ],
     "translation": "Advanced admin roles"
   },
+  "/snwO2": {
+    "message": "Advanced counts each card once when it changed stage during the selected period. Delivered is included in advanced.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/index.tsx",
+        189
+      ]
+    ],
+    "translation": "Advanced counts each card once when it changed stage during the selected period. Delivered is included in advanced."
+  },
   "YRk79X": {
     "message": "Advanced security, compliance, and dedicated support for large organizations.",
     "placeholders": {},
@@ -1062,6 +1264,18 @@
       ]
     ],
     "translation": "Advanced security, compliance, and dedicated support for large organizations."
+  },
+  "RMpMlM": {
+    "message": "All accessible companies",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/details.tsx",
+        104
+      ]
+    ],
+    "translation": "All accessible companies"
   },
   "wHHpm9": {
     "message": "All assigned members will remain on every card.",
@@ -1230,7 +1444,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        93
+        103
       ]
     ],
     "translation": "Analysis period"
@@ -1578,7 +1792,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        134
+        144
       ]
     ],
     "translation": "Automatic refresh every 15 seconds"
@@ -1606,6 +1820,18 @@
       ]
     ],
     "translation": "Back"
+  },
+  "W8ekPc": {
+    "message": "Back to Dashboard",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/details.tsx",
+        95
+      ]
+    ],
+    "translation": "Back to Dashboard"
   },
   "KNKCTb": {
     "message": "Backlog",
@@ -1775,6 +2001,10 @@
       [
         "src/views/pulse/components/FlowOverview.tsx",
         41
+      ],
+      [
+        "src/views/pulse/details.tsx",
+        42
       ]
     ],
     "translation": "Blocked"
@@ -2759,6 +2989,18 @@
     ],
     "translation": "Card URL copied to clipboard"
   },
+  "tpfeCP": {
+    "message": "Cards each person moved between stages; this measures recorded progress, not hours or a performance ranking",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/components/TeamProgress.tsx",
+        26
+      ]
+    ],
+    "translation": "Cards each person moved between stages; this measures recorded progress, not hours or a performance ranking"
+  },
   "mQa9Gv": {
     "message": "Cards moved",
     "placeholders": {},
@@ -2771,6 +3013,42 @@
     ],
     "translation": "Cards moved"
   },
+  "fxOszu": {
+    "message": "Cards moved to done",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/components/PortfolioKpiStrip.tsx",
+        35
+      ]
+    ],
+    "translation": "Cards moved to done"
+  },
+  "6cg+Gu": {
+    "message": "Cards that advanced",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/details.tsx",
+        30
+      ]
+    ],
+    "translation": "Cards that advanced"
+  },
+  "qqH7wQ": {
+    "message": "Cards that changed stage",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/components/PortfolioKpiStrip.tsx",
+        27
+      ]
+    ],
+    "translation": "Cards that changed stage"
+  },
   "1xuzgn": {
     "message": "Cards with signals that need a decision",
     "placeholders": {},
@@ -2782,6 +3060,18 @@
       ]
     ],
     "translation": "Cards with signals that need a decision"
+  },
+  "d9qzzv": {
+    "message": "Cards without movement",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/details.tsx",
+        32
+      ]
+    ],
+    "translation": "Cards without movement"
   },
   "f3cEDO": {
     "message": "Change image",
@@ -2843,6 +3133,18 @@
     ],
     "translation": "Change the application font size."
   },
+  "NXg0uA": {
+    "message": "Change the period or return to the company overview.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/details.tsx",
+        161
+      ]
+    ],
+    "translation": "Change the period or return to the company overview."
+  },
   "yD3ZSw": {
     "message": "Change your language preferences.",
     "placeholders": {},
@@ -2894,7 +3196,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        146
+        156
       ]
     ],
     "translation": "Check the connection and try again."
@@ -3202,6 +3504,30 @@
       ]
     ],
     "translation": "Company"
+  },
+  "RXPOvZ": {
+    "message": "Company progress metrics",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/components/PortfolioKpiStrip.tsx",
+        59
+      ]
+    ],
+    "translation": "Company progress metrics"
+  },
+  "mSEoEO": {
+    "message": "Compare progress, delivery, and stagnation across every company and see who moved the work forward.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/index.tsx",
+        96
+      ]
+    ],
+    "translation": "Compare progress, delivery, and stagnation across every company and see who moved the work forward."
   },
   "bD8I7O": {
     "message": "Complete",
@@ -3883,6 +4209,18 @@
     ],
     "translation": "Crop your avatar"
   },
+  "wNIM8a": {
+    "message": "Current cards across all companies",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/components/PortfolioKpiStrip.tsx",
+        51
+      ]
+    ],
+    "translation": "Current cards across all companies"
+  },
   "+cCK0g": {
     "message": "Current flow",
     "placeholders": {},
@@ -3903,6 +4241,10 @@
       [
         "src/views/pulse/components/KpiStrip.tsx",
         40
+      ],
+      [
+        "src/views/pulse/components/PortfolioKpiStrip.tsx",
+        43
       ]
     ],
     "translation": "Current open work"
@@ -4083,7 +4425,7 @@
       ],
       [
         "src/views/pulse/index.tsx",
-        83
+        87
       ]
     ],
     "translation": "Dashboard"
@@ -4102,7 +4444,20 @@
         78
       ]
     ],
-    "translation": "Dashboard | {0}"
+    "translation": "Dashboard | {0}",
+    "obsolete": true
+  },
+  "BAiKXn": {
+    "message": "Dashboard | Companies",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/index.tsx",
+        81
+      ]
+    ],
+    "translation": "Dashboard | Companies"
   },
   "DRTGVZ": {
     "message": "Dashboard could not be loaded",
@@ -4111,10 +4466,29 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        143
+        153
       ]
     ],
     "translation": "Dashboard could not be loaded"
+  },
+  "q9eEnO": {
+    "message": "Data coverage: {movementCoverage}% of cards have movement history · {attributionCoverage}% of this period's movements identify their author",
+    "placeholders": {
+      "movementCoverage": [
+        "movementCoverage"
+      ],
+      "attributionCoverage": [
+        "attributionCoverage"
+      ]
+    },
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/index.tsx",
+        192
+      ]
+    ],
+    "translation": "Data coverage: {movementCoverage}% of cards have movement history · {attributionCoverage}% of this period's movements identify their author"
   },
   "cp1rsD": {
     "message": "Deactivate invite link",
@@ -4378,11 +4752,31 @@
     "comments": [],
     "origin": [
       [
+        "src/views/pulse/components/CompanyProgress.tsx",
+        121
+      ],
+      [
         "src/views/pulse/components/KpiStrip.tsx",
         31
+      ],
+      [
+        "src/views/pulse/components/PortfolioKpiStrip.tsx",
+        33
       ]
     ],
     "translation": "Delivered"
+  },
+  "bkYaHo": {
+    "message": "Delivered cards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/details.tsx",
+        31
+      ]
+    ],
+    "translation": "Delivered cards"
   },
   "e+Nhe1": {
     "message": "Deliveries over time",
@@ -4680,6 +5074,10 @@
       [
         "src/views/pulse/components/FlowOverview.tsx",
         27
+      ],
+      [
+        "src/views/pulse/details.tsx",
+        43
       ]
     ],
     "translation": "Done"
@@ -6288,7 +6686,8 @@
         187
       ]
     ],
-    "translation": "History coverage: {coverage}% of cards have recorded list transitions. Cycle time only uses complete transitions."
+    "translation": "History coverage: {coverage}% of cards have recorded list transitions. Cycle time only uses complete transitions.",
+    "obsolete": true
   },
   "SRvxId": {
     "message": "HMAC secret for signature verification",
@@ -6582,6 +6981,10 @@
       [
         "src/views/pulse/components/FlowOverview.tsx",
         25
+      ],
+      [
+        "src/views/pulse/details.tsx",
+        41
       ]
     ],
     "translation": "In progress"
@@ -7268,6 +7671,30 @@
     ],
     "translation": "Load more activities"
   },
+  "dsO1JW": {
+    "message": "Loading company progress",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/index.tsx",
+        21
+      ]
+    ],
+    "translation": "Loading company progress"
+  },
+  "wnUOJw": {
+    "message": "Loading detail",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/details.tsx",
+        125
+      ]
+    ],
+    "translation": "Loading detail"
+  },
   "9FRZ0d": {
     "message": "Loading flow metrics",
     "placeholders": {},
@@ -7278,7 +7705,8 @@
         23
       ]
     ],
-    "translation": "Loading flow metrics"
+    "translation": "Loading flow metrics",
+    "obsolete": true
   },
   "0qyZ4b": {
     "message": "Loading permissions...",
@@ -7624,7 +8052,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        107
+        117
       ]
     ],
     "translation": "Month"
@@ -7827,6 +8255,18 @@
       ]
     ],
     "translation": "moved the card to another list"
+  },
+  "dj2PFl": {
+    "message": "Movement history is still incomplete",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/index.tsx",
+        176
+      ]
+    ],
+    "translation": "Movement history is still incomplete"
   },
   "uEGGDs": {
     "message": "My webhook",
@@ -8160,6 +8600,18 @@
     ],
     "translation": "No boards found"
   },
+  "UaTso9": {
+    "message": "No cards match this statistic",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/details.tsx",
+        158
+      ]
+    ],
+    "translation": "No cards match this statistic"
+  },
   "cg9Kke": {
     "message": "No cards were moved. Please try again.",
     "placeholders": {},
@@ -8434,11 +8886,31 @@
     "comments": [],
     "origin": [
       [
+        "src/views/pulse/components/CompanyProgress.tsx",
+        131
+      ],
+      [
         "src/views/pulse/components/FlowOverview.tsx",
         40
+      ],
+      [
+        "src/views/pulse/components/PortfolioKpiStrip.tsx",
+        49
       ]
     ],
     "translation": "Open"
+  },
+  "rBEsKM": {
+    "message": "Open cards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/details.tsx",
+        33
+      ]
+    ],
+    "translation": "Open cards"
   },
   "69b7aE": {
     "message": "Open command menu",
@@ -8536,6 +9008,10 @@
       [
         "src/views/pulse/components/FlowOverview.tsx",
         28
+      ],
+      [
+        "src/views/pulse/details.tsx",
+        44
       ]
     ],
     "translation": "Other stage"
@@ -8900,6 +9376,10 @@
       [
         "src/views/pulse/components/FlowOverview.tsx",
         24
+      ],
+      [
+        "src/views/pulse/details.tsx",
+        40
       ]
     ],
     "translation": "Planned"
@@ -9500,6 +9980,18 @@
     ],
     "translation": "Profile picture"
   },
+  "uoQaAh": {
+    "message": "Progress by company",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/components/CompanyProgress.tsx",
+        30
+      ]
+    ],
+    "translation": "Progress by company"
+  },
   "7d1a0d": {
     "message": "Public",
     "placeholders": {},
@@ -9625,8 +10117,12 @@
     "comments": [],
     "origin": [
       [
+        "src/views/pulse/details.tsx",
+        120
+      ],
+      [
         "src/views/pulse/index.tsx",
-        123
+        133
       ]
     ],
     "translation": "Refresh"
@@ -9922,6 +10418,18 @@
     ],
     "translation": "Resources"
   },
+  "7FRQYm": {
+    "message": "Return to the Dashboard and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/details.tsx",
+        136
+      ]
+    ],
+    "translation": "Return to the Dashboard and try again."
+  },
   "5k0NLb": {
     "message": "Review",
     "placeholders": {},
@@ -10200,7 +10708,8 @@
         86
       ]
     ],
-    "translation": "See flow, load, and risks across every active board in this workspace."
+    "translation": "See flow, load, and risks across every active board in this workspace.",
+    "obsolete": true
   },
   "K3iLeO": {
     "message": "See what our users are saying about Kan",
@@ -10622,6 +11131,18 @@
     ],
     "translation": "Show more"
   },
+  "UJj9Qt": {
+    "message": "Showing the first 200 cards.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/details.tsx",
+        239
+      ]
+    ],
+    "translation": "Showing the first 200 cards."
+  },
   "5lWFkC": {
     "message": "Sign in",
     "placeholders": {},
@@ -10890,6 +11411,34 @@
     ],
     "translation": "SSO"
   },
+  "6qTnZd": {
+    "message": "Stage changes in the selected period compared with currently stalled work",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/components/CompanyProgress.tsx",
+        33
+      ]
+    ],
+    "translation": "Stage changes in the selected period compared with currently stalled work"
+  },
+  "y4eWEC": {
+    "message": "Stalled",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/components/CompanyProgress.tsx",
+        94
+      ],
+      [
+        "src/views/pulse/components/CompanyProgress.tsx",
+        126
+      ]
+    ],
+    "translation": "Stalled"
+  },
   "R6pB8R": {
     "message": "Star on Github",
     "placeholders": {},
@@ -11093,6 +11642,18 @@
       ]
     ],
     "translation": "Team Plan"
+  },
+  "zngCh7": {
+    "message": "Team progress by company",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/components/TeamProgress.tsx",
+        23
+      ]
+    ],
+    "translation": "Team progress by company"
   },
   "ye45rN": {
     "message": "Team workload",
@@ -11446,6 +12007,18 @@
     ],
     "translation": "The member's role has been updated."
   },
+  "sC2brg": {
+    "message": "The metric detail could not be loaded",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/details.tsx",
+        133
+      ]
+    ],
+    "translation": "The metric detail could not be loaded"
+  },
   "gUX7b+": {
     "message": "The open source <0/> alternative to Trello",
     "placeholders": {},
@@ -11533,6 +12106,30 @@
       ]
     ],
     "translation": "Theme"
+  },
+  "pYwvJU": {
+    "message": "There are no accessible companies to measure.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/components/CompanyProgress.tsx",
+        39
+      ]
+    ],
+    "translation": "There are no accessible companies to measure."
+  },
+  "FyITh/": {
+    "message": "There are no attributed movements in the accessible companies.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      [
+        "src/views/pulse/components/TeamProgress.tsx",
+        32
+      ]
+    ],
+    "translation": "There are no attributed movements in the accessible companies."
   },
   "MLB2ai": {
     "message": "There are no blocked, overdue, stalled, or unassigned open cards.",
@@ -12017,7 +12614,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        155
+        165
       ]
     ],
     "translation": "Try again"
@@ -13044,8 +13641,12 @@
     "comments": [],
     "origin": [
       [
+        "src/views/pulse/details.tsx",
+        151
+      ],
+      [
         "src/views/pulse/index.tsx",
-        133
+        143
       ]
     ],
     "translation": "Updated at {0}"
@@ -13637,7 +14238,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        107
+        117
       ]
     ],
     "translation": "Week"
@@ -13766,6 +14367,10 @@
       [
         "src/views/pulse/components/KpiStrip.tsx",
         38
+      ],
+      [
+        "src/views/pulse/components/PortfolioKpiStrip.tsx",
+        41
       ]
     ],
     "translation": "Without movement"
@@ -13787,7 +14392,7 @@
     "origin": [
       [
         "src/views/pulse/index.tsx",
-        190
+        195
       ]
     ],
     "translation": "Without movement: {0} d in progress · {1} d blocked · {2} d planned"

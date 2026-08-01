@@ -38,6 +38,26 @@
     ],
     "translation": "{0} | {1}"
   },
+  "ghAjYH": {
+    "translation": "",
+    "message": "{0} active boards · {1} cards",
+    "placeholders": {
+      "0": ["company.boards"],
+      "1": ["company.cards"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/components/CompanyProgress.tsx", 66]]
+  },
+  "iwU9zt": {
+    "translation": "",
+    "message": "{0} advanced · {1} delivered",
+    "placeholders": {
+      "0": ["member.totalAdvanced"],
+      "1": ["member.totalDelivered"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/components/TeamProgress.tsx", 55]]
+  },
   "mn0MS8": {
     "message": "{0} blocked",
     "placeholders": {
@@ -46,6 +66,15 @@
     "comments": [],
     "origin": [["src/views/pulse/components/WorkloadList.tsx", 61]],
     "translation": ""
+  },
+  "UtDeek": {
+    "translation": "",
+    "message": "{0} cards",
+    "placeholders": {
+      "0": ["data.total"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/details.tsx", 147]]
   },
   "LldCXQ": {
     "message": "{0} cards were moved to {1}.",
@@ -70,6 +99,15 @@
     ],
     "translation": ""
   },
+  "4UrqBK": {
+    "translation": "",
+    "message": "{0} companies",
+    "placeholders": {
+      "0": ["data.totals.companies"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 91]]
+  },
   "Wmmi9Y": {
     "message": "{0} d",
     "placeholders": {
@@ -87,6 +125,24 @@
     "comments": [],
     "origin": [["src/views/pulse/components/AttentionList.tsx", 84]],
     "translation": ""
+  },
+  "bgxVQG": {
+    "translation": "",
+    "message": "{0} days without movement",
+    "placeholders": {
+      "0": ["item.inactiveDays"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/details.tsx", 215]]
+  },
+  "0xpQVj": {
+    "translation": "",
+    "message": "{0} delivered",
+    "placeholders": {
+      "0": ["company.delivered"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/components/TeamProgress.tsx", 77]]
   },
   "mU+M00": {
     "message": "{0} has been added to your favorites.",
@@ -114,6 +170,15 @@
     "comments": [],
     "origin": [["src/views/board/components/NewCardForm.tsx", 459]],
     "translation": "{0} étiquettes"
+  },
+  "HeK8S5": {
+    "translation": "",
+    "message": "{0} movement",
+    "placeholders": {
+      "0": ["company.name"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/components/CompanyProgress.tsx", 72]]
   },
   "9x4DAL": {
     "message": "{0} not found",
@@ -198,6 +263,15 @@
     "origin": [["src/views/board/components/card-selection-toolbar.tsx", 30]],
     "translation": ""
   },
+  "hzZB1+": {
+    "translation": "",
+    "message": "{title} | Dashboard",
+    "placeholders": {
+      "title": ["title"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/details.tsx", 88]]
+  },
   "9lFfqv": {
     "message": "/month",
     "placeholders": {},
@@ -232,6 +306,13 @@
     "origin": [["src/views/members/components/InviteMemberForm.tsx", 181]],
     "translation": "8 $/mois"
   },
+  "nWiKv4": {
+    "translation": "",
+    "message": "1 card",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/details.tsx", 147]]
+  },
   "QK6o7W": {
     "message": "1 complete transition",
     "placeholders": {},
@@ -245,6 +326,13 @@
     "comments": [],
     "origin": [["src/views/pulse/components/AttentionList.tsx", 83]],
     "translation": ""
+  },
+  "O7/CGy": {
+    "translation": "",
+    "message": "1 day without movement",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/details.tsx", 214]]
   },
   "zMlxCA": {
     "message": "1 user",
@@ -288,6 +376,13 @@
     "comments": [],
     "origin": [["src/views/home/index.tsx", 71]],
     "translation": "Une application kanban puissante et flexible qui vous aide à organiser le travail, suivre les progrès et obtenir des résultats, le tout au même endroit."
+  },
+  "N44dbu": {
+    "translation": "",
+    "message": "A zero may mean that no stage change was recorded, not necessarily that no work happened. Coverage will improve as the team uses the boards.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 179]]
   },
   "AeXO77": {
     "message": "Account",
@@ -597,6 +692,17 @@
     ],
     "translation": "Rôles d'administrateur"
   },
+  "sxkWRg": {
+    "translation": "",
+    "message": "Advanced",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/pulse/components/CompanyProgress.tsx", 75],
+      ["src/views/pulse/components/CompanyProgress.tsx", 116],
+      ["src/views/pulse/components/PortfolioKpiStrip.tsx", 25]
+    ]
+  },
   "Kec+/t": {
     "message": "Advanced admin controls",
     "placeholders": {},
@@ -613,12 +719,26 @@
     ],
     "translation": "Rôles d'administrateur avancés"
   },
+  "/snwO2": {
+    "translation": "",
+    "message": "Advanced counts each card once when it changed stage during the selected period. Delivered is included in advanced.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 189]]
+  },
   "YRk79X": {
     "message": "Advanced security, compliance, and dedicated support for large organizations.",
     "placeholders": {},
     "comments": [],
     "origin": [["src/views/pricing/components/PricingTiers.tsx", 97]],
     "translation": "Sécurité avancée, conformité et assistance dédiée pour les grandes organisations."
+  },
+  "RMpMlM": {
+    "translation": "",
+    "message": "All accessible companies",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/details.tsx", 104]]
   },
   "wHHpm9": {
     "message": "All assigned members will remain on every card.",
@@ -727,7 +847,7 @@
     "message": "Analysis period",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 93]],
+    "origin": [["src/views/pulse/index.tsx", 103]],
     "translation": ""
   },
   "YkfDoz": {
@@ -941,7 +1061,7 @@
     "message": "Automatic refresh every 15 seconds",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 134]],
+    "origin": [["src/views/pulse/index.tsx", 144]],
     "translation": ""
   },
   "1rWxEw": {
@@ -957,6 +1077,13 @@
     "comments": [],
     "origin": [["src/views/onboarding/workspace-details/index.tsx", 298]],
     "translation": "Retour"
+  },
+  "W8ekPc": {
+    "translation": "",
+    "message": "Back to Dashboard",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/details.tsx", 95]]
   },
   "KNKCTb": {
     "message": "Backlog",
@@ -1053,7 +1180,8 @@
     "origin": [
       ["src/views/pulse/components/AttentionList.tsx", 17],
       ["src/views/pulse/components/FlowOverview.tsx", 26],
-      ["src/views/pulse/components/FlowOverview.tsx", 41]
+      ["src/views/pulse/components/FlowOverview.tsx", 41],
+      ["src/views/pulse/details.tsx", 42]
     ],
     "translation": ""
   },
@@ -1631,6 +1759,13 @@
     ],
     "translation": "URL de la carte copiée dans le presse-papiers"
   },
+  "tpfeCP": {
+    "translation": "",
+    "message": "Cards each person moved between stages; this measures recorded progress, not hours or a performance ranking",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/TeamProgress.tsx", 26]]
+  },
   "mQa9Gv": {
     "message": "Cards moved",
     "placeholders": {},
@@ -1640,12 +1775,40 @@
     ],
     "translation": ""
   },
+  "fxOszu": {
+    "translation": "",
+    "message": "Cards moved to done",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/PortfolioKpiStrip.tsx", 35]]
+  },
+  "6cg+Gu": {
+    "translation": "",
+    "message": "Cards that advanced",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/details.tsx", 30]]
+  },
+  "qqH7wQ": {
+    "translation": "",
+    "message": "Cards that changed stage",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/PortfolioKpiStrip.tsx", 27]]
+  },
   "1xuzgn": {
     "message": "Cards with signals that need a decision",
     "placeholders": {},
     "comments": [],
     "origin": [["src/views/pulse/components/AttentionList.tsx", 40]],
     "translation": ""
+  },
+  "d9qzzv": {
+    "translation": "",
+    "message": "Cards without movement",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/details.tsx", 32]]
   },
   "f3cEDO": {
     "message": "Change image",
@@ -1680,6 +1843,13 @@
     "origin": [["src/views/settings/AccountSettings.tsx", 63]],
     "translation": "Modifier la taille de police de l'application."
   },
+  "NXg0uA": {
+    "translation": "",
+    "message": "Change the period or return to the company overview.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/details.tsx", 161]]
+  },
   "yD3ZSw": {
     "message": "Change your language preferences.",
     "placeholders": {},
@@ -1710,7 +1880,7 @@
     "message": "Check the connection and try again.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 146]],
+    "origin": [["src/views/pulse/index.tsx", 156]],
     "translation": ""
   },
   "5IXWmO": {
@@ -1903,6 +2073,20 @@
     "comments": [],
     "origin": [["src/views/home/components/Footer.tsx", 95]],
     "translation": "Entreprise"
+  },
+  "RXPOvZ": {
+    "translation": "",
+    "message": "Company progress metrics",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/PortfolioKpiStrip.tsx", 59]]
+  },
+  "mSEoEO": {
+    "translation": "",
+    "message": "Compare progress, delivery, and stagnation across every company and see who moved the work forward.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 96]]
   },
   "bD8I7O": {
     "message": "Complete",
@@ -2310,6 +2494,13 @@
     "origin": [["src/views/settings/components/Avatar.tsx", 253]],
     "translation": "Recadrer votre avatar"
   },
+  "wNIM8a": {
+    "translation": "",
+    "message": "Current cards across all companies",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/PortfolioKpiStrip.tsx", 51]]
+  },
   "+cCK0g": {
     "message": "Current flow",
     "placeholders": {},
@@ -2321,7 +2512,10 @@
     "message": "Current open work",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/components/KpiStrip.tsx", 40]],
+    "origin": [
+      ["src/views/pulse/components/KpiStrip.tsx", 40],
+      ["src/views/pulse/components/PortfolioKpiStrip.tsx", 43]
+    ],
     "translation": ""
   },
   "D3C4Yx": {
@@ -2432,7 +2626,7 @@
     "comments": [],
     "origin": [
       ["src/components/SideNavigation.tsx", 110],
-      ["src/views/pulse/index.tsx", 83]
+      ["src/views/pulse/index.tsx", 87]
     ],
     "translation": ""
   },
@@ -2443,14 +2637,32 @@
     },
     "comments": [],
     "origin": [["src/views/pulse/index.tsx", 78]],
-    "translation": ""
+    "translation": "",
+    "obsolete": true
+  },
+  "BAiKXn": {
+    "translation": "",
+    "message": "Dashboard | Companies",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 81]]
   },
   "DRTGVZ": {
     "message": "Dashboard could not be loaded",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 143]],
+    "origin": [["src/views/pulse/index.tsx", 153]],
     "translation": ""
+  },
+  "q9eEnO": {
+    "translation": "",
+    "message": "Data coverage: {movementCoverage}% of cards have movement history · {attributionCoverage}% of this period's movements identify their author",
+    "placeholders": {
+      "movementCoverage": ["movementCoverage"],
+      "attributionCoverage": ["attributionCoverage"]
+    },
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 192]]
   },
   "cp1rsD": {
     "message": "Deactivate invite link",
@@ -2598,8 +2810,19 @@
     "message": "Delivered",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/components/KpiStrip.tsx", 31]],
+    "origin": [
+      ["src/views/pulse/components/CompanyProgress.tsx", 121],
+      ["src/views/pulse/components/KpiStrip.tsx", 31],
+      ["src/views/pulse/components/PortfolioKpiStrip.tsx", 33]
+    ],
     "translation": ""
+  },
+  "bkYaHo": {
+    "translation": "",
+    "message": "Delivered cards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/details.tsx", 31]]
   },
   "e+Nhe1": {
     "message": "Deliveries over time",
@@ -2758,7 +2981,8 @@
       ["src/views/boards/components/TemplateBoards.tsx", 35],
       ["src/views/boards/components/TemplateBoards.tsx", 48],
       ["src/views/boards/components/TemplateBoards.tsx", 61],
-      ["src/views/pulse/components/FlowOverview.tsx", 27]
+      ["src/views/pulse/components/FlowOverview.tsx", 27],
+      ["src/views/pulse/details.tsx", 43]
     ],
     "translation": "Terminé"
   },
@@ -3726,7 +3950,8 @@
     },
     "comments": [],
     "origin": [["src/views/pulse/index.tsx", 187]],
-    "translation": ""
+    "translation": "",
+    "obsolete": true
   },
   "SRvxId": {
     "message": "HMAC secret for signature verification",
@@ -3905,7 +4130,10 @@
     "message": "In progress",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/components/FlowOverview.tsx", 25]],
+    "origin": [
+      ["src/views/pulse/components/FlowOverview.tsx", 25],
+      ["src/views/pulse/details.tsx", 41]
+    ],
     "translation": ""
   },
   "WbTDwg": {
@@ -4311,12 +4539,27 @@
     "origin": [["src/views/card/components/ActivityList.tsx", 579]],
     "translation": "Charger plus d'activités"
   },
+  "dsO1JW": {
+    "translation": "",
+    "message": "Loading company progress",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 21]]
+  },
+  "wnUOJw": {
+    "translation": "",
+    "message": "Loading detail",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/details.tsx", 125]]
+  },
   "9FRZ0d": {
     "message": "Loading flow metrics",
     "placeholders": {},
     "comments": [],
     "origin": [["src/views/pulse/index.tsx", 23]],
-    "translation": ""
+    "translation": "",
+    "obsolete": true
   },
   "0qyZ4b": {
     "message": "Loading permissions...",
@@ -4522,7 +4765,7 @@
     "message": "Month",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 107]],
+    "origin": [["src/views/pulse/index.tsx", 117]],
     "translation": ""
   },
   "+8Nek/": {
@@ -4645,6 +4888,13 @@
     "comments": [],
     "origin": [["src/views/card/components/ActivityList.tsx", 127]],
     "translation": "a déplacé la carte vers une autre liste"
+  },
+  "dj2PFl": {
+    "translation": "",
+    "message": "Movement history is still incomplete",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/index.tsx", 176]]
   },
   "uEGGDs": {
     "message": "My webhook",
@@ -4841,6 +5091,13 @@
     "origin": [["src/views/boards/components/ImportBoardsForm.tsx", 432]],
     "translation": "Aucun tableau trouvé"
   },
+  "UaTso9": {
+    "translation": "",
+    "message": "No cards match this statistic",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/details.tsx", 158]]
+  },
   "cg9Kke": {
     "message": "No cards were moved. Please try again.",
     "placeholders": {},
@@ -5005,8 +5262,19 @@
     "message": "Open",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/components/FlowOverview.tsx", 40]],
+    "origin": [
+      ["src/views/pulse/components/CompanyProgress.tsx", 131],
+      ["src/views/pulse/components/FlowOverview.tsx", 40],
+      ["src/views/pulse/components/PortfolioKpiStrip.tsx", 49]
+    ],
     "translation": ""
+  },
+  "rBEsKM": {
+    "translation": "",
+    "message": "Open cards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/details.tsx", 33]]
   },
   "69b7aE": {
     "message": "Open command menu",
@@ -5066,7 +5334,10 @@
     "message": "Other stage",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/components/FlowOverview.tsx", 28]],
+    "origin": [
+      ["src/views/pulse/components/FlowOverview.tsx", 28],
+      ["src/views/pulse/details.tsx", 44]
+    ],
     "translation": ""
   },
   "ddrz1m": {
@@ -5286,7 +5557,8 @@
     "origin": [
       ["src/views/boards/components/TemplateBoards.tsx", 29],
       ["src/views/boards/components/TemplateBoards.tsx", 35],
-      ["src/views/pulse/components/FlowOverview.tsx", 24]
+      ["src/views/pulse/components/FlowOverview.tsx", 24],
+      ["src/views/pulse/details.tsx", 40]
     ],
     "translation": "Planifié"
   },
@@ -5561,6 +5833,13 @@
     "origin": [["src/views/settings/AccountSettings.tsx", 30]],
     "translation": "Photo de profil"
   },
+  "uoQaAh": {
+    "translation": "",
+    "message": "Progress by company",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/CompanyProgress.tsx", 30]]
+  },
   "7d1a0d": {
     "message": "Public",
     "placeholders": {},
@@ -5636,7 +5915,10 @@
     "message": "Refresh",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 123]],
+    "origin": [
+      ["src/views/pulse/details.tsx", 120],
+      ["src/views/pulse/index.tsx", 133]
+    ],
     "translation": ""
   },
   "ekCRTP": {
@@ -5809,6 +6091,13 @@
     "origin": [["src/views/home/components/Footer.tsx", 114]],
     "translation": "Ressources"
   },
+  "7FRQYm": {
+    "translation": "",
+    "message": "Return to the Dashboard and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/details.tsx", 136]]
+  },
   "5k0NLb": {
     "message": "Review",
     "placeholders": {},
@@ -5977,7 +6266,8 @@
     "placeholders": {},
     "comments": [],
     "origin": [["src/views/pulse/index.tsx", 86]],
-    "translation": ""
+    "translation": "",
+    "obsolete": true
   },
   "K3iLeO": {
     "message": "See what our users are saying about Kan",
@@ -6230,6 +6520,13 @@
     ],
     "translation": ""
   },
+  "UJj9Qt": {
+    "translation": "",
+    "message": "Showing the first 200 cards.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/details.tsx", 239]]
+  },
   "5lWFkC": {
     "message": "Sign in",
     "placeholders": {},
@@ -6392,6 +6689,23 @@
     ],
     "translation": "SSO"
   },
+  "6qTnZd": {
+    "translation": "",
+    "message": "Stage changes in the selected period compared with currently stalled work",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/CompanyProgress.tsx", 33]]
+  },
+  "y4eWEC": {
+    "translation": "",
+    "message": "Stalled",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/pulse/components/CompanyProgress.tsx", 94],
+      ["src/views/pulse/components/CompanyProgress.tsx", 126]
+    ]
+  },
   "R6pB8R": {
     "message": "Star on Github",
     "placeholders": {},
@@ -6516,6 +6830,13 @@
       ["src/views/members/index.tsx", 310]
     ],
     "translation": "Forfait équipe"
+  },
+  "zngCh7": {
+    "translation": "",
+    "message": "Team progress by company",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/TeamProgress.tsx", 23]]
   },
   "ye45rN": {
     "message": "Team workload",
@@ -6731,6 +7052,13 @@
     "origin": [["src/views/members/index.tsx", 63]],
     "translation": "Le rôle du membre a été mis à jour."
   },
+  "sC2brg": {
+    "translation": "",
+    "message": "The metric detail could not be loaded",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/details.tsx", 133]]
+  },
   "gUX7b+": {
     "message": "The open source <0/> alternative to Trello",
     "placeholders": {},
@@ -6785,6 +7113,20 @@
     "comments": [],
     "origin": [["src/components/UserMenu.tsx", 131]],
     "translation": "Thème"
+  },
+  "pYwvJU": {
+    "translation": "",
+    "message": "There are no accessible companies to measure.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/CompanyProgress.tsx", 39]]
+  },
+  "FyITh/": {
+    "translation": "",
+    "message": "There are no attributed movements in the accessible companies.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/TeamProgress.tsx", 32]]
   },
   "MLB2ai": {
     "message": "There are no blocked, overdue, stalled, or unassigned open cards.",
@@ -7092,7 +7434,7 @@
     "message": "Try again",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 155]],
+    "origin": [["src/views/pulse/index.tsx", 165]],
     "translation": ""
   },
   "bZSICm": {
@@ -7702,7 +8044,10 @@
       "0": ["format(new Date(data.refreshedAt), \"HH:mm:ss\")"]
     },
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 133]],
+    "origin": [
+      ["src/views/pulse/details.tsx", 151],
+      ["src/views/pulse/index.tsx", 143]
+    ],
     "translation": ""
   },
   "tGwwnq": {
@@ -8058,7 +8403,7 @@
     "message": "Week",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 107]],
+    "origin": [["src/views/pulse/index.tsx", 117]],
     "translation": ""
   },
   "xLTZVf": {
@@ -8133,7 +8478,8 @@
     "comments": [],
     "origin": [
       ["src/views/pulse/components/AttentionList.tsx", 19],
-      ["src/views/pulse/components/KpiStrip.tsx", 38]
+      ["src/views/pulse/components/KpiStrip.tsx", 38],
+      ["src/views/pulse/components/PortfolioKpiStrip.tsx", 41]
     ],
     "translation": ""
   },
@@ -8145,7 +8491,7 @@
       "2": ["data.configuration.plannedStaleDays"]
     },
     "comments": [],
-    "origin": [["src/views/pulse/index.tsx", 190]],
+    "origin": [["src/views/pulse/index.tsx", 195]],
     "translation": ""
   },
   "JPuUUD": {

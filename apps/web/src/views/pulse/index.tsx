@@ -8,50 +8,44 @@ import { PageHead } from "~/components/PageHead";
 import { useLocalisation } from "~/hooks/useLocalisation";
 import { useWorkspace } from "~/providers/workspace";
 import { api } from "~/utils/api";
-import { AttentionList } from "./components/AttentionList";
-import { FlowOverview } from "./components/FlowOverview";
-import { KpiStrip } from "./components/KpiStrip";
-import { ThroughputChart } from "./components/ThroughputChart";
-import { WorkloadList } from "./components/WorkloadList";
+import { CompanyProgress } from "./components/CompanyProgress";
+import { PortfolioKpiStrip } from "./components/PortfolioKpiStrip";
+import { TeamProgress } from "./components/TeamProgress";
 
 type Period = "week" | "month";
 
-function PulseSkeleton() {
+function PortfolioSkeleton() {
   return (
     <div
       className="animate-pulse space-y-5"
-      aria-label={t`Loading flow metrics`}
+      aria-label={t`Loading company progress`}
     >
-      <div className="grid overflow-hidden rounded-lg border border-light-300 dark:border-dark-300 md:grid-cols-3">
-        {[0, 1, 2].map((item) => (
+      <div className="grid overflow-hidden rounded-lg border border-light-300 dark:border-dark-300 sm:grid-cols-2 xl:grid-cols-4">
+        {[0, 1, 2, 3].map((item) => (
           <div
             key={item}
-            className="h-32 border-light-300 p-5 dark:border-dark-300 md:border-r last:md:border-r-0"
+            className="h-32 border-light-300 p-5 dark:border-dark-300 sm:border-l first:sm:border-l-0"
           >
             <div className="h-3 w-24 rounded-sm bg-light-300 dark:bg-dark-300" />
             <div className="mt-7 h-8 w-16 rounded-sm bg-light-300 dark:bg-dark-300" />
           </div>
         ))}
       </div>
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)]">
-        <div className="h-72 rounded-lg bg-light-200 dark:bg-dark-200" />
-        <div className="h-72 rounded-lg bg-light-200 dark:bg-dark-200" />
-      </div>
       <div className="h-80 rounded-lg bg-light-200 dark:bg-dark-200" />
+      <div className="h-72 rounded-lg bg-light-200 dark:bg-dark-200" />
     </div>
   );
 }
 
 export default function PulseView() {
-  const { workspace, hasLoaded } = useWorkspace();
+  const { hasLoaded } = useWorkspace();
   const { dateLocale } = useLocalisation();
   const [period, setPeriod] = useState<Period>("week");
-  const workspaceReady = hasLoaded && workspace.publicId.length >= 12;
   const { data, error, isLoading, isFetching, refetch } =
-    api.pulse.summary.useQuery(
-      { workspacePublicId: workspace.publicId, period },
+    api.pulse.portfolio.useQuery(
+      { period },
       {
-        enabled: workspaceReady,
+        enabled: hasLoaded,
         refetchInterval: 15_000,
         refetchIntervalInBackground: false,
         refetchOnWindowFocus: "always",
@@ -65,25 +59,41 @@ export default function PulseView() {
           locale: dateLocale,
         })
     : "";
-  const coverage = data
+  const movementCoverage = data
     ? data.coverage.cards === 0
       ? 100
       : Math.round(
           (data.coverage.cardsWithTransitions / data.coverage.cards) * 100,
         )
     : 0;
+  const attributionCoverage = data
+    ? data.coverage.periodTransitions === 0
+      ? 100
+      : Math.round(
+          (data.coverage.attributedPeriodTransitions /
+            data.coverage.periodTransitions) *
+            100,
+        )
+    : 0;
 
   return (
     <>
-      <PageHead title={t`Dashboard | ${workspace.name}`} />
+      <PageHead title={t`Dashboard | Companies`} />
       <main className="mx-auto min-h-full w-full max-w-[1380px] px-4 py-6 sm:px-6 md:px-10 md:py-10 lg:px-12">
         <header className="mb-7 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-light-1000 dark:text-dark-1000">
-              {t`Dashboard`}
-            </h1>
-            <p className="mt-1 max-w-2xl text-sm text-light-800 dark:text-dark-800">
-              {t`See flow, load, and risks across every active board in this workspace.`}
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h1 className="text-xl font-bold tracking-tight text-light-1000 dark:text-dark-1000">
+                {t`Dashboard`}
+              </h1>
+              {data && (
+                <span className="text-xs text-light-700 dark:text-dark-700">
+                  {t`${data.totals.companies} companies`}
+                </span>
+              )}
+            </div>
+            <p className="mt-1 max-w-3xl text-sm text-light-800 dark:text-dark-800">
+              {t`Compare progress, delivery, and stagnation across every company and see who moved the work forward.`}
             </p>
           </div>
 
@@ -113,7 +123,7 @@ export default function PulseView() {
               variant="secondary"
               size="sm"
               onClick={() => void refetch()}
-              disabled={!workspaceReady || isFetching}
+              disabled={!hasLoaded || isFetching}
               iconLeft={
                 <HiArrowPath
                   className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
@@ -135,8 +145,8 @@ export default function PulseView() {
           </span>
         </div>
 
-        {!workspaceReady || isLoading ? (
-          <PulseSkeleton />
+        {!hasLoaded || isLoading ? (
+          <PortfolioSkeleton />
         ) : error || !data ? (
           <section className="rounded-lg border border-red-300 bg-red-50 p-6 dark:border-red-800 dark:bg-red-950/20">
             <h2 className="text-sm font-semibold text-red-900 dark:text-red-200">
@@ -157,36 +167,31 @@ export default function PulseView() {
           </section>
         ) : (
           <div className="space-y-5">
-            <KpiStrip
-              delivered={data.kpis.delivered}
-              stalled={data.kpis.stalled}
-              cycleTimeHours={data.kpis.cycleTimeHours}
-              cycleSamples={data.coverage.cycleSamples}
-              periodLabel={periodLabel}
-            />
+            {(movementCoverage < 80 || attributionCoverage < 80) && (
+              <section
+                role="status"
+                className="border-l-2 border-amber-600 bg-amber-50 px-4 py-3 text-xs text-amber-950 dark:border-amber-500 dark:bg-amber-950/20 dark:text-amber-200"
+              >
+                <p className="font-semibold">
+                  {t`Movement history is still incomplete`}
+                </p>
+                <p className="mt-1">
+                  {t`A zero may mean that no stage change was recorded, not necessarily that no work happened. Coverage will improve as the team uses the boards.`}
+                </p>
+              </section>
+            )}
+            <PortfolioKpiStrip totals={data.totals} period={period} />
+            <CompanyProgress companies={data.companies} period={period} />
+            <TeamProgress team={data.team} period={period} />
 
-            <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)]">
-              <ThroughputChart points={data.trend} period={period} />
-              <FlowOverview
-                statuses={data.statuses}
-                totals={data.totals}
-                checklist={data.checklist}
-              />
-            </div>
-
-            <div className="grid min-w-0 grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(300px,0.8fr)_minmax(0,1.6fr)]">
-              <WorkloadList workload={data.workload} />
-              <AttentionList
-                attention={data.attention}
-                cardPrefix={data.workspace.cardPrefix}
-              />
-            </div>
-
-            <footer className="flex flex-col gap-2 border-t border-light-300 py-4 text-[11px] text-light-700 dark:border-dark-300 dark:text-dark-700 sm:flex-row sm:items-center sm:justify-between">
+            <footer className="grid gap-2 border-t border-light-300 py-4 text-[11px] text-light-700 dark:border-dark-300 dark:text-dark-700 lg:grid-cols-2">
               <p>
-                {t`History coverage: ${coverage}% of cards have recorded list transitions. Cycle time only uses complete transitions.`}
+                {t`Advanced counts each card once when it changed stage during the selected period. Delivered is included in advanced.`}
               </p>
-              <p className="shrink-0">
+              <p className="lg:text-right">
+                {t`Data coverage: ${movementCoverage}% of cards have movement history · ${attributionCoverage}% of this period's movements identify their author`}
+              </p>
+              <p className="lg:col-span-2 lg:text-right">
                 {t`Without movement: ${data.configuration.inProgressStaleDays} d in progress · ${data.configuration.blockedStaleDays} d blocked · ${data.configuration.plannedStaleDays} d planned`}
               </p>
             </footer>

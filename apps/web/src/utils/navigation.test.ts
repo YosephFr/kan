@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   APP_HOME_PATH,
   buildBoardPath,
+  buildPulseDetailPath,
   isBoardsPath,
   PRIMARY_NAVIGATION_ORDER,
 } from "./navigation";
@@ -24,5 +25,18 @@ describe("application navigation", () => {
     expect(isBoardsPath("/boards")).toBe(true);
     expect(isBoardsPath("/boards/op4hzeqntemf")).toBe(true);
     expect(isBoardsPath("/pulse")).toBe(false);
+  });
+
+  it("builds stable drill-down links for a company and employee metric", () => {
+    expect(
+      buildPulseDetailPath({
+        metric: "advanced",
+        period: "week",
+        workspacePublicId: "workspace1234",
+        memberPublicId: "memberchr123",
+      }),
+    ).toBe(
+      "/pulse/details?metric=advanced&period=week&workspace=workspace1234&member=memberchr123",
+    );
   });
 });

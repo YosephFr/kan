@@ -38,5 +38,13 @@ export { memberInviteResponseSchema } from "./member";
 
 export { attachmentConfirmResponseSchema } from "./attachment";
 
-export { pulseSummarySchema } from "./pulse";
-export type { PulseSummary } from "./pulse";
+export {
+  pulsePortfolioDetailSchema,
+  pulsePortfolioSummarySchema,
+  pulseSummarySchema,
+} from "./pulse";
+export type {
+  PulsePortfolioDetail,
+  PulsePortfolioSummary,
+  PulseSummary,
+} from "./pulse";

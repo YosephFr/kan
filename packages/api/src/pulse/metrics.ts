@@ -18,7 +18,7 @@ export type PulseSource = NonNullable<
 >;
 
 const DAY_MS = 86_400_000;
-const STALE_AFTER_DAYS: Record<Exclude<PulseStatus, "done">, number> = {
+export const STALE_AFTER_DAYS: Record<Exclude<PulseStatus, "done">, number> = {
   planned: 14,
   inProgress: 3,
   blocked: 2,
