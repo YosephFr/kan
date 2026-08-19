@@ -209,9 +209,29 @@ export default function SideNavigation({
           </div>
           <div className="mx-1 mb-4 hidden w-auto border-b border-light-300 dark:border-dark-400 md:block" />
 
-          <WorkspaceMenu isCollapsed={isCollapsed} />
+          <ul role="list" className="space-y-1 pb-3">
+            <li>
+              <ReactiveButton
+                href={navigation.dashboard.href}
+                current={
+                  currentPath === navigation.dashboard.href ||
+                  currentPath.startsWith(`${navigation.dashboard.href}/`)
+                }
+                name={navigation.dashboard.name}
+                json={navigation.dashboard.icon}
+                isCollapsed={isCollapsed}
+                onCloseSideNav={onCloseSideNav}
+                keyboardShortcut={navigation.dashboard.keyboardShortcut}
+              />
+            </li>
+          </ul>
+
+          <WorkspaceMenu
+            isCollapsed={isCollapsed}
+            onCloseSideNav={onCloseSideNav}
+          />
           <ul role="list" className="space-y-1">
-            {PRIMARY_NAVIGATION_ORDER.map((key) => {
+            {PRIMARY_NAVIGATION_ORDER.slice(1).map((key) => {
               const item = navigation[key];
 
               return (

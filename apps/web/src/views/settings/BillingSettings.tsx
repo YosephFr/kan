@@ -6,7 +6,6 @@ import { HiMiniArrowTopRightOnSquare } from "react-icons/hi2";
 import Button from "~/components/Button";
 import FeedbackModal from "~/components/FeedbackModal";
 import Modal from "~/components/modal";
-import { NewWorkspaceForm } from "~/components/NewWorkspaceForm";
 import { PageHead } from "~/components/PageHead";
 import { useModal } from "~/providers/modal";
 import { useWorkspace } from "~/providers/workspace";
@@ -105,12 +104,6 @@ export default function BillingSettings() {
         isVisible={isOpen && modalContentType === "NEW_FEEDBACK"}
       >
         <FeedbackModal />
-      </Modal>
-      <Modal
-        modalSize="sm"
-        isVisible={isOpen && modalContentType === "NEW_WORKSPACE"}
-      >
-        <NewWorkspaceForm />
       </Modal>
     </>
   );

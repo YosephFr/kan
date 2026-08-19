@@ -3,13 +3,11 @@ import { t } from "@lingui/core/macro";
 import Button from "~/components/Button";
 import FeedbackModal from "~/components/FeedbackModal";
 import Modal from "~/components/modal";
-import { NewWorkspaceForm } from "~/components/NewWorkspaceForm";
 import { PageHead } from "~/components/PageHead";
 import { usePermissions } from "~/hooks/usePermissions";
 import { useModal } from "~/providers/modal";
 import { useWorkspace } from "~/providers/workspace";
 import { api } from "~/utils/api";
-import { DeleteWorkspaceConfirmation } from "./components/DeleteWorkspaceConfirmation";
 import UpdateWeekStartDayForm from "./components/UpdateWeekStartDayForm";
 import UpdateWorkspaceDescriptionForm from "./components/UpdateWorkspaceDescriptionForm";
 import UpdateWorkspaceEmailVisibilityForm from "./components/UpdateWorkspaceEmailVisibilityForm";
@@ -20,7 +18,7 @@ import UpdateWorkspaceUrlForm from "./components/UpdateWorkspaceUrlForm";
 export default function WorkspaceSettings() {
   const { modalContentType, openModal, isOpen } = useModal();
   const { workspace } = useWorkspace();
-  const { canEditWorkspace } = usePermissions();
+  const { canEditWorkspace, canDeleteWorkspace } = usePermissions();
   const { data: workspaceData } = api.workspace.byId.useQuery(
     { workspacePublicId: workspace.publicId },
     { enabled: !!workspace.publicId && workspace.publicId.length >= 12 },
@@ -100,7 +98,7 @@ export default function WorkspaceSettings() {
             <Button
               variant="secondary"
               onClick={() => openModal("DELETE_WORKSPACE")}
-              disabled={workspace.role !== "admin"}
+              disabled={!canDeleteWorkspace}
             >
               {t`Delete workspace`}
             </Button>
@@ -108,25 +106,12 @@ export default function WorkspaceSettings() {
         </div>
       </div>
 
-      {/* Workspace-specific modals */}
-      <Modal
-        modalSize="sm"
-        isVisible={isOpen && modalContentType === "DELETE_WORKSPACE"}
-      >
-        <DeleteWorkspaceConfirmation />
-      </Modal>
       {/* Global modals */}
       <Modal
         modalSize="md"
         isVisible={isOpen && modalContentType === "NEW_FEEDBACK"}
       >
         <FeedbackModal />
-      </Modal>
-      <Modal
-        modalSize="sm"
-        isVisible={isOpen && modalContentType === "NEW_WORKSPACE"}
-      >
-        <NewWorkspaceForm />
       </Modal>
     </>
   );

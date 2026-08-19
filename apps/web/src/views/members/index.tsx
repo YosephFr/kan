@@ -22,7 +22,6 @@ import Button from "~/components/Button";
 import Dropdown from "~/components/Dropdown";
 import FeedbackModal from "~/components/FeedbackModal";
 import Modal from "~/components/modal";
-import { NewWorkspaceForm } from "~/components/NewWorkspaceForm";
 import { PageHead } from "~/components/PageHead";
 import { usePermissions } from "~/hooks/usePermissions";
 import { useModal } from "~/providers/modal";
@@ -275,7 +274,7 @@ export default function MembersPage() {
 
   return (
     <>
-      <PageHead title={t`Members | ${workspace.name ?? t`Workspace`}`} />
+      <PageHead title={t`Members | ${workspace.name}`} />
       <div className="m-auto h-full max-w-[1100px] p-6 px-5 md:px-28 md:py-12">
         <div className="mb-8 flex w-full justify-between">
           <div className="flex items-center gap-3">
@@ -394,13 +393,6 @@ export default function MembersPage() {
             isVisible={isOpen && modalContentType === "NEW_FEEDBACK"}
           >
             <FeedbackModal />
-          </Modal>
-
-          <Modal
-            modalSize="sm"
-            isVisible={isOpen && modalContentType === "NEW_WORKSPACE"}
-          >
-            <NewWorkspaceForm />
           </Modal>
 
           <Modal

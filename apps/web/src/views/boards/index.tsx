@@ -5,13 +5,16 @@ import {
   ListboxOptions,
 } from "@headlessui/react";
 import { t } from "@lingui/core/macro";
-import { HiArrowDownTray, HiChevronDown, HiOutlinePlusSmall } from "react-icons/hi2";
 import { useState } from "react";
+import {
+  HiArrowDownTray,
+  HiChevronDown,
+  HiOutlinePlusSmall,
+} from "react-icons/hi2";
 
 import Button from "~/components/Button";
 import FeedbackModal from "~/components/FeedbackModal";
 import Modal from "~/components/modal";
-import { NewWorkspaceForm } from "~/components/NewWorkspaceForm";
 import { PageHead } from "~/components/PageHead";
 import { Tooltip } from "~/components/Tooltip";
 import { usePermissions } from "~/hooks/usePermissions";
@@ -45,7 +48,7 @@ export default function BoardsPage({ isTemplate }: { isTemplate?: boolean }) {
   return (
     <>
       <PageHead
-        title={t`${isTemplate ? "Templates" : "Boards"} | ${workspace.name ?? t`Workspace`}`}
+        title={t`${isTemplate ? "Templates" : "Boards"} | ${workspace.name}`}
       />
       <div className="m-auto h-full max-w-[1100px] p-8 px-5 md:px-28 md:py-12">
         <div className="relative z-10 mb-8 flex w-full items-center justify-between">
@@ -119,13 +122,6 @@ export default function BoardsPage({ isTemplate }: { isTemplate?: boolean }) {
           >
             <ImportBoardsForm />
           </Modal>
-
-          <Modal
-            modalSize="sm"
-            isVisible={isOpen && modalContentType === "NEW_WORKSPACE"}
-          >
-            <NewWorkspaceForm />
-          </Modal>
         </>
 
         {!isTemplate ? (
@@ -137,7 +133,7 @@ export default function BoardsPage({ isTemplate }: { isTemplate?: boolean }) {
                   onChange={(tab) => setActiveTab(tab)}
                 >
                   <div className="relative mb-4">
-                    <ListboxButton className="w-full appearance-none rounded-md border-0 bg-light-50 py-3 pl-3 pr-10 text-left text-sm font-semibold text-light-1000 shadow-sm ring-1 ring-inset ring-light-300  dark:bg-dark-50 dark:text-dark-1000 dark:ring-dark-300 dark:focus:ring-dark-500">
+                    <ListboxButton className="w-full appearance-none rounded-md border-0 bg-light-50 py-3 pl-3 pr-10 text-left text-sm font-semibold text-light-1000 shadow-sm ring-1 ring-inset ring-light-300 dark:bg-dark-50 dark:text-dark-1000 dark:ring-dark-300 dark:focus:ring-dark-500">
                       {boardsTabs.find((tab) => tab.key === activeTab)?.label ??
                         "Select a tab"}
                       <HiChevronDown
@@ -151,9 +147,10 @@ export default function BoardsPage({ isTemplate }: { isTemplate?: boolean }) {
                           key={tab.key}
                           value={tab.key}
                           className={({ selected }) =>
-                            `relative cursor-pointer select-none py-2 pl-3 pr-9 ${selected
-                              ? "font-bold text-light-1000 dark:text-dark-1000"
-                              : "font-normal text-light-1000 dark:text-dark-1000"
+                            `relative cursor-pointer select-none py-2 pl-3 pr-9 ${
+                              selected
+                                ? "font-bold text-light-1000 dark:text-dark-1000"
+                                : "font-normal text-light-1000 dark:text-dark-1000"
                             }`
                           }
                         >
@@ -175,10 +172,11 @@ export default function BoardsPage({ isTemplate }: { isTemplate?: boolean }) {
                         key={tab.key}
                         type="button"
                         onClick={() => setActiveTab(tab.key)}
-                        className={`whitespace-nowrap px-1 py-0 mt-2 mb-8 text-sm font-semibold transition-colors focus:outline-none ${activeTab === tab.key
-                          ? "border-light-1000 text-light-1000 dark:border-dark-1000 dark:text-dark-1000"
-                          : "border-transparent text-light-900 hover:border-light-950 hover:text-light-950 dark:text-dark-900 dark:hover:border-white/20 dark:hover:text-dark-950"
-                          }`}
+                        className={`mb-8 mt-2 whitespace-nowrap px-1 py-0 text-sm font-semibold transition-colors focus:outline-none ${
+                          activeTab === tab.key
+                            ? "border-light-1000 text-light-1000 dark:border-dark-1000 dark:text-dark-1000"
+                            : "border-transparent text-light-900 hover:border-light-950 hover:text-light-950 dark:text-dark-900 dark:hover:border-white/20 dark:hover:text-dark-950"
+                        }`}
                       >
                         {tab.label}
                       </button>

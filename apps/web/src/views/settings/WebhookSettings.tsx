@@ -3,7 +3,6 @@ import { t } from "@lingui/core/macro";
 import Button from "~/components/Button";
 import FeedbackModal from "~/components/FeedbackModal";
 import Modal from "~/components/modal";
-import { NewWorkspaceForm } from "~/components/NewWorkspaceForm";
 import { PageHead } from "~/components/PageHead";
 import { useModal } from "~/providers/modal";
 import { useWorkspace } from "~/providers/workspace";
@@ -14,10 +13,6 @@ import WebhookList from "./components/WebhookList";
 export default function WebhookSettings() {
   const { modalContentType, openModal, isOpen } = useModal();
   const { workspace } = useWorkspace();
-
-  if (!workspace) {
-    return null;
-  }
 
   return (
     <>
@@ -66,12 +61,6 @@ export default function WebhookSettings() {
         isVisible={isOpen && modalContentType === "NEW_FEEDBACK"}
       >
         <FeedbackModal />
-      </Modal>
-      <Modal
-        modalSize="sm"
-        isVisible={isOpen && modalContentType === "NEW_WORKSPACE"}
-      >
-        <NewWorkspaceForm />
       </Modal>
     </>
   );

@@ -14,7 +14,6 @@ import FeedbackModal from "~/components/FeedbackModal";
 import { LabelForm } from "~/components/LabelForm";
 import LabelIcon from "~/components/LabelIcon";
 import Modal from "~/components/modal";
-import { NewWorkspaceForm } from "~/components/NewWorkspaceForm";
 import { PageHead } from "~/components/PageHead";
 import { EditYouTubeModal } from "~/components/YouTubeEmbed/EditYouTubeModal";
 import { usePermissions } from "~/hooks/usePermissions";
@@ -197,8 +196,8 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
   // Redirect to 404 if card doesn't exist
   useEffect(() => {
     if (router.isReady && cardId && !isLoading) {
-      if (error?.data?.code === "NOT_FOUND" || (!card && !isLoading)) {
-        router.replace("/404");
+      if (error?.data?.code === "NOT_FOUND" || !card) {
+        void router.replace("/404");
       }
     }
   }, [router, cardId, isLoading, error, card]);
@@ -257,7 +256,7 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
     },
   });
 
-  const { register, handleSubmit, setValue, watch } = useForm<FormValues>({
+  const { register, handleSubmit, setValue } = useForm<FormValues>({
     values: {
       cardId: cardId ?? "",
       title: card?.title ?? "",
@@ -275,8 +274,8 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
 
   // this adds the new created label to selected labels
   useEffect(() => {
-    const newLabelId = modalStates.NEW_LABEL_CREATED;
-    if (newLabelId && cardId) {
+    const newLabelId: unknown = modalStates.NEW_LABEL_CREATED;
+    if (typeof newLabelId === "string" && cardId) {
       const isAlreadyAdded = card?.labels.some(
         (label) => label.publicId === newLabelId,
       );
@@ -294,8 +293,14 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
   // Open the new item form after creating a new checklist
   useEffect(() => {
     if (!card) return;
-    const state = getModalState("ADD_CHECKLIST");
-    const createdId: string | undefined = state?.createdChecklistId;
+    const state: unknown = getModalState("ADD_CHECKLIST");
+    const createdId =
+      typeof state === "object" &&
+      state !== null &&
+      "createdChecklistId" in state &&
+      typeof state.createdChecklistId === "string"
+        ? state.createdChecklistId
+        : undefined;
     if (createdId) {
       setActiveChecklistForm(createdId);
       clearModalState("ADD_CHECKLIST");
@@ -304,10 +309,8 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
 
   // Auto-resize title textarea
   useEffect(() => {
-    const titleTextarea = document.getElementById(
-      "title",
-    ) as HTMLTextAreaElement;
-    if (titleTextarea) {
+    const titleTextarea = document.getElementById("title");
+    if (titleTextarea instanceof HTMLTextAreaElement) {
       titleTextarea.style.height = "auto";
       titleTextarea.style.height = `${titleTextarea.scrollHeight}px`;
     }
@@ -359,15 +362,15 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
                   cardPublicId={cardId}
                   isTemplate={isTemplate}
                   boardPublicId={boardId}
-                  cardCreatedBy={card?.createdBy}
+                  cardCreatedBy={card.createdBy}
                   ticketNumber={
                     card.cardNumber != null &&
                     card.list.board.workspace.cardPrefix
                       ? `${card.list.board.workspace.cardPrefix}-${card.cardNumber}`
                       : null
                   }
-                  listPublicId={card?.list.publicId}
-                  cardIndex={card?.index}
+                  listPublicId={card.list.publicId}
+                  cardIndex={card.index}
                 />
                 <Link
                   href={`/${isTemplate ? "templates" : "boards"}/${boardId}`}
@@ -455,11 +458,11 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
                   />
                   {!isTemplate && (
                     <>
-                      {card?.attachments.length > 0 && (
+                      {card.attachments.length > 0 && (
                         <div className="mt-6">
                           <AttachmentThumbnails
                             attachments={card.attachments}
-                            cardPublicId={cardId ?? ""}
+                            cardPublicId={cardId}
                             isReadOnly={!canEdit}
                           />
                         </div>
@@ -551,13 +554,6 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
               cardPublicId={cardId}
               commentPublicId={entityId}
             />
-          </Modal>
-
-          <Modal
-            modalSize="sm"
-            isVisible={isOpen && modalContentType === "NEW_WORKSPACE"}
-          >
-            <NewWorkspaceForm />
           </Modal>
 
           <Modal

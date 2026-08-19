@@ -15,7 +15,6 @@ import Button from "~/components/Button";
 import { DeleteLabelConfirmation } from "~/components/DeleteLabelConfirmation";
 import { LabelForm } from "~/components/LabelForm";
 import Modal from "~/components/modal";
-import { NewWorkspaceForm } from "~/components/NewWorkspaceForm";
 import { PageHead } from "~/components/PageHead";
 import PatternedBackground from "~/components/PatternedBackground";
 import { StrictModeDroppable as Droppable } from "~/components/StrictModeDroppable";
@@ -461,13 +460,6 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
             boardPublicId={boardId ?? ""}
             queryParams={queryParams}
           />
-        </Modal>
-
-        <Modal
-          modalSize="sm"
-          isVisible={isOpen && modalContentType === "NEW_WORKSPACE"}
-        >
-          <NewWorkspaceForm />
         </Modal>
 
         <Modal

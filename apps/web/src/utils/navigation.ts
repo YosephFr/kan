@@ -1,5 +1,6 @@
 export const APP_HOME_PATH = "/pulse";
 export const BOARDS_PATH = "/boards";
+export const WORKSPACE_HOME_PATH = BOARDS_PATH;
 
 export const PRIMARY_NAVIGATION_ORDER = [
   "dashboard",

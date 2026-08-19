@@ -9,7 +9,6 @@ import Button from "~/components/Button";
 import FeedbackModal from "~/components/FeedbackModal";
 import Input from "~/components/Input";
 import Modal from "~/components/modal";
-import { NewWorkspaceForm } from "~/components/NewWorkspaceForm";
 import { PageHead } from "~/components/PageHead";
 import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
@@ -232,12 +231,6 @@ export default function IntegrationsSettings() {
         isVisible={isOpen && modalContentType === "NEW_FEEDBACK"}
       >
         <FeedbackModal />
-      </Modal>
-      <Modal
-        modalSize="sm"
-        isVisible={isOpen && modalContentType === "NEW_WORKSPACE"}
-      >
-        <NewWorkspaceForm />
       </Modal>
     </>
   );

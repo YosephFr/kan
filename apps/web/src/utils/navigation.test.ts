@@ -6,6 +6,7 @@ import {
   buildPulseDetailPath,
   isBoardsPath,
   PRIMARY_NAVIGATION_ORDER,
+  WORKSPACE_HOME_PATH,
 } from "./navigation";
 
 describe("application navigation", () => {
@@ -15,6 +16,10 @@ describe("application navigation", () => {
       "dashboard",
       "boards",
     ]);
+  });
+
+  it("opens a selected workspace on its boards", () => {
+    expect(WORKSPACE_HOME_PATH).toBe("/boards");
   });
 
   it("builds direct board links inside the boards section", () => {

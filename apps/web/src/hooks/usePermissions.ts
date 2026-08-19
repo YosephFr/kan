@@ -1,5 +1,6 @@
-import type { Permission } from "@kan/shared";
 import { useContext } from "react";
+
+import type { Permission } from "@kan/shared";
 
 import { WorkspaceContext } from "~/providers/workspace";
 import { api } from "~/utils/api";
@@ -29,6 +30,7 @@ interface UsePermissionsResult {
   canRemoveMember: boolean;
   canViewWorkspace: boolean;
   canEditWorkspace: boolean;
+  canDeleteWorkspace: boolean;
 }
 
 export function usePermissions(): UsePermissionsResult {
@@ -62,6 +64,7 @@ export function usePermissions(): UsePermissionsResult {
       canRemoveMember: false,
       canViewWorkspace: false,
       canEditWorkspace: false,
+      canDeleteWorkspace: false,
     };
     return emptyPermissions;
   }
@@ -107,6 +110,6 @@ export function usePermissions(): UsePermissionsResult {
     canRemoveMember: hasPermission("member:remove"),
     canViewWorkspace: hasPermission("workspace:view"),
     canEditWorkspace: hasPermission("workspace:edit"),
+    canDeleteWorkspace: hasPermission("workspace:delete"),
   };
 }
-

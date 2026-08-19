@@ -3,7 +3,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
 import { api } from "~/utils/api";
-import { APP_HOME_PATH } from "~/utils/navigation";
+import { WORKSPACE_HOME_PATH } from "~/utils/navigation";
 
 interface WorkspaceContextProps {
   workspace: Workspace;
@@ -81,7 +81,7 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({
     // Refetch workspace data to ensure availableWorkspaces is up to date
     void utils.workspace.all.refetch();
 
-    router.push(APP_HOME_PATH);
+    router.push(WORKSPACE_HOME_PATH);
   };
 
   useEffect(() => {
@@ -151,7 +151,7 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({
         });
 
         if (workspacePublicId) {
-          router.push(APP_HOME_PATH);
+          router.push(WORKSPACE_HOME_PATH);
           localStorage.setItem("workspacePublicId", workspacePublicId);
         }
 

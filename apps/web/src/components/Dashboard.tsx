@@ -18,8 +18,10 @@ import { usePopup } from "~/providers/popup";
 import { useWorkspace, WorkspaceProvider } from "~/providers/workspace";
 import { api } from "~/utils/api";
 import { ChangePasswordFormConfirmation } from "~/views/settings/components/ChangePasswordConfirmation";
+import { DeleteWorkspaceConfirmation } from "~/views/settings/components/DeleteWorkspaceConfirmation";
 import Button from "./Button";
 import Modal from "./modal";
+import { NewWorkspaceForm } from "./NewWorkspaceForm";
 import SideNavigation from "./SideNavigation";
 
 interface DashboardProps {
@@ -262,6 +264,12 @@ export default function Dashboard({
         </div>
       </div>
 
+      <Modal modalSize="sm" isVisible={modalContentType === "NEW_WORKSPACE"}>
+        <NewWorkspaceForm />
+      </Modal>
+      <Modal modalSize="sm" isVisible={modalContentType === "DELETE_WORKSPACE"}>
+        <DeleteWorkspaceConfirmation />
+      </Modal>
       <Modal
         modalSize="sm"
         isVisible={modalContentType === "SET_PASSWORD_PROMPT"}

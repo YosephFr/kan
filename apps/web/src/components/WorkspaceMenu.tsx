@@ -10,15 +10,18 @@ import { Fragment, useEffect, useState } from "react";
 import { DragDropContext, Draggable } from "react-beautiful-dnd";
 import {
   HiCheck,
+  HiCog6Tooth,
   HiEllipsisHorizontal,
   HiMagnifyingGlass,
   HiMapPin,
   HiOutlineMapPin,
   HiPlus,
+  HiTrash,
 } from "react-icons/hi2";
 import { RiDraggable } from "react-icons/ri";
 import { twMerge } from "tailwind-merge";
 
+import { usePermissions } from "~/hooks/usePermissions";
 import { useKeyboardShortcut } from "~/providers/keyboard-shortcuts";
 import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
@@ -31,12 +34,15 @@ import { WorkspaceLogo } from "./WorkspaceLogo";
 
 export default function WorkspaceMenu({
   isCollapsed = false,
+  onCloseSideNav,
 }: {
   isCollapsed?: boolean;
+  onCloseSideNav?: () => void;
 }) {
   const { workspace, isLoading, availableWorkspaces, switchWorkspace } =
     useWorkspace();
   const { openModal } = useModal();
+  const { canViewWorkspace, canDeleteWorkspace } = usePermissions();
   const { showPopup } = usePopup();
   const { data: hasPartnerSlot } =
     api.workspace.hasAvailablePartnerSlot.useQuery();
@@ -181,7 +187,10 @@ export default function WorkspaceMenu({
         )}
         <button
           type="button"
-          onClick={() => switchWorkspace(availableWorkspace)}
+          onClick={() => {
+            onCloseSideNav?.();
+            switchWorkspace(availableWorkspace);
+          }}
           className={twMerge(
             "flex h-full min-w-0 flex-1 items-center px-2 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-light-700 dark:focus-visible:ring-dark-700",
             !compact && !isCollapsed && "pl-1",
@@ -296,6 +305,64 @@ export default function WorkspaceMenu({
                 <HiMagnifyingGlass className="h-4 w-4" aria-hidden="true" />
               </Button>
             </Tooltip>
+            {workspace.publicId && (canViewWorkspace || canDeleteWorkspace) && (
+              <Menu
+                as="div"
+                className={twMerge("relative", isCollapsed && "md:hidden")}
+              >
+                <Tooltip content={t`Workspace`}>
+                  <Menu.Button
+                    className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-700 dark:hover:bg-dark-300 dark:focus-visible:ring-dark-700"
+                    aria-label={t`Workspace`}
+                  >
+                    <HiEllipsisHorizontal
+                      className="h-5 w-5"
+                      aria-hidden="true"
+                    />
+                  </Menu.Button>
+                </Tooltip>
+                <Transition
+                  as={Fragment}
+                  enter="transition ease-out duration-100"
+                  enterFrom="transform opacity-0 scale-95"
+                  enterTo="transform opacity-100 scale-100"
+                  leave="transition ease-in duration-75"
+                  leaveFrom="transform opacity-100 scale-100"
+                  leaveTo="transform opacity-0 scale-95"
+                >
+                  <Menu.Items className="absolute right-0 z-30 mt-1 w-56 origin-top-right rounded-md border border-light-600 bg-light-50 p-1 shadow-lg focus:outline-none dark:border-dark-600 dark:bg-dark-300">
+                    {canViewWorkspace && (
+                      <Menu.Item
+                        as="button"
+                        type="button"
+                        onClick={() => {
+                          onCloseSideNav?.();
+                          router.push("/settings/workspace");
+                        }}
+                        className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-light-1000 data-[focus]:bg-light-200 dark:text-dark-1000 dark:data-[focus]:bg-dark-400"
+                      >
+                        <HiCog6Tooth className="h-4 w-4" aria-hidden="true" />
+                        {t`Settings`}
+                      </Menu.Item>
+                    )}
+                    {canDeleteWorkspace && (
+                      <Menu.Item
+                        as="button"
+                        type="button"
+                        onClick={() => {
+                          onCloseSideNav?.();
+                          openModal("DELETE_WORKSPACE");
+                        }}
+                        className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-red-700 data-[focus]:bg-red-50 dark:text-red-300 dark:data-[focus]:bg-red-950/30"
+                      >
+                        <HiTrash className="h-4 w-4" aria-hidden="true" />
+                        {t`Delete workspace`}
+                      </Menu.Item>
+                    )}
+                  </Menu.Items>
+                </Transition>
+              </Menu>
+            )}
           </div>
         </div>
 
