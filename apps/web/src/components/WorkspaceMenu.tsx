@@ -9,7 +9,6 @@ import { env } from "next-runtime-env";
 import { Fragment, useEffect, useState } from "react";
 import { DragDropContext, Draggable } from "react-beautiful-dnd";
 import {
-  HiCheck,
   HiCog6Tooth,
   HiEllipsisHorizontal,
   HiMagnifyingGlass,
@@ -131,9 +130,6 @@ export default function WorkspaceMenu({
     persistPreferences(remaining);
   };
 
-  const visibleWorkspaces = sidebarWorkspaces.slice(0, 3);
-  const additionalWorkspaces = sidebarWorkspaces.slice(3);
-
   const { tooltipContent: commandPaletteShortcutTooltipContent } =
     useKeyboardShortcut({
       type: "PRESS",
@@ -163,7 +159,6 @@ export default function WorkspaceMenu({
   const workspaceRow = (
     availableWorkspace: (typeof availableWorkspaces)[number],
     dragHandleProps?: DraggableProvidedDragHandleProps | null,
-    compact = false,
   ) => {
     const isActive = workspace.publicId === availableWorkspace.publicId;
 
@@ -172,10 +167,10 @@ export default function WorkspaceMenu({
         className={twMerge(
           "group flex h-9 min-w-0 items-center rounded-md text-neutral-900 hover:bg-light-200 dark:text-dark-1000 dark:hover:bg-dark-300",
           isActive && "bg-light-200 dark:bg-dark-300",
-          isCollapsed && !compact && "md:w-9 md:justify-center",
+          isCollapsed && "md:w-9 md:justify-center",
         )}
       >
-        {!compact && !isCollapsed && (
+        {!isCollapsed && (
           <button
             type="button"
             className="ml-1 flex h-7 w-5 flex-shrink-0 cursor-grab items-center justify-center rounded text-light-700 hover:text-light-1000 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-700 active:cursor-grabbing dark:text-dark-700 dark:hover:text-dark-1000 dark:focus-visible:ring-dark-700"
@@ -193,12 +188,12 @@ export default function WorkspaceMenu({
           }}
           className={twMerge(
             "flex h-full min-w-0 flex-1 items-center px-2 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-light-700 dark:focus-visible:ring-dark-700",
-            !compact && !isCollapsed && "pl-1",
-            isCollapsed && !compact && "md:justify-center md:px-0",
+            !isCollapsed && "pl-1",
+            isCollapsed && "md:justify-center md:px-0",
           )}
           aria-current={isActive ? "page" : undefined}
           aria-label={availableWorkspace.name}
-          title={isCollapsed && !compact ? availableWorkspace.name : undefined}
+          title={isCollapsed ? availableWorkspace.name : undefined}
         >
           <WorkspaceLogo
             name={availableWorkspace.name}
@@ -208,7 +203,7 @@ export default function WorkspaceMenu({
           <span
             className={twMerge(
               "ml-2 min-w-0 flex-1 truncate font-semibold",
-              isCollapsed && !compact && "md:hidden",
+              isCollapsed && "md:hidden",
             )}
           >
             {availableWorkspace.name}
@@ -217,47 +212,40 @@ export default function WorkspaceMenu({
             <span
               className={twMerge(
                 "ml-2 text-[10px] font-medium text-light-900 dark:text-dark-900",
-                isCollapsed && !compact && "md:hidden",
+                isCollapsed && "md:hidden",
               )}
             >
               Pro
             </span>
           )}
-          {compact && isActive && (
-            <HiCheck
-              className="ml-2 h-4 w-4 flex-shrink-0"
-              aria-hidden="true"
-            />
+        </button>
+        <button
+          type="button"
+          onClick={() => togglePin(availableWorkspace.publicId)}
+          className={twMerge(
+            "mr-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded text-light-700 hover:bg-light-300 hover:text-light-1000 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-dark-700 dark:hover:bg-dark-400 dark:hover:text-dark-1000 dark:focus-visible:ring-dark-700",
+            availableWorkspace.sidebarPinned &&
+              "text-light-1000 dark:text-dark-1000",
+            isCollapsed && "md:hidden",
+          )}
+          disabled={updatePreferences.isPending}
+          aria-label={
+            availableWorkspace.sidebarPinned
+              ? t`Unpin workspace`
+              : t`Pin workspace`
+          }
+          title={
+            availableWorkspace.sidebarPinned
+              ? t`Unpin workspace`
+              : t`Pin workspace`
+          }
+        >
+          {availableWorkspace.sidebarPinned ? (
+            <HiMapPin className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <HiOutlineMapPin className="h-4 w-4" aria-hidden="true" />
           )}
         </button>
-        {(!isCollapsed || compact) && (
-          <button
-            type="button"
-            onClick={() => togglePin(availableWorkspace.publicId)}
-            className={twMerge(
-              "mr-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded text-light-700 hover:bg-light-300 hover:text-light-1000 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-dark-700 dark:hover:bg-dark-400 dark:hover:text-dark-1000 dark:focus-visible:ring-dark-700",
-              availableWorkspace.sidebarPinned &&
-                "text-light-1000 dark:text-dark-1000",
-            )}
-            disabled={updatePreferences.isPending}
-            aria-label={
-              availableWorkspace.sidebarPinned
-                ? t`Unpin workspace`
-                : t`Pin workspace`
-            }
-            title={
-              availableWorkspace.sidebarPinned
-                ? t`Unpin workspace`
-                : t`Pin workspace`
-            }
-          >
-            {availableWorkspace.sidebarPinned ? (
-              <HiMapPin className="h-4 w-4" aria-hidden="true" />
-            ) : (
-              <HiOutlineMapPin className="h-4 w-4" aria-hidden="true" />
-            )}
-          </button>
-        )}
       </div>
     );
   };
@@ -379,94 +367,44 @@ export default function WorkspaceMenu({
             ))}
           </div>
         ) : (
-          <>
-            <DragDropContext onDragEnd={handleDragEnd}>
-              <Droppable droppableId="workspace-sidebar">
-                {(provided) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className="space-y-1"
-                  >
-                    {visibleWorkspaces.map((item, index) => (
-                      <Draggable
-                        key={item.publicId}
-                        draggableId={item.publicId}
-                        index={index}
-                        isDragDisabled={
-                          isCollapsed || updatePreferences.isPending
-                        }
-                      >
-                        {(draggableProvided, snapshot) => (
-                          <div
-                            ref={draggableProvided.innerRef}
-                            {...draggableProvided.draggableProps}
-                            className={twMerge(
-                              snapshot.isDragging && "rounded-md shadow-lg",
-                            )}
-                          >
-                            {workspaceRow(
-                              item,
-                              draggableProvided.dragHandleProps,
-                            )}
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </DragDropContext>
-
-            {additionalWorkspaces.length > 0 && (
-              <Menu as="div" className="relative mt-1">
-                <Menu.Button
-                  className={twMerge(
-                    "flex h-9 w-full items-center rounded-md px-2 text-sm font-medium text-light-900 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-700 dark:text-dark-900 dark:hover:bg-dark-300 dark:focus-visible:ring-dark-700",
-                    isCollapsed && "md:w-9 md:justify-center md:px-0",
-                  )}
-                  title={isCollapsed ? t`Show more` : undefined}
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId="workspace-sidebar">
+              {(provided) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className="space-y-1"
                 >
-                  <HiEllipsisHorizontal
-                    className="h-5 w-5 flex-shrink-0"
-                    aria-hidden="true"
-                  />
-                  <span
-                    className={twMerge(
-                      "ml-2 truncate",
-                      isCollapsed && "md:hidden",
-                    )}
-                  >
-                    {t`Show more`}
-                  </span>
-                </Menu.Button>
-                <Transition
-                  as={Fragment}
-                  enter="transition ease-out duration-100"
-                  enterFrom="transform opacity-0 scale-95"
-                  enterTo="transform opacity-100 scale-100"
-                  leave="transition ease-in duration-75"
-                  leaveFrom="transform opacity-100 scale-100"
-                  leaveTo="transform opacity-0 scale-95"
-                >
-                  <Menu.Items
-                    className={twMerge(
-                      "absolute left-0 z-20 mt-1 w-full origin-top-left rounded-md border border-light-600 bg-light-50 p-1 shadow-lg focus:outline-none dark:border-dark-600 dark:bg-dark-300",
-                      isCollapsed &&
-                        "md:left-full md:top-0 md:ml-2 md:mt-0 md:w-52",
-                    )}
-                  >
-                    {additionalWorkspaces.map((item) => (
-                      <Menu.Item key={item.publicId} as="div">
-                        {workspaceRow(item, undefined, true)}
-                      </Menu.Item>
-                    ))}
-                  </Menu.Items>
-                </Transition>
-              </Menu>
-            )}
-          </>
+                  {sidebarWorkspaces.map((item, index) => (
+                    <Draggable
+                      key={item.publicId}
+                      draggableId={item.publicId}
+                      index={index}
+                      isDragDisabled={
+                        isCollapsed || updatePreferences.isPending
+                      }
+                    >
+                      {(draggableProvided, snapshot) => (
+                        <div
+                          ref={draggableProvided.innerRef}
+                          {...draggableProvided.draggableProps}
+                          className={twMerge(
+                            snapshot.isDragging && "rounded-md shadow-lg",
+                          )}
+                        >
+                          {workspaceRow(
+                            item,
+                            draggableProvided.dragHandleProps,
+                          )}
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
         )}
       </div>
     </>

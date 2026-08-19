@@ -176,11 +176,11 @@ export default function SideNavigation({
     <>
       <nav
         className={twMerge(
-          "flex h-full w-64 flex-col justify-between border-r border-light-300 bg-light-100 p-3 dark:border-dark-300 dark:bg-dark-100 md:border-r-0 md:py-0 md:pl-0",
+          "flex h-full min-h-0 w-64 flex-col justify-between border-r border-light-300 bg-light-100 p-3 dark:border-dark-300 dark:bg-dark-100 md:border-r-0 md:py-0 md:pl-0",
           isCollapsed && "md:w-auto",
         )}
       >
-        <div>
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
           <div className="hidden h-[45px] items-center justify-between pb-3 md:flex">
             {!isCollapsed && (
               <Link href={APP_HOME_PATH} className="block">
@@ -264,7 +264,7 @@ export default function SideNavigation({
           </ul>
         </div>
 
-        <div className="space-y-2">
+        <div className="flex-shrink-0 space-y-2">
           <UserMenu
             displayName={user.displayName ?? undefined}
             email={user.email ?? "Email not provided?"}
