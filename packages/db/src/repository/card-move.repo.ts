@@ -1,8 +1,10 @@
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
-import { cardActivities, cards, cardsToLabels } from "@kan/db/schema";
+import { cardActivities, cards, cardsToLabels, lists } from "@kan/db/schema";
 import { generateUID } from "@kan/shared/utils";
+
+import { deriveCardLifecycle } from "./card.repo";
 
 export const getCandidates = async (db: dbClient, cardPublicIds: string[]) => {
   if (cardPublicIds.length === 0) return [];
@@ -16,6 +18,10 @@ export const getCandidates = async (db: dbClient, cardPublicIds: string[]) => {
       title: true,
       description: true,
       dueDate: true,
+      priority: true,
+      colourCode: true,
+      startedAt: true,
+      completedAt: true,
     },
     where: and(inArray(cards.publicId, cardPublicIds), isNull(cards.deletedAt)),
     with: {
@@ -58,17 +64,52 @@ export const moveMany = async (
   if (args.cardIds.length === 0) return [];
 
   return db.transaction(async (tx) => {
+    const cardLocations = await tx
+      .select({ id: cards.id, listId: cards.listId })
+      .from(cards)
+      .where(and(inArray(cards.id, args.cardIds), isNull(cards.deletedAt)));
+
+    if (cardLocations.length !== args.cardIds.length) {
+      throw new Error("One or more cards were not found");
+    }
+
+    const requestedListIds = [
+      ...new Set([
+        args.destinationListId,
+        ...cardLocations.map((card) => card.listId),
+      ]),
+    ].sort((a, b) => a - b);
+    const lockedLists = await tx
+      .select({ id: lists.id, status: lists.status })
+      .from(lists)
+      .where(and(inArray(lists.id, requestedListIds), isNull(lists.deletedAt)))
+      .orderBy(asc(lists.id))
+      .for("update");
+
+    if (lockedLists.length !== requestedListIds.length) {
+      throw new Error("One or more lists were not found");
+    }
+
     const selectedCards = await tx
       .select({
         id: cards.id,
         publicId: cards.publicId,
         listId: cards.listId,
+        startedAt: cards.startedAt,
+        completedAt: cards.completedAt,
+        listStatus: lists.status,
       })
       .from(cards)
-      .where(and(inArray(cards.id, args.cardIds), isNull(cards.deletedAt)));
+      .innerJoin(lists, eq(cards.listId, lists.id))
+      .where(and(inArray(cards.id, args.cardIds), isNull(cards.deletedAt)))
+      .orderBy(asc(cards.id))
+      .for("update", { of: cards });
 
-    if (selectedCards.length !== args.cardIds.length) {
-      throw new Error("One or more cards were not found");
+    if (
+      selectedCards.length !== args.cardIds.length ||
+      selectedCards.some((card) => !requestedListIds.includes(card.listId))
+    ) {
+      throw new Error("One or more cards moved concurrently");
     }
 
     if (selectedCards.some((card) => card.listId === args.destinationListId)) {
@@ -89,6 +130,11 @@ export const moveMany = async (
       .from(cardsToLabels)
       .where(inArray(cardsToLabels.cardId, args.cardIds));
     const movedAt = new Date();
+    const destinationList = lockedLists.find(
+      (list) => list.id === args.destinationListId,
+    );
+
+    if (!destinationList) throw new Error("Destination list not found");
 
     await tx
       .update(cards)
@@ -98,11 +144,21 @@ export const moveMany = async (
       );
 
     for (const [index, card] of orderedCards.entries()) {
+      const lifecycle = deriveCardLifecycle({
+        currentStatus: card.listStatus,
+        destinationStatus: destinationList.status,
+        startedAt: card.startedAt,
+        completedAt: card.completedAt,
+        movedAt,
+      });
+
       await tx
         .update(cards)
         .set({
           listId: args.destinationListId,
           index,
+          startedAt: lifecycle.startedAt,
+          completedAt: lifecycle.completedAt,
           updatedAt: movedAt,
         })
         .where(and(eq(cards.id, card.id), isNull(cards.deletedAt)));
@@ -157,6 +213,10 @@ export const moveMany = async (
         title: cards.title,
         description: cards.description,
         dueDate: cards.dueDate,
+        priority: cards.priority,
+        colourCode: cards.colourCode,
+        startedAt: cards.startedAt,
+        completedAt: cards.completedAt,
       })
       .from(cards)
       .where(inArray(cards.id, args.cardIds));

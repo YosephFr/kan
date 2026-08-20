@@ -3,6 +3,7 @@ import {
   bigint,
   bigserial,
   integer,
+  pgEnum,
   pgTable,
   timestamp,
   uuid,
@@ -14,10 +15,24 @@ import { cards } from "./cards";
 import { imports } from "./imports";
 import { users } from "./users";
 
+export const listStatuses = [
+  "planned",
+  "inProgress",
+  "blocked",
+  "done",
+  "other",
+] as const;
+
+export type ListStatus = (typeof listStatuses)[number];
+
+export const listStatusEnum = pgEnum("list_status", listStatuses);
+
 export const lists = pgTable("list", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
   publicId: varchar("publicId", { length: 12 }).notNull().unique(),
   name: varchar("name", { length: 255 }).notNull(),
+  status: listStatusEnum("status"),
+  colourCode: varchar("colourCode", { length: 7 }),
   index: integer("index").notNull(),
   createdBy: uuid("createdBy").references(() => users.id, {
     onDelete: "set null",

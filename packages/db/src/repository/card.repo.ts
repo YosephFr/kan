@@ -11,6 +11,7 @@ import {
 } from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
+import type { CardPriority, ListStatus } from "@kan/db/schema";
 import {
   cardActivities,
   cardAttachments,
@@ -25,6 +26,25 @@ import {
   workspaces,
 } from "@kan/db/schema";
 import { generateUID } from "@kan/shared/utils";
+
+export const deriveCardLifecycle = (args: {
+  currentStatus?: ListStatus | null;
+  destinationStatus: ListStatus | null;
+  startedAt: Date | null;
+  completedAt?: Date | null;
+  movedAt: Date;
+}) => ({
+  startedAt:
+    args.destinationStatus === "inProgress" && !args.startedAt
+      ? args.movedAt
+      : args.startedAt,
+  completedAt:
+    args.destinationStatus === "done"
+      ? args.currentStatus === "done"
+        ? (args.completedAt ?? null)
+        : args.movedAt
+      : null,
+});
 
 export const getCount = async (db: dbClient) => {
   const result = await db
@@ -45,10 +65,31 @@ export const create = async (
     workspaceId: number;
     position: "start" | "end";
     dueDate?: Date | null;
+    priority?: CardPriority;
+    colourCode?: string | null;
+    initializeLifecycle?: boolean;
   },
 ) => {
   return db.transaction(async (tx) => {
     let index = 0;
+    const lifecycleAt = new Date();
+    const [destinationList] = await tx
+      .select({ status: lists.status })
+      .from(lists)
+      .where(and(eq(lists.id, cardInput.listId), isNull(lists.deletedAt)))
+      .limit(1)
+      .for("update");
+
+    if (!destinationList) throw new Error(`List ${cardInput.listId} not found`);
+
+    const lifecycle =
+      cardInput.initializeLifecycle === false
+        ? { startedAt: null, completedAt: null }
+        : deriveCardLifecycle({
+            destinationStatus: destinationList.status,
+            startedAt: null,
+            movedAt: lifecycleAt,
+          });
 
     if (cardInput.position === "end") {
       const lastCard = await tx.query.cards.findFirst({
@@ -106,12 +147,21 @@ export const create = async (
         index: index,
         cardNumber,
         dueDate: cardInput.dueDate ?? null,
+        priority: cardInput.priority ?? "none",
+        colourCode: cardInput.colourCode ?? null,
+        startedAt: lifecycle.startedAt,
+        completedAt: lifecycle.completedAt,
       })
       .returning({
         id: cards.id,
         listId: cards.listId,
         publicId: cards.publicId,
         cardNumber: cards.cardNumber,
+        priority: cards.priority,
+        colourCode: cards.colourCode,
+        dueDate: cards.dueDate,
+        startedAt: cards.startedAt,
+        completedAt: cards.completedAt,
       });
 
     if (!result[0]) throw new Error("Unable to create card");
@@ -204,6 +254,8 @@ export const update = async (
     title?: string;
     description?: string;
     dueDate?: Date | null;
+    priority?: CardPriority;
+    colourCode?: string | null;
   },
   args: {
     cardPublicId: string;
@@ -215,6 +267,9 @@ export const update = async (
       title: cardInput.title,
       description: cardInput.description,
       dueDate: cardInput.dueDate !== undefined ? cardInput.dueDate : undefined,
+      priority: cardInput.priority,
+      colourCode:
+        cardInput.colourCode !== undefined ? cardInput.colourCode : undefined,
       updatedAt: new Date(),
     })
     .where(and(eq(cards.publicId, args.cardPublicId), isNull(cards.deletedAt)))
@@ -224,6 +279,10 @@ export const update = async (
       title: cards.title,
       description: cards.description,
       dueDate: cards.dueDate,
+      priority: cards.priority,
+      colourCode: cards.colourCode,
+      startedAt: cards.startedAt,
+      completedAt: cards.completedAt,
     });
 
   return result;
@@ -259,12 +318,18 @@ export const getByPublicId = (db: dbClient, cardPublicId: string) => {
       description: true,
       listId: true,
       dueDate: true,
+      priority: true,
+      colourCode: true,
+      startedAt: true,
+      completedAt: true,
     },
     with: {
       list: {
         columns: {
           publicId: true,
           name: true,
+          status: true,
+          colourCode: true,
         },
       },
       labels: {
@@ -300,6 +365,9 @@ export const bulkCreate = async (
     workspaceId: number;
     index: number;
     importId?: number;
+    dueDate?: Date | null;
+    priority?: CardPriority;
+    colourCode?: string | null;
   }[],
 ) => {
   if (cardInput.length === 0) return [];
@@ -349,10 +417,22 @@ export const bulkCreate = async (
       index: number;
       cardNumber: number;
       importId?: number;
+      dueDate?: Date | null;
+      priority: CardPriority;
+      colourCode?: string | null;
+      startedAt: Date | null;
+      completedAt: Date | null;
     }[] = [];
 
     // For each list, append incoming cards after current max index, preserving incoming order
     for (const [listId, items] of byList.entries()) {
+      const destinationList = await tx.query.lists.findFirst({
+        columns: { status: true },
+        where: and(eq(lists.id, listId), isNull(lists.deletedAt)),
+      });
+
+      if (!destinationList) throw new Error(`List ${listId} not found`);
+
       const last = await tx.query.cards.findFirst({
         columns: { index: true },
         where: and(eq(cards.listId, listId), isNull(cards.deletedAt)),
@@ -362,6 +442,11 @@ export const bulkCreate = async (
       let nextIndex = last ? last.index + 1 : 0;
       const sorted = [...items].sort((a, b) => a.index - b.index);
       for (const it of sorted) {
+        const lifecycle = deriveCardLifecycle({
+          destinationStatus: destinationList.status,
+          startedAt: null,
+          movedAt: new Date(),
+        });
         const queue = cardNumberByWorkspaceQueue.get(it.workspaceId);
         const cardNumber = queue?.shift();
         if (cardNumber === undefined)
@@ -377,6 +462,11 @@ export const bulkCreate = async (
           index: nextIndex++,
           cardNumber,
           importId: it.importId,
+          dueDate: it.dueDate ?? null,
+          priority: it.priority ?? "none",
+          colourCode: it.colourCode ?? null,
+          startedAt: lifecycle.startedAt,
+          completedAt: lifecycle.completedAt,
         });
       }
     }
@@ -493,6 +583,10 @@ export const getWithListAndMembersByPublicId = async (
       title: true,
       description: true,
       dueDate: true,
+      priority: true,
+      colourCode: true,
+      startedAt: true,
+      completedAt: true,
       createdBy: true,
       cardNumber: true,
       index: true,
@@ -545,6 +639,8 @@ export const getWithListAndMembersByPublicId = async (
         columns: {
           publicId: true,
           name: true,
+          status: true,
+          colourCode: true,
         },
         with: {
           board: {
@@ -565,6 +661,8 @@ export const getWithListAndMembersByPublicId = async (
                 columns: {
                   publicId: true,
                   name: true,
+                  status: true,
+                  colourCode: true,
                 },
                 where: isNull(lists.deletedAt),
                 orderBy: asc(lists.index),
@@ -634,6 +732,10 @@ export const getWithListAndMembersByPublicId = async (
           toDescription: true,
           fromDueDate: true,
           toDueDate: true,
+          fromPriority: true,
+          toPriority: true,
+          fromColourCode: true,
+          toColourCode: true,
         },
         with: {
           fromList: {
@@ -718,24 +820,43 @@ export const reorder = async (
   },
 ) => {
   return db.transaction(async (tx) => {
-    const card = await tx.query.cards.findFirst({
-      columns: {
-        id: true,
-        index: true,
-      },
-      where: and(eq(cards.id, args.cardId), isNull(cards.deletedAt)),
-      with: {
-        list: {
-          columns: {
-            id: true,
-            index: true,
-          },
-        },
-      },
-    });
+    const [cardLocation] = await tx
+      .select({ listId: cards.listId })
+      .from(cards)
+      .where(and(eq(cards.id, args.cardId), isNull(cards.deletedAt)))
+      .limit(1);
 
-    if (!card?.list)
+    if (!cardLocation)
       throw new Error(`Card not found for public ID ${args.cardId}`);
+
+    const requestedListIds = [
+      ...new Set([cardLocation.listId, args.newListId ?? cardLocation.listId]),
+    ].sort((a, b) => a - b);
+    const lockedLists = await tx
+      .select({ id: lists.id, index: lists.index, status: lists.status })
+      .from(lists)
+      .where(and(inArray(lists.id, requestedListIds), isNull(lists.deletedAt)))
+      .orderBy(asc(lists.id))
+      .for("update");
+
+    if (lockedLists.length !== requestedListIds.length)
+      throw new Error("One or more lists were not found");
+
+    const [card] = await tx
+      .select({
+        id: cards.id,
+        index: cards.index,
+        listId: cards.listId,
+        startedAt: cards.startedAt,
+        completedAt: cards.completedAt,
+      })
+      .from(cards)
+      .where(and(eq(cards.id, args.cardId), isNull(cards.deletedAt)))
+      .limit(1)
+      .for("update");
+
+    if (!card || !requestedListIds.includes(card.listId))
+      throw new Error(`Card ${args.cardId} moved concurrently`);
 
     if (args.clearLabels) {
       await tx
@@ -743,46 +864,52 @@ export const reorder = async (
         .where(eq(cardsToLabels.cardId, args.cardId));
     }
 
-    const currentList = card.list;
+    const currentList = lockedLists.find((list) => list.id === card.listId);
+
+    if (!currentList)
+      throw new Error(`Current list ${card.listId} was not locked`);
+
     const currentIndex = card.index;
-    let newList:
-      | { id: number; index: number; cards: { id: number; index: number }[] }
-      | undefined;
+    const destinationListId = args.newListId ?? currentList.id;
+    const destinationList = lockedLists.find(
+      (list) => list.id === destinationListId,
+    );
 
-    if (args.newListId) {
-      newList = await tx.query.lists.findFirst({
-        columns: {
-          id: true,
-          index: true,
-        },
-        with: {
-          cards: {
-            columns: {
-              id: true,
-              index: true,
-            },
+    if (!destinationList)
+      throw new Error(`List not found for public ID ${destinationListId}`);
+
+    const lastDestinationCard =
+      args.newListId === undefined
+        ? undefined
+        : await tx.query.cards.findFirst({
+            columns: { id: true, index: true },
+            where: and(
+              eq(cards.listId, destinationList.id),
+              isNull(cards.deletedAt),
+            ),
             orderBy: desc(cards.index),
-            limit: 1,
-          },
-        },
-        where: and(eq(lists.id, args.newListId), isNull(lists.deletedAt)),
-      });
-
-      if (!newList)
-        throw new Error(`List not found for public ID ${args.newListId}`);
-    }
+          });
+    const newList: {
+      id: number;
+      index: number;
+      status: ListStatus | null;
+      cards: { id: number; index: number }[];
+    } = {
+      ...destinationList,
+      cards: lastDestinationCard ? [lastDestinationCard] : [],
+    };
 
     let newIndex = args.newIndex;
 
     if (newIndex === undefined) {
-      const lastCardIndex = newList?.cards.length
+      const lastCardIndex = newList.cards.length
         ? newList.cards[0]?.index
         : undefined;
 
       newIndex = lastCardIndex !== undefined ? lastCardIndex + 1 : 0;
     }
 
-    if (currentList.id === newList?.id) {
+    if (currentList.id === newList.id) {
       await tx.execute(sql`
         UPDATE card
         SET index =
@@ -795,10 +922,12 @@ export const reorder = async (
         WHERE "listId" = ${currentList.id} AND "deletedAt" IS NULL;
       `);
     } else {
+      const movedAt = new Date();
+
       await tx.execute(sql`
         UPDATE card
         SET index = index + 1
-        WHERE "listId" = ${newList?.id} AND index >= ${newIndex} AND "deletedAt" IS NULL;
+        WHERE "listId" = ${newList.id} AND index >= ${newIndex} AND "deletedAt" IS NULL;
       `);
 
       await tx.execute(sql`
@@ -807,11 +936,24 @@ export const reorder = async (
         WHERE "listId" = ${currentList.id} AND index >= ${currentIndex} AND "deletedAt" IS NULL;
       `);
 
-      await tx.execute(sql`
-        UPDATE card
-        SET "listId" = ${newList?.id}, index = ${newIndex}
-        WHERE id = ${card.id} AND "deletedAt" IS NULL;
-      `);
+      const lifecycle = deriveCardLifecycle({
+        currentStatus: currentList.status,
+        destinationStatus: newList.status,
+        startedAt: card.startedAt,
+        completedAt: card.completedAt,
+        movedAt,
+      });
+
+      await tx
+        .update(cards)
+        .set({
+          listId: newList.id,
+          index: newIndex,
+          startedAt: lifecycle.startedAt,
+          completedAt: lifecycle.completedAt,
+          updatedAt: movedAt,
+        })
+        .where(and(eq(cards.id, card.id), isNull(cards.deletedAt)));
     }
 
     const countExpr = sql<number>`COUNT(*)`.mapWith(Number);
@@ -824,10 +966,7 @@ export const reorder = async (
       .from(cards)
       .where(
         and(
-          inArray(
-            cards.listId,
-            [currentList.id, newList?.id].filter((id) => id !== undefined),
-          ),
+          inArray(cards.listId, [currentList.id, newList.id]),
           isNull(cards.deletedAt),
         ),
       )
@@ -836,9 +975,7 @@ export const reorder = async (
 
     if (duplicateIndices.length > 0) {
       // Auto-heal by compacting indices for the affected list(s)
-      const affectedListIds = [currentList.id, newList?.id].filter(
-        (id): id is number => id !== undefined,
-      );
+      const affectedListIds = [...new Set([currentList.id, newList.id])];
 
       if (affectedListIds.length === 1) {
         await tx.execute(sql`
@@ -891,6 +1028,10 @@ export const reorder = async (
         title: true,
         description: true,
         dueDate: true,
+        priority: true,
+        colourCode: true,
+        startedAt: true,
+        completedAt: true,
       },
       where: eq(cards.id, card.id),
     });
@@ -1027,6 +1168,7 @@ export const getWorkspaceAndCardIdByCardPublicId = async (
         with: {
           board: {
             columns: {
+              id: true,
               publicId: true,
               workspaceId: true,
               visibility: true,
@@ -1041,6 +1183,7 @@ export const getWorkspaceAndCardIdByCardPublicId = async (
   return result
     ? {
         id: result.id,
+        boardId: result.list.board.id,
         createdBy: result.createdBy,
         workspaceId: result.list.board.workspaceId,
         workspaceVisibility: result.list.board.visibility,

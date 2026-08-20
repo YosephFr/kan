@@ -1,7 +1,7 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { format } from "date-fns";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   HiOutlineBarsArrowDown,
@@ -13,6 +13,7 @@ import type { NewCardInput } from "@kan/api/types";
 import { generateUID } from "@kan/shared/utils";
 
 import type { WorkspaceMember } from "~/components/Editor";
+import AccentColourSelector from "~/components/AccentColourSelector";
 import Avatar from "~/components/Avatar";
 import Button from "~/components/Button";
 import CheckboxDropdown from "~/components/CheckboxDropdown";
@@ -20,7 +21,9 @@ import DateSelector from "~/components/DateSelector";
 import Editor from "~/components/Editor";
 import Input from "~/components/Input";
 import LabelIcon from "~/components/LabelIcon";
+import PrioritySelector from "~/components/PrioritySelector";
 import Toggle from "~/components/Toggle";
+import { useLocalisation } from "~/hooks/useLocalisation";
 import { useModalFormState } from "~/hooks/useModalFormState";
 import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
@@ -54,6 +57,7 @@ export function NewCardForm({
   queryParams,
 }: NewCardFormProps) {
   const { showPopup } = usePopup();
+  const { dateLocale } = useLocalisation();
   const { workspace } = useWorkspace();
   const { closeModal, openModal, modalStates, clearModalState } = useModal();
 
@@ -71,6 +75,8 @@ export function NewCardForm({
       isCreateAnotherEnabled: false,
       position: "start",
       dueDate: null,
+      priority: "none",
+      colourCode: null,
     },
     resetOnClose: true,
   });
@@ -80,14 +86,68 @@ export function NewCardForm({
       values: formState,
     });
 
-  const labelPublicIds = watch("labelPublicIds") || [];
-  const memberPublicIds = watch("memberPublicIds") || [];
+  const labelPublicIds = watch("labelPublicIds");
+  const memberPublicIds = watch("memberPublicIds");
   const isCreateAnotherEnabled = watch("isCreateAnotherEnabled");
   const position = watch("position");
   const title = watch("title");
   const description = watch("description");
   const dueDate = watch("dueDate");
+  const priority = watch("priority") ?? "none";
+  const colourCode = watch("colourCode");
   const [isDateSelectorOpen, setIsDateSelectorOpen] = useState(false);
+  const dateTriggerRef = useRef<HTMLButtonElement>(null);
+  const dateDialogRef = useRef<HTMLDivElement>(null);
+  const dateBeforeOpenRef = useRef<Date | null>(null);
+
+  const closeDateSelector = useCallback(
+    (restore: boolean) => {
+      if (restore) setValue("dueDate", dateBeforeOpenRef.current);
+      setIsDateSelectorOpen(false);
+      window.requestAnimationFrame(() => dateTriggerRef.current?.focus());
+    },
+    [setValue],
+  );
+
+  useEffect(() => {
+    if (!isDateSelectorOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        closeDateSelector(true);
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = Array.from(
+        dateDialogRef.current?.querySelectorAll<HTMLElement>(
+          "button:not([disabled]), input:not([disabled])",
+        ) ?? [],
+      );
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    window.requestAnimationFrame(() => {
+      dateDialogRef.current
+        ?.querySelector<HTMLElement>(
+          "button:not([disabled]), input:not([disabled])",
+        )
+        ?.focus();
+    });
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [closeDateSelector, isDateSelectorOpen]);
 
   // saving form state whenever form values change
   useEffect(() => {
@@ -103,17 +163,21 @@ export function NewCardForm({
 
   // this adds the new created label to selected labels
   useEffect(() => {
-    const newLabelId = modalStates.NEW_LABEL_CREATED;
+    const newLabelState: unknown = modalStates.NEW_LABEL_CREATED;
+    const newLabelId =
+      typeof newLabelState === "string" ? newLabelState : undefined;
     if (newLabelId !== undefined && !labelPublicIds.includes(newLabelId)) {
       setValue("labelPublicIds", [...labelPublicIds, newLabelId]);
     }
-  }, [modalStates, labelPublicIds]);
+  }, [modalStates, labelPublicIds, setValue]);
 
   // this removes the deleted label from selected labels if it is selected
   useEffect(() => {
     if (boardData?.labels) {
       const availableLabelIds = boardData.labels.map((label) => label.publicId);
-      const newLabelId = modalStates.NEW_LABEL_CREATED;
+      const newLabelState: unknown = modalStates.NEW_LABEL_CREATED;
+      const newLabelId =
+        typeof newLabelState === "string" ? newLabelState : undefined;
 
       if (newLabelId && availableLabelIds.includes(newLabelId)) {
         clearModalState("NEW_LABEL_CREATED");
@@ -127,7 +191,13 @@ export function NewCardForm({
         setValue("labelPublicIds", validLabelIds);
       }
     }
-  }, [boardData?.labels, labelPublicIds, modalStates.NEW_LABEL_CREATED]);
+  }, [
+    boardData?.labels,
+    clearModalState,
+    labelPublicIds,
+    modalStates.NEW_LABEL_CREATED,
+    setValue,
+  ]);
 
   const createCard = api.card.create.useMutation({
     onMutate: async (args) => {
@@ -146,6 +216,10 @@ export function NewCardForm({
               listId: 2,
               description: "",
               dueDate: args.dueDate ?? null,
+              priority: args.priority ?? "none",
+              colourCode: args.colourCode ?? null,
+              startedAt: null,
+              completedAt: null,
               cardNumber: null,
               comments: [],
               checklists: [],
@@ -153,15 +227,14 @@ export function NewCardForm({
               labels: oldBoard.labels.filter((label) =>
                 args.labelPublicIds.includes(label.publicId),
               ),
-              members:
-                oldBoard.workspace.members
-                  .filter((member) =>
-                    args.memberPublicIds.includes(member.publicId),
-                  )
-                  .map((member) => ({
-                    ...member,
-                    deletedAt: null,
-                  })) ?? [],
+              members: oldBoard.workspace.members
+                .filter((member) =>
+                  args.memberPublicIds.includes(member.publicId),
+                )
+                .map((member) => ({
+                  ...member,
+                  deletedAt: null,
+                })),
               _filteredLabels: labelPublicIds.map((id) => ({ publicId: id })),
               _filteredMembers: memberPublicIds.map((id) => ({ publicId: id })),
               index: position === "start" ? 0 : list.cards.length,
@@ -207,6 +280,8 @@ export function NewCardForm({
           isCreateAnotherEnabled,
           position,
           dueDate: null,
+          priority: "none" as const,
+          colourCode: null,
         };
         reset(newFormState);
         saveFormState(newFormState);
@@ -265,6 +340,8 @@ export function NewCardForm({
       memberPublicIds: data.memberPublicIds,
       position: data.position,
       dueDate: data.dueDate ?? null,
+      priority: data.priority,
+      colourCode: data.colourCode ?? null,
     });
   };
 
@@ -359,7 +436,7 @@ export function NewCardForm({
             />
           </div>
         </div>
-        <div className="mt-2 flex space-x-1">
+        <div className="mt-2 flex flex-wrap gap-1">
           <div className="w-fit">
             <CheckboxDropdown
               items={formattedLists}
@@ -464,44 +541,90 @@ export function NewCardForm({
               </div>
             </CheckboxDropdown>
           </div>
-          <div className="relative w-fit">
-            <button
-              type="button"
-              onClick={() => setIsDateSelectorOpen(!isDateSelectorOpen)}
-              className="flex h-full w-full items-center rounded-[5px] border-[1px] border-light-600 bg-light-200 px-2 py-1 text-left text-xs text-light-800 hover:bg-light-300 dark:border-dark-600 dark:bg-dark-400 dark:text-dark-1000 dark:hover:bg-dark-500"
-            >
-              {dueDate ? (
-                <span>{format(dueDate, "MMM d, yyyy")}</span>
-              ) : (
-                <>{t`Due date`}</>
-              )}
-            </button>
-            {isDateSelectorOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setIsDateSelectorOpen(false)}
-                />
-                <div
-                  className="absolute left-0 top-full z-20 mt-2 rounded-md border border-light-200 bg-light-50 shadow-lg dark:border-dark-200 dark:bg-dark-100"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                  }}
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                  }}
-                >
-                  <DateSelector
-                    selectedDate={dueDate ?? undefined}
-                    onDateSelect={(date) => {
-                      setValue("dueDate", date ?? null);
-                      setIsDateSelectorOpen(false);
-                    }}
-                    weekStartsOn={workspace.weekStartDay}
+          {!isTemplate && (
+            <div className="relative w-fit">
+              <button
+                ref={dateTriggerRef}
+                type="button"
+                onClick={() => {
+                  if (isDateSelectorOpen) {
+                    closeDateSelector(false);
+                    return;
+                  }
+                  dateBeforeOpenRef.current = dueDate ?? null;
+                  setIsDateSelectorOpen(true);
+                }}
+                className="flex h-full w-full items-center rounded-[5px] border-[1px] border-light-600 bg-light-200 px-2 py-1 text-left text-xs text-light-800 hover:bg-light-300 dark:border-dark-600 dark:bg-dark-400 dark:text-dark-1000 dark:hover:bg-dark-500"
+              >
+                {dueDate ? (
+                  <span>
+                    {format(dueDate, "MMM d · HH:mm", {
+                      locale: dateLocale,
+                    })}
+                  </span>
+                ) : (
+                  <>{t`Due date`}</>
+                )}
+              </button>
+              {isDateSelectorOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => closeDateSelector(true)}
                   />
-                </div>
-              </>
-            )}
+                  <div
+                    ref={dateDialogRef}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={t`Set due date`}
+                    className="fixed left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 rounded-md border border-light-200 bg-light-50 shadow-lg dark:border-dark-200 dark:bg-dark-100 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:translate-x-0 sm:translate-y-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                    }}
+                  >
+                    <DateSelector
+                      selectedDate={dueDate ?? undefined}
+                      onDateSelect={(date) => {
+                        setValue("dueDate", date ?? null);
+                      }}
+                      weekStartsOn={workspace.weekStartDay}
+                      showTime
+                    />
+                    <div className="flex justify-end gap-2 border-t border-light-200 px-4 py-3 dark:border-dark-300">
+                      <button
+                        type="button"
+                        onClick={() => closeDateSelector(true)}
+                        className="rounded-md px-3 py-1.5 text-xs font-medium text-light-900 hover:bg-light-200 dark:text-dark-900 dark:hover:bg-dark-300"
+                      >
+                        {t`Cancel`}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => closeDateSelector(false)}
+                        className="rounded-md bg-light-1000 px-3 py-1.5 text-xs font-medium text-light-50 hover:bg-light-900 dark:bg-dark-1000 dark:text-dark-50 dark:hover:bg-dark-900"
+                      >
+                        {t`Apply`}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          <div className="min-w-[8.5rem] flex-1 sm:max-w-[10rem]">
+            <PrioritySelector
+              value={priority}
+              onChange={(value) => setValue("priority", value)}
+            />
+          </div>
+          <div className="min-w-[8.5rem] flex-1 sm:max-w-[10rem]">
+            <AccentColourSelector
+              value={colourCode}
+              onChange={(value) => setValue("colourCode", value)}
+            />
           </div>
           <button
             onClick={(e) => {

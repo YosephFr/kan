@@ -76,6 +76,23 @@ export const getAllByPublicIds = (db: dbClient, labelPublicIds: string[]) => {
   });
 };
 
+export const getAllByPublicIdsForBoard = (
+  db: dbClient,
+  labelPublicIds: string[],
+  boardId: number,
+) => {
+  return db.query.labels.findMany({
+    columns: {
+      id: true,
+    },
+    where: and(
+      inArray(labels.publicId, labelPublicIds),
+      eq(labels.boardId, boardId),
+      isNull(labels.deletedAt),
+    ),
+  });
+};
+
 export const getByPublicId = async (db: dbClient, labelPublicId: string) => {
   return db.query.labels.findFirst({
     columns: {
@@ -85,6 +102,26 @@ export const getByPublicId = async (db: dbClient, labelPublicId: string) => {
       colourCode: true,
     },
     where: eq(labels.publicId, labelPublicId),
+  });
+};
+
+export const getByPublicIdForBoard = async (
+  db: dbClient,
+  labelPublicId: string,
+  boardId: number,
+) => {
+  return db.query.labels.findFirst({
+    columns: {
+      id: true,
+      publicId: true,
+      name: true,
+      colourCode: true,
+    },
+    where: and(
+      eq(labels.publicId, labelPublicId),
+      eq(labels.boardId, boardId),
+      isNull(labels.deletedAt),
+    ),
   });
 };
 

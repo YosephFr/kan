@@ -11,8 +11,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
-import { cards } from "./cards";
-import { comments } from "./cards";
+import { cards, comments } from "./cards";
 import { users } from "./users";
 import { workspaces } from "./workspaces";
 
@@ -21,11 +20,17 @@ export const notificationTypes = [
   "workspace.member.added",
   "workspace.member.removed",
   "workspace.role.changed",
+  "card.priority.urgent",
+  "card.due.soon",
+  "card.due.overdue",
 ] as const;
 
 export type NotificationType = (typeof notificationTypes)[number];
 
-export const notificationTypeEnum = pgEnum("notification_type", notificationTypes);
+export const notificationTypeEnum = pgEnum(
+  "notification_type",
+  notificationTypes,
+);
 
 export const notifications = pgTable(
   "notification",
@@ -48,6 +53,7 @@ export const notifications = pgTable(
       { onDelete: "cascade" },
     ),
     metadata: text("metadata"),
+    dedupeKey: varchar("dedupeKey", { length: 255 }).unique(),
     readAt: timestamp("readAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     deletedAt: timestamp("deletedAt"),
@@ -95,4 +101,3 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
     relationName: "notificationsWorkspace",
   }),
 }));
-

@@ -1,9 +1,19 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import * as webhookRepo from "@kan/db/repository/webhook.repo";
+
+import type { WebhookPayload } from "./webhook";
+import {
+  createCardWebhookPayload,
+  sendWebhooksForWorkspace,
+  sendWebhookToUrl,
+  webhookUrlSchema,
+} from "./webhook";
 
 const { mockLogger } = vi.hoisted(() => ({
   mockLogger: {
-    error: vi.fn(),
-    info: vi.fn(),
+    error: vi.fn<(context: Record<string, unknown>, message: string) => void>(),
+    info: vi.fn<(context: Record<string, unknown>, message: string) => void>(),
   },
 }));
 
@@ -15,16 +25,8 @@ vi.mock("@kan/logger", () => ({
   createLogger: vi.fn(() => mockLogger),
 }));
 
-import * as webhookRepo from "@kan/db/repository/webhook.repo";
-import {
-  sendWebhookToUrl,
-  sendWebhooksForWorkspace,
-  createCardWebhookPayload,
-  webhookUrlSchema,
-  type WebhookPayload,
-} from "./webhook";
-
-const mockGetActiveByWorkspaceId = webhookRepo.getActiveByWorkspaceId as ReturnType<typeof vi.fn>;
+const mockGetActiveByWorkspaceId =
+  webhookRepo.getActiveByWorkspaceId as ReturnType<typeof vi.fn>;
 
 describe("webhook utilities", () => {
   beforeEach(() => {
@@ -42,7 +44,6 @@ describe("webhook utilities", () => {
       const payload = createCardWebhookPayload(
         "card.created",
         {
-          id: "card-123",
           publicId: "card-pub-123",
           title: "Test Card",
           listId: "list-456",
@@ -55,7 +56,7 @@ describe("webhook utilities", () => {
       expect(payload.event).toBe("card.created");
       expect(payload.timestamp).toBe("2024-01-15T12:00:00.000Z");
       expect(payload.data.card).toEqual({
-        id: "card-123",
+        id: "card-pub-123",
         publicId: "card-pub-123",
         title: "Test Card",
         description: undefined,
@@ -71,7 +72,6 @@ describe("webhook utilities", () => {
       const payload = createCardWebhookPayload(
         "card.updated",
         {
-          id: "card-123",
           publicId: "card-pub-123",
           title: "Test Card",
           description: "A description",
@@ -91,7 +91,6 @@ describe("webhook utilities", () => {
       const payload = createCardWebhookPayload(
         "card.created",
         {
-          id: "card-123",
           publicId: "card-pub-123",
           title: "Test Card",
           listId: "list-456",
@@ -112,7 +111,6 @@ describe("webhook utilities", () => {
       const payload = createCardWebhookPayload(
         "card.created",
         {
-          id: "card-123",
           publicId: "card-pub-123",
           title: "Test Card",
           listId: "list-456",
@@ -133,7 +131,6 @@ describe("webhook utilities", () => {
       const payload = createCardWebhookPayload(
         "card.created",
         {
-          id: "card-123",
           publicId: "card-pub-123",
           title: "Test Card",
           listId: "list-456",
@@ -157,7 +154,6 @@ describe("webhook utilities", () => {
       const payload = createCardWebhookPayload(
         "card.updated",
         {
-          id: "card-123",
           publicId: "card-pub-123",
           title: "Updated Title",
           listId: "list-456",
@@ -179,7 +175,6 @@ describe("webhook utilities", () => {
       const payload = createCardWebhookPayload(
         "card.moved",
         {
-          id: "card-123",
           publicId: "card-pub-123",
           title: "Moved Card",
           listId: "list-public-done",
@@ -220,7 +215,7 @@ describe("webhook utilities", () => {
       timestamp: "2024-01-15T12:00:00.000Z",
       data: {
         card: {
-          id: "card-123",
+          id: "card-pub-123",
           publicId: "card-pub-123",
           title: "Test Card",
           listId: "list-456",
@@ -231,48 +226,79 @@ describe("webhook utilities", () => {
 
     describe("SSRF protection", () => {
       it("blocks HTTP URLs", async () => {
-        const result = await sendWebhookToUrl("http://example.com/webhook", undefined, mockPayload);
+        const result = await sendWebhookToUrl(
+          "http://example.com/webhook",
+          undefined,
+          mockPayload,
+        );
         expect(result.success).toBe(false);
         expect(result.error).toContain("HTTPS");
         expect(global.fetch).not.toHaveBeenCalled();
       });
 
       it("blocks localhost", async () => {
-        const result = await sendWebhookToUrl("https://localhost/webhook", undefined, mockPayload);
+        const result = await sendWebhookToUrl(
+          "https://localhost/webhook",
+          undefined,
+          mockPayload,
+        );
         expect(result.success).toBe(false);
         expect(result.error).toContain("Localhost");
         expect(global.fetch).not.toHaveBeenCalled();
       });
 
       it("blocks 127.0.0.1", async () => {
-        const result = await sendWebhookToUrl("https://127.0.0.1/webhook", undefined, mockPayload);
+        const result = await sendWebhookToUrl(
+          "https://127.0.0.1/webhook",
+          undefined,
+          mockPayload,
+        );
         expect(result.success).toBe(false);
         expect(global.fetch).not.toHaveBeenCalled();
       });
 
       it("blocks cloud metadata endpoint", async () => {
-        const result = await sendWebhookToUrl("https://169.254.169.254/latest/meta-data/", undefined, mockPayload);
+        const result = await sendWebhookToUrl(
+          "https://169.254.169.254/latest/meta-data/",
+          undefined,
+          mockPayload,
+        );
         expect(result.success).toBe(false);
         expect(result.error).toContain("metadata");
         expect(global.fetch).not.toHaveBeenCalled();
       });
 
       it("blocks private 10.x.x.x IPs", async () => {
-        const result = await sendWebhookToUrl("https://10.0.0.1/webhook", undefined, mockPayload);
+        const result = await sendWebhookToUrl(
+          "https://10.0.0.1/webhook",
+          undefined,
+          mockPayload,
+        );
         expect(result.success).toBe(false);
         expect(result.error).toContain("Private");
         expect(global.fetch).not.toHaveBeenCalled();
       });
 
       it("blocks private 192.168.x.x IPs", async () => {
-        const result = await sendWebhookToUrl("https://192.168.1.1/webhook", undefined, mockPayload);
+        const result = await sendWebhookToUrl(
+          "https://192.168.1.1/webhook",
+          undefined,
+          mockPayload,
+        );
         expect(result.success).toBe(false);
         expect(global.fetch).not.toHaveBeenCalled();
       });
 
       it("allows valid HTTPS URLs", async () => {
-        (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true, status: 200 });
-        const result = await sendWebhookToUrl("https://example.com/webhook", undefined, mockPayload);
+        (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+        });
+        const result = await sendWebhookToUrl(
+          "https://example.com/webhook",
+          undefined,
+          mockPayload,
+        );
         expect(result.success).toBe(true);
         expect(global.fetch).toHaveBeenCalled();
       });
@@ -284,20 +310,23 @@ describe("webhook utilities", () => {
         status: 200,
       });
 
-      await sendWebhookToUrl("https://example.com/webhook", undefined, mockPayload);
-
-      expect(global.fetch).toHaveBeenCalledWith(
+      await sendWebhookToUrl(
         "https://example.com/webhook",
-        expect.objectContaining({
-          method: "POST",
-          headers: expect.objectContaining({
-            "Content-Type": "application/json",
-            "X-Webhook-Event": "card.created",
-            "X-Webhook-Timestamp": "2024-01-15T12:00:00.000Z",
-          }),
-          body: JSON.stringify(mockPayload),
-        }),
+        undefined,
+        mockPayload,
       );
+
+      const [url, request] = vi.mocked(global.fetch).mock.calls[0] ?? [];
+      const headers = new Headers(request?.headers);
+
+      expect(url).toBe("https://example.com/webhook");
+      expect(request?.method).toBe("POST");
+      expect(headers.get("Content-Type")).toBe("application/json");
+      expect(headers.get("X-Webhook-Event")).toBe("card.created");
+      expect(headers.get("X-Webhook-Timestamp")).toBe(
+        "2024-01-15T12:00:00.000Z",
+      );
+      expect(request?.body).toBe(JSON.stringify(mockPayload));
     });
 
     it("includes signature header when secret is provided", async () => {
@@ -306,16 +335,18 @@ describe("webhook utilities", () => {
         status: 200,
       });
 
-      await sendWebhookToUrl("https://example.com/webhook", "my-secret", mockPayload);
-
-      expect(global.fetch).toHaveBeenCalledWith(
+      await sendWebhookToUrl(
         "https://example.com/webhook",
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            "X-Webhook-Signature": expect.stringMatching(/^[a-f0-9]{64}$/),
-          }),
-        }),
+        "my-secret",
+        mockPayload,
       );
+
+      const [, request] = vi.mocked(global.fetch).mock.calls[0] ?? [];
+      const signature = new Headers(request?.headers).get(
+        "X-Webhook-Signature",
+      );
+
+      expect(signature).toMatch(/^[a-f0-9]{64}$/);
     });
 
     it("returns success for 2xx responses", async () => {
@@ -417,7 +448,7 @@ describe("webhook utilities", () => {
       timestamp: "2024-01-15T12:00:00.000Z",
       data: {
         card: {
-          id: "card-123",
+          id: "card-pub-123",
           publicId: "card-pub-123",
           title: "Test Card",
           listId: "list-456",
@@ -454,10 +485,7 @@ describe("webhook utilities", () => {
       await sendWebhooksForWorkspace(mockDb, 1, mockPayload);
 
       // getActiveByWorkspaceId fetches all active webhooks; event filtering is client-side
-      expect(mockGetActiveByWorkspaceId).toHaveBeenCalledWith(
-        mockDb,
-        1,
-      );
+      expect(mockGetActiveByWorkspaceId).toHaveBeenCalledWith(mockDb, 1);
       expect(global.fetch).toHaveBeenCalledTimes(2);
       expect(global.fetch).toHaveBeenCalledWith(
         "https://example.com/webhook1",
@@ -475,10 +503,7 @@ describe("webhook utilities", () => {
 
       await sendWebhooksForWorkspace(mockDb, 1, mockPayload);
 
-      expect(mockGetActiveByWorkspaceId).toHaveBeenCalledWith(
-        mockDb,
-        1,
-      );
+      expect(mockGetActiveByWorkspaceId).toHaveBeenCalledWith(mockDb, 1);
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
@@ -538,19 +563,19 @@ describe("webhook utilities", () => {
         sendWebhooksForWorkspace(mockDb, 1, mockPayload),
       ).resolves.toBeUndefined();
 
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.objectContaining({
-          err: expect.any(Error),
-          workspaceId: 1,
-        }),
-        "Failed to send webhooks for workspace",
-      );
+      const [context, message] = mockLogger.error.mock.calls[0] ?? [];
+
+      expect(context?.err).toBeInstanceOf(Error);
+      expect(context?.workspaceId).toBe(1);
+      expect(message).toBe("Failed to send webhooks for workspace");
     });
   });
 
   describe("webhookUrlSchema", () => {
     it("accepts valid HTTPS URLs", () => {
-      expect(webhookUrlSchema.safeParse("https://example.com/webhook").success).toBe(true);
+      expect(
+        webhookUrlSchema.safeParse("https://example.com/webhook").success,
+      ).toBe(true);
     });
 
     it("rejects HTTP URLs", () => {
@@ -564,12 +589,18 @@ describe("webhook utilities", () => {
     });
 
     it("rejects private IPs", () => {
-      expect(webhookUrlSchema.safeParse("https://10.0.0.1/webhook").success).toBe(false);
-      expect(webhookUrlSchema.safeParse("https://192.168.1.1/webhook").success).toBe(false);
+      expect(
+        webhookUrlSchema.safeParse("https://10.0.0.1/webhook").success,
+      ).toBe(false);
+      expect(
+        webhookUrlSchema.safeParse("https://192.168.1.1/webhook").success,
+      ).toBe(false);
     });
 
     it("rejects cloud metadata endpoints", () => {
-      expect(webhookUrlSchema.safeParse("https://169.254.169.254/latest").success).toBe(false);
+      expect(
+        webhookUrlSchema.safeParse("https://169.254.169.254/latest").success,
+      ).toBe(false);
     });
   });
 });

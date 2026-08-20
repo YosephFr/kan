@@ -7,7 +7,10 @@ import * as cardCommentRepo from "@kan/db/repository/cardComment.repo";
 import * as checklistRepo from "@kan/db/repository/checklist.repo";
 import * as labelRepo from "@kan/db/repository/label.repo";
 import * as listRepo from "@kan/db/repository/list.repo";
+import * as notificationRepo from "@kan/db/repository/notification.repo";
 import * as workspaceRepo from "@kan/db/repository/workspace.repo";
+import { cardPriorities } from "@kan/db/schema";
+import { colours } from "@kan/shared/constants";
 import { generateAttachmentUrl, generateAvatarUrl } from "@kan/shared/utils";
 
 import {
@@ -32,6 +35,17 @@ import {
 } from "../utils/webhook";
 import { cardMoveManyProcedure } from "./card-move-many";
 
+const paletteColourCodes = new Set<string>(
+  colours.map((colour) => colour.code),
+);
+const colourCodeSchema = z
+  .string()
+  .transform((colourCode) => colourCode.toLowerCase())
+  .refine((colourCode) => paletteColourCodes.has(colourCode), {
+    message: "Colour must use the Kan palette",
+  })
+  .nullable();
+
 export const cardRouter = createTRPCRouter({
   moveMany: cardMoveManyProcedure,
   create: protectedProcedure
@@ -54,6 +68,8 @@ export const cardRouter = createTRPCRouter({
         memberPublicIds: z.array(z.string().min(12)),
         position: z.enum(["start", "end"]),
         dueDate: z.date().nullable().optional(),
+        priority: z.enum(cardPriorities).optional(),
+        colourCode: colourCodeSchema.optional(),
       }),
     )
     .output(cardCreateResponseSchema)
@@ -79,6 +95,36 @@ export const cardRouter = createTRPCRouter({
 
       await assertPermission(ctx.db, userId, list.workspaceId, "card:create");
 
+      const labelPublicIds = [...new Set(input.labelPublicIds)];
+      const labels = labelPublicIds.length
+        ? await labelRepo.getAllByPublicIdsForBoard(
+            ctx.db,
+            labelPublicIds,
+            list.boardId,
+          )
+        : [];
+
+      if (labels.length !== labelPublicIds.length)
+        throw new TRPCError({
+          message: `Labels with public IDs (${labelPublicIds.join(", ")}) not found`,
+          code: "NOT_FOUND",
+        });
+
+      const memberPublicIds = [...new Set(input.memberPublicIds)];
+      const members = memberPublicIds.length
+        ? await workspaceRepo.getAllMembersByPublicIds(
+            ctx.db,
+            memberPublicIds,
+            list.workspaceId,
+          )
+        : [];
+
+      if (members.length !== memberPublicIds.length)
+        throw new TRPCError({
+          message: `Members with public IDs (${memberPublicIds.join(", ")}) not found`,
+          code: "NOT_FOUND",
+        });
+
       const newCard = await cardRepo.create(ctx.db, {
         title: input.title,
         description: input.description,
@@ -87,6 +133,8 @@ export const cardRouter = createTRPCRouter({
         workspaceId: list.workspaceId,
         position: input.position,
         dueDate: input.dueDate ?? null,
+        priority: input.priority,
+        colourCode: input.colourCode,
       });
 
       const newCardId = newCard.id;
@@ -97,18 +145,7 @@ export const cardRouter = createTRPCRouter({
           code: "INTERNAL_SERVER_ERROR",
         });
 
-      if (newCardId && input.labelPublicIds.length) {
-        const labels = await labelRepo.getAllByPublicIds(
-          ctx.db,
-          input.labelPublicIds,
-        );
-
-        if (!labels.length)
-          throw new TRPCError({
-            message: `Labels with public IDs (${input.labelPublicIds.join(", ")}) not found`,
-            code: "NOT_FOUND",
-          });
-
+      if (newCardId && labels.length) {
         const labelsInsert = labels.map((label) => ({
           cardId: newCardId,
           labelId: label.id,
@@ -135,18 +172,7 @@ export const cardRouter = createTRPCRouter({
         await cardActivityRepo.bulkCreate(ctx.db, cardActivitesInsert);
       }
 
-      if (newCardId && input.memberPublicIds.length) {
-        const members = await workspaceRepo.getAllMembersByPublicIds(
-          ctx.db,
-          input.memberPublicIds,
-        );
-
-        if (!members.length)
-          throw new TRPCError({
-            message: `Members with public IDs (${input.memberPublicIds.join(", ")}) not found`,
-            code: "NOT_FOUND",
-          });
-
+      if (newCardId && members.length) {
         const membersInsert = members.map((member) => ({
           cardId: newCardId,
           workspaceMemberId: member.id,
@@ -185,6 +211,13 @@ export const cardRouter = createTRPCRouter({
         });
       }
 
+      if (input.priority === "urgent") {
+        await notificationRepo.createUrgentAlertsForAssignees(ctx.db, {
+          cardId: newCard.id,
+          actorUserId: userId,
+        });
+      }
+
       // Fire webhooks (non-blocking)
       sendWebhooksForWorkspace(
         ctx.db,
@@ -192,11 +225,14 @@ export const cardRouter = createTRPCRouter({
         createCardWebhookPayload(
           "card.created",
           {
-            id: String(newCard.id),
             publicId: newCard.publicId,
             title: input.title,
             description: input.description,
             dueDate: input.dueDate ?? null,
+            priority: newCard.priority,
+            colourCode: newCard.colourCode,
+            startedAt: newCard.startedAt,
+            completedAt: newCard.completedAt,
             listId: list.publicId,
           },
           {
@@ -498,7 +534,11 @@ export const cardRouter = createTRPCRouter({
 
       await assertPermission(ctx.db, userId, card.workspaceId, "card:edit");
 
-      const label = await labelRepo.getByPublicId(ctx.db, input.labelPublicId);
+      const label = await labelRepo.getByPublicIdForBoard(
+        ctx.db,
+        input.labelPublicId,
+        card.boardId,
+      );
 
       if (!label)
         throw new TRPCError({
@@ -593,6 +633,7 @@ export const cardRouter = createTRPCRouter({
       const member = await workspaceRepo.getMemberByPublicId(
         ctx.db,
         input.workspaceMemberPublicId,
+        card.workspaceId,
       );
 
       if (!member)
@@ -628,6 +669,11 @@ export const cardRouter = createTRPCRouter({
           createdBy: userId,
         });
 
+        await notificationRepo.invalidateCardAlertsForWorkspaceMember(ctx.db, {
+          cardId: card.id,
+          workspaceMemberId: member.id,
+        });
+
         return { newMember: false };
       }
 
@@ -645,6 +691,11 @@ export const cardRouter = createTRPCRouter({
         cardId: card.id,
         workspaceMemberId: member.id,
         createdBy: userId,
+      });
+
+      await notificationRepo.createUrgentAlertForAssignedMember(ctx.db, {
+        cardId: card.id,
+        workspaceMemberId: member.id,
       });
 
       return { newMember: true };
@@ -862,6 +913,8 @@ export const cardRouter = createTRPCRouter({
         index: z.number().optional(),
         listPublicId: z.string().min(12).optional(),
         dueDate: z.date().nullable().optional(),
+        priority: z.enum(cardPriorities).optional(),
+        colourCode: colourCodeSchema.optional(),
       }),
     )
     .output(cardUpdateResponseSchema)
@@ -944,6 +997,10 @@ export const cardRouter = createTRPCRouter({
             description: string | null;
             publicId: string;
             dueDate: Date | null;
+            priority: (typeof cardPriorities)[number];
+            colourCode: string | null;
+            startedAt: Date | null;
+            completedAt: Date | null;
           }
         | undefined;
 
@@ -952,13 +1009,25 @@ export const cardRouter = createTRPCRouter({
         newList && newList.boardPublicId !== card.boardPublicId,
       );
 
-      if (input.title || input.description || input.dueDate !== undefined) {
+      if (
+        input.title !== undefined ||
+        input.description !== undefined ||
+        input.dueDate !== undefined ||
+        input.priority !== undefined ||
+        input.colourCode !== undefined
+      ) {
         result = await cardRepo.update(
           ctx.db,
           {
             ...(input.title && { title: input.title }),
-            ...(input.description && { description: input.description }),
+            ...(input.description !== undefined && {
+              description: input.description,
+            }),
             ...(input.dueDate !== undefined && { dueDate: input.dueDate }),
+            ...(input.priority !== undefined && { priority: input.priority }),
+            ...(input.colourCode !== undefined && {
+              colourCode: input.colourCode,
+            }),
           },
           { cardPublicId: input.cardPublicId },
         );
@@ -991,7 +1060,10 @@ export const cardRouter = createTRPCRouter({
         });
       }
 
-      if (input.description && existingCard.description !== input.description) {
+      if (
+        input.description !== undefined &&
+        existingCard.description !== input.description
+      ) {
         activities.push({
           type: "card.updated.description" as const,
           cardId: result.id,
@@ -1007,6 +1079,32 @@ export const cardRouter = createTRPCRouter({
           commenterUserId: userId,
         }).catch((error) => {
           console.error("Failed to send mention emails:", error);
+        });
+      }
+
+      if (
+        input.priority !== undefined &&
+        existingCard.priority !== input.priority
+      ) {
+        activities.push({
+          type: "card.updated.priority" as const,
+          cardId: result.id,
+          createdBy: userId,
+          fromPriority: existingCard.priority,
+          toPriority: input.priority,
+        });
+      }
+
+      if (
+        input.colourCode !== undefined &&
+        existingCard.colourCode !== input.colourCode
+      ) {
+        activities.push({
+          type: "card.updated.colourCode" as const,
+          cardId: result.id,
+          createdBy: userId,
+          fromColourCode: existingCard.colourCode ?? undefined,
+          toColourCode: input.colourCode ?? undefined,
         });
       }
 
@@ -1061,15 +1159,67 @@ export const cardRouter = createTRPCRouter({
         await cardActivityRepo.bulkCreate(ctx.db, activities);
       }
 
+      if (
+        input.dueDate !== undefined &&
+        previousDueDate?.getTime() !== input.dueDate?.getTime()
+      ) {
+        await notificationRepo.invalidateDueAlertsForCard(ctx.db, {
+          cardId: result.id,
+        });
+      }
+
+      if (
+        input.priority !== undefined &&
+        existingCard.priority !== input.priority
+      ) {
+        if (input.priority === "urgent") {
+          await notificationRepo.createUrgentAlertsForAssignees(ctx.db, {
+            cardId: result.id,
+            actorUserId: userId,
+          });
+        } else {
+          await notificationRepo.invalidateUrgentAlertsForCard(ctx.db, {
+            cardId: result.id,
+          });
+        }
+      }
+
+      if (result.completedAt) {
+        await notificationRepo.invalidateCardAlerts(ctx.db, {
+          cardId: result.id,
+        });
+      }
+
       // Build changes object for webhook
       const webhookChanges: Record<string, { from: unknown; to: unknown }> = {};
       if (input.title && existingCard.title !== input.title) {
         webhookChanges.title = { from: existingCard.title, to: input.title };
       }
-      if (input.description && existingCard.description !== input.description) {
+      if (
+        input.description !== undefined &&
+        existingCard.description !== input.description
+      ) {
         webhookChanges.description = {
           from: existingCard.description,
           to: input.description,
+        };
+      }
+      if (
+        input.priority !== undefined &&
+        existingCard.priority !== input.priority
+      ) {
+        webhookChanges.priority = {
+          from: existingCard.priority,
+          to: input.priority,
+        };
+      }
+      if (
+        input.colourCode !== undefined &&
+        existingCard.colourCode !== input.colourCode
+      ) {
+        webhookChanges.colourCode = {
+          from: existingCard.colourCode,
+          to: input.colourCode,
         };
       }
       if (
@@ -1099,11 +1249,14 @@ export const cardRouter = createTRPCRouter({
         createCardWebhookPayload(
           movedToNewList ? "card.moved" : "card.updated",
           {
-            id: String(result.id),
             publicId: result.publicId,
             title: result.title,
             description: result.description,
             dueDate: result.dueDate,
+            priority: result.priority,
+            colourCode: result.colourCode,
+            startedAt: result.startedAt,
+            completedAt: result.completedAt,
             listId: currentWebhookListPublicId,
           },
           {
@@ -1191,6 +1344,11 @@ export const cardRouter = createTRPCRouter({
         createdBy: userId,
       });
 
+      await notificationRepo.invalidateCardAlerts(ctx.db, {
+        cardId: card.id,
+        invalidatedAt: deletedAt,
+      });
+
       // Fire webhooks (non-blocking)
       if (fullCard) {
         sendWebhooksForWorkspace(
@@ -1199,11 +1357,14 @@ export const cardRouter = createTRPCRouter({
           createCardWebhookPayload(
             "card.deleted",
             {
-              id: String(fullCard.id),
               publicId: fullCard.publicId,
               title: fullCard.title,
               description: fullCard.description,
               dueDate: fullCard.dueDate,
+              priority: fullCard.priority,
+              colourCode: fullCard.colourCode,
+              startedAt: fullCard.startedAt,
+              completedAt: fullCard.completedAt,
               listId: fullCard.list.publicId,
             },
             {
@@ -1312,6 +1473,9 @@ export const cardRouter = createTRPCRouter({
         workspaceId: targetList.workspaceId,
         position: "end",
         dueDate: sourceCard.dueDate ?? null,
+        priority: sourceCard.priority,
+        colourCode: sourceCard.colourCode,
+        initializeLifecycle: false,
       });
 
       if (input.index !== undefined && input.index >= 0) {
@@ -1324,9 +1488,10 @@ export const cardRouter = createTRPCRouter({
 
       if (input.copyLabels && sourceCard.labels.length) {
         const labelPublicIds = sourceCard.labels.map((l) => l.publicId);
-        const labels = await labelRepo.getAllByPublicIds(
+        const labels = await labelRepo.getAllByPublicIdsForBoard(
           ctx.db,
           labelPublicIds,
+          targetList.boardId,
         );
         if (labels.length) {
           const labelsInsert = labels.map((label) => ({
@@ -1349,6 +1514,7 @@ export const cardRouter = createTRPCRouter({
         const members = await workspaceRepo.getAllMembersByPublicIds(
           ctx.db,
           memberPublicIds,
+          targetList.workspaceId,
         );
         if (members.length) {
           const membersInsert = members.map((member) => ({
@@ -1394,6 +1560,13 @@ export const cardRouter = createTRPCRouter({
             createdBy: userId,
           });
         }
+      }
+
+      if (sourceCard.priority === "urgent") {
+        await notificationRepo.createUrgentAlertsForAssignees(ctx.db, {
+          cardId: newCard.id,
+          actorUserId: userId,
+        });
       }
 
       return { publicId: newCard.publicId };

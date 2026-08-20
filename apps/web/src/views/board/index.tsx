@@ -28,12 +28,14 @@ import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
 import { useWorkspace } from "~/providers/workspace";
 import { api } from "~/utils/api";
+import { isCardPriority } from "~/utils/card-presentation";
 import { formatToArray } from "~/utils/helpers";
 import { DeleteCardConfirmation } from "~/views/card/components/DeleteCardConfirmation";
 import { BoardCard } from "./components/board-card";
 import { BoardHeaderActions } from "./components/board-header-actions";
 import { CardContextMoveManyBoardModal } from "./components/card-context-move-many-board-modal";
 import { CardSelectionToolbar } from "./components/card-selection-toolbar";
+import { CardContextAppearanceModal } from "./components/CardContextAppearanceModal";
 import { CardContextDueDateModal } from "./components/CardContextDueDateModal";
 import { CardContextDuplicateModal } from "./components/CardContextDuplicateModal";
 import { CardContextLabelsModal } from "./components/CardContextLabelsModal";
@@ -129,6 +131,7 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
     members: formatToArray(router.query.members),
     labels: formatToArray(router.query.labels),
     lists: formatToArray(router.query.lists),
+    priorities: formatToArray(router.query.priorities).filter(isCardPriority),
     ...(semanticFilters.length > 0 && {
       dueDateFilters: semanticFilters,
     }),
@@ -386,7 +389,11 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
             ? "CARD_CONTEXT_MOVE_BOARD"
             : action === "labels"
               ? "CARD_CONTEXT_LABELS"
-              : "CARD_CONTEXT_DUE_DATE";
+              : action === "priority"
+                ? "CARD_CONTEXT_PRIORITY"
+                : action === "colour"
+                  ? "CARD_CONTEXT_COLOUR"
+                  : "CARD_CONTEXT_DUE_DATE";
     openModal(modalType, cardPublicId);
   };
 
@@ -571,6 +578,7 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
         >
           <CardContextDueDateModal />
         </Modal>
+        <CardContextAppearanceModal />
         <Modal
           modalSize="md"
           isVisible={isOpen && modalContentType === "CARD_CONTEXT_DUPLICATE"}
@@ -780,6 +788,7 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
             onAction={handleCardContextMenuAction}
             canEdit={!!canEditCard}
             canMoveToBoard={!isTemplate}
+            canSetDueDate={!isTemplate}
           />
         )}
         {renderModalContent()}

@@ -1,15 +1,23 @@
-import { PGlite } from "@electric-sql/pglite";
-import { uuid_ossp } from "@electric-sql/pglite/contrib/uuid_ossp";
-import { pg_trgm } from "@electric-sql/pglite/contrib/pg_trgm";
-import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { Pool } from "pg";
+import { PGlite } from "@electric-sql/pglite";
+import { pg_trgm } from "@electric-sql/pglite/contrib/pg_trgm";
+import { uuid_ossp } from "@electric-sql/pglite/contrib/uuid_ossp";
+import { drizzle } from "drizzle-orm/pglite";
+import { migrate } from "drizzle-orm/pglite/migrator";
 
 import * as schema from "@kan/db/schema";
 
 export type TestDbClient = NodePgDatabase<typeof schema> & {
   $client: Pool;
+};
+
+const requireValue = <T>(value: T | null | undefined, name: string): T => {
+  if (value === null || value === undefined) {
+    throw new Error(`Expected ${name} to be created`);
+  }
+
+  return value;
 };
 
 /**
@@ -35,7 +43,7 @@ export async function createTestDb(): Promise<TestDbClient> {
  */
 export async function seedTestData(db: TestDbClient) {
   // Create a test user
-  const [user] = await db
+  const [userResult] = await db
     .insert(schema.users)
     .values({
       id: crypto.randomUUID(),
@@ -46,30 +54,32 @@ export async function seedTestData(db: TestDbClient) {
       updatedAt: new Date(),
     })
     .returning();
+  const user = requireValue(userResult, "test user");
 
   // Create a test workspace (publicId must be exactly 12 chars)
-  const [workspace] = await db
+  const [workspaceResult] = await db
     .insert(schema.workspaces)
     .values({
       publicId: "wstest123456",
       name: "Test Workspace",
       slug: "test-workspace",
-      ownerId: user!.id,
+      createdBy: user.id,
       createdAt: new Date(),
     })
     .returning();
+  const workspace = requireValue(workspaceResult, "test workspace");
 
   // Add user as admin member of workspace
   await db.insert(schema.workspaceMembers).values({
     publicId: "wm1234567890",
-    email: user!.email,
-    workspaceId: workspace!.id,
-    userId: user!.id,
-    createdBy: user!.id,
+    email: user.email,
+    workspaceId: workspace.id,
+    userId: user.id,
+    createdBy: user.id,
     role: "admin",
     status: "active",
     createdAt: new Date(),
   });
 
-  return { user: user!, workspace: workspace! };
+  return { user, workspace };
 }

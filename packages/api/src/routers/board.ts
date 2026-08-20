@@ -6,7 +6,9 @@ import * as cardRepo from "@kan/db/repository/card.repo";
 import * as activityRepo from "@kan/db/repository/cardActivity.repo";
 import * as labelRepo from "@kan/db/repository/label.repo";
 import * as listRepo from "@kan/db/repository/list.repo";
+import * as notificationRepo from "@kan/db/repository/notification.repo";
 import * as workspaceRepo from "@kan/db/repository/workspace.repo";
+import { cardPriorities } from "@kan/db/schema";
 import { colours } from "@kan/shared/constants";
 import {
   convertDueDateFiltersToRanges,
@@ -15,15 +17,19 @@ import {
   generateUID,
 } from "@kan/shared/utils";
 
-import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import {
-  boardListItemSchema,
-  boardDetailSchema,
   boardBySlugSchema,
   boardCreateResponseSchema,
+  boardDetailSchema,
+  boardListItemSchema,
   boardUpdateResponseSchema,
 } from "../schemas";
-import { assertCanDelete, assertCanEdit, assertPermission } from "../utils/permissions";
+import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
+import {
+  assertCanDelete,
+  assertCanEdit,
+  assertPermission,
+} from "../utils/permissions";
 
 export const boardRouter = createTRPCRouter({
   all: protectedProcedure
@@ -74,7 +80,7 @@ export const boardRouter = createTRPCRouter({
         {
           type: input.type,
           archived: input.archived ?? false,
-        }
+        },
       );
 
       return result;
@@ -108,6 +114,7 @@ export const boardRouter = createTRPCRouter({
             ]),
           )
           .optional(),
+        priorities: z.array(z.enum(cardPriorities)).optional(),
         type: z.enum(["regular", "template"]).optional(),
       }),
     )
@@ -148,6 +155,7 @@ export const boardRouter = createTRPCRouter({
           labels: input.labels ?? [],
           lists: input.lists ?? [],
           dueDate: dueDateFilters,
+          priorities: input.priorities ?? [],
           type: input.type,
         },
       );
@@ -160,27 +168,25 @@ export const boardRouter = createTRPCRouter({
       }
 
       // Generate presigned URLs for workspace member avatars
-      const workspaceWithAvatarUrls = result.workspace
-        ? {
-          ...result.workspace,
-          members: await Promise.all(
-            result.workspace.members.map(async (member) => {
-              if (!member.user?.image) {
-                return member;
-              }
+      const workspaceWithAvatarUrls = {
+        ...result.workspace,
+        members: await Promise.all(
+          result.workspace.members.map(async (member) => {
+            if (!member.user?.image) {
+              return member;
+            }
 
-              const avatarUrl = await generateAvatarUrl(member.user.image);
-              return {
-                ...member,
-                user: {
-                  ...member.user,
-                  image: avatarUrl,
-                },
-              };
-            }),
-          ),
-        }
-        : result.workspace;
+            const avatarUrl = await generateAvatarUrl(member.user.image);
+            return {
+              ...member,
+              user: {
+                ...member.user,
+                image: avatarUrl,
+              },
+            };
+          }),
+        ),
+      };
 
       // Generate presigned URLs for card member avatars
       const listsWithAvatarUrls = await Promise.all(
@@ -249,6 +255,7 @@ export const boardRouter = createTRPCRouter({
             ]),
           )
           .optional(),
+        priorities: z.array(z.enum(cardPriorities)).optional(),
       }),
     )
     .output(boardBySlugSchema.nullable())
@@ -278,6 +285,7 @@ export const boardRouter = createTRPCRouter({
           labels: input.labels ?? [],
           lists: input.lists ?? [],
           dueDate: dueDateFilters,
+          priorities: input.priorities ?? [],
         },
       );
 
@@ -351,6 +359,7 @@ export const boardRouter = createTRPCRouter({
             labels: [],
             lists: [],
             dueDate: [],
+            priorities: [],
             type: sourceBoardInfo.type,
           },
         );
@@ -513,7 +522,11 @@ export const boardRouter = createTRPCRouter({
       }
 
       // Handle other updates (name, slug, visibility)
-      const hasOtherUpdates = input.name || input.slug || input.visibility !== undefined || input.isArchived !== undefined;
+      const hasOtherUpdates =
+        input.name !== undefined ||
+        input.slug !== undefined ||
+        input.visibility !== undefined ||
+        input.isArchived !== undefined;
 
       if (!hasOtherUpdates) {
         // Only favorite was updated, return success
@@ -548,6 +561,12 @@ export const boardRouter = createTRPCRouter({
           message: `Failed to update board`,
           code: "INTERNAL_SERVER_ERROR",
         });
+
+      if (input.isArchived === true) {
+        await notificationRepo.invalidateCardAlertsForBoard(ctx.db, {
+          boardId: board.id,
+        });
+      }
 
       return result;
     }),
@@ -604,6 +623,11 @@ export const boardRouter = createTRPCRouter({
         boardId: board.id,
         deletedAt,
         deletedBy: userId,
+      });
+
+      await notificationRepo.invalidateCardAlertsForBoard(ctx.db, {
+        boardId: board.id,
+        invalidatedAt: deletedAt,
       });
 
       if (listIds.length) {
@@ -737,7 +761,7 @@ export const boardRouter = createTRPCRouter({
         "board:create",
       );
 
-      let slug = board.slug ?? generateSlug(board.name);
+      let slug = board.slug;
 
       const isSlugAvailable = await boardRepo.isBoardSlugAvailable(
         ctx.db,

@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   bigint,
   bigserial,
@@ -48,12 +48,26 @@ export const activityTypes = [
   "card.updated.dueDate.added",
   "card.updated.dueDate.updated",
   "card.updated.dueDate.removed",
+  "card.updated.priority",
+  "card.updated.colourCode",
   "card.archived",
 ] as const;
 
 export type ActivityType = (typeof activityTypes)[number];
 
 export const activityTypeEnum = pgEnum("card_activity_type", activityTypes);
+
+export const cardPriorities = [
+  "none",
+  "low",
+  "medium",
+  "high",
+  "urgent",
+] as const;
+
+export type CardPriority = (typeof cardPriorities)[number];
+
+export const cardPriorityEnum = pgEnum("card_priority", cardPriorities);
 
 export const cards = pgTable(
   "card",
@@ -62,6 +76,8 @@ export const cards = pgTable(
     publicId: varchar("publicId", { length: 12 }).notNull().unique(),
     title: text("title").notNull(),
     description: text("description"),
+    priority: cardPriorityEnum("priority").default("none").notNull(),
+    colourCode: varchar("colourCode", { length: 7 }),
     index: integer("index").notNull(),
     cardNumber: integer("cardNumber"),
     createdBy: uuid("createdBy").references(() => users.id, {
@@ -79,10 +95,15 @@ export const cards = pgTable(
     importId: bigint("importId", { mode: "number" }).references(
       () => imports.id,
     ),
-    dueDate: timestamp("dueDate"),
+    dueDate: timestamp("dueDate", { withTimezone: true }),
+    startedAt: timestamp("startedAt", { withTimezone: true }),
+    completedAt: timestamp("completedAt", { withTimezone: true }),
   },
   (table) => [
     index("card_list_number_idx").on(table.listId, table.cardNumber),
+    index("card_due_date_active_idx")
+      .on(table.dueDate)
+      .where(sql`${table.dueDate} is not null and ${table.deletedAt} is null`),
   ],
 ).enableRLS();
 
@@ -151,8 +172,12 @@ export const cardActivities = pgTable("card_activity", {
   ),
   fromComment: text("fromComment"),
   toComment: text("toComment"),
-  fromDueDate: timestamp("fromDueDate"),
-  toDueDate: timestamp("toDueDate"),
+  fromDueDate: timestamp("fromDueDate", { withTimezone: true }),
+  toDueDate: timestamp("toDueDate", { withTimezone: true }),
+  fromPriority: cardPriorityEnum("fromPriority"),
+  toPriority: cardPriorityEnum("toPriority"),
+  fromColourCode: varchar("fromColourCode", { length: 7 }),
+  toColourCode: varchar("toColourCode", { length: 7 }),
   sourceBoardId: bigint("sourceBoardId", { mode: "number" }).references(
     () => boards.id,
     { onDelete: "set null" },

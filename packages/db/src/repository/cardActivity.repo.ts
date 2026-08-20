@@ -1,7 +1,7 @@
 import { and, asc, count, eq, gt, inArray, isNull, or } from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
-import type { ActivityType } from "@kan/db/schema";
+import type { ActivityType, CardPriority } from "@kan/db/schema";
 import { cardActivities, comments } from "@kan/db/schema";
 import { generateUID } from "@kan/shared/utils";
 
@@ -32,6 +32,10 @@ export const create = async (
     toComment?: string;
     fromDueDate?: Date;
     toDueDate?: Date;
+    fromPriority?: CardPriority;
+    toPriority?: CardPriority;
+    fromColourCode?: string;
+    toColourCode?: string;
     sourceBoardId?: number;
     attachmentId?: number;
   },
@@ -58,6 +62,10 @@ export const create = async (
       toComment: activityInput.toComment,
       fromDueDate: activityInput.fromDueDate,
       toDueDate: activityInput.toDueDate,
+      fromPriority: activityInput.fromPriority,
+      toPriority: activityInput.toPriority,
+      fromColourCode: activityInput.fromColourCode,
+      toColourCode: activityInput.toColourCode,
       sourceBoardId: activityInput.sourceBoardId,
       attachmentId: activityInput.attachmentId,
     })
@@ -84,6 +92,10 @@ export const bulkCreate = async (
     createdBy: string;
     fromDueDate?: Date;
     toDueDate?: Date;
+    fromPriority?: CardPriority;
+    toPriority?: CardPriority;
+    fromColourCode?: string;
+    toColourCode?: string;
     sourceBoardId?: number;
     attachmentId?: number;
   }[],
@@ -132,6 +144,10 @@ export const getPaginatedActivities = async (
       toDescription: true,
       fromDueDate: true,
       toDueDate: true,
+      fromPriority: true,
+      toPriority: true,
+      fromColourCode: true,
+      toColourCode: true,
     },
     where: and(
       eq(cardActivities.cardId, cardId),

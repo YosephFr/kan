@@ -8,6 +8,8 @@ import {
   HiOutlineArrowRight,
   HiOutlineCheckCircle,
   HiOutlineClock,
+  HiOutlineFlag,
+  HiOutlinePaintBrush,
   HiOutlinePaperClip,
   HiOutlinePencil,
   HiOutlinePlus,
@@ -22,8 +24,11 @@ import type {
   GetCardByIdOutput,
 } from "@kan/api/types";
 import { authClient } from "@kan/auth/client";
+import { colours } from "@kan/shared/constants";
 
+import { getColourName } from "~/components/AccentColourSelector";
 import Avatar from "~/components/Avatar";
+import { getPriorityPresentation } from "~/components/PrioritySelector";
 import { useLocalisation } from "~/hooks/useLocalisation";
 import { api } from "~/utils/api";
 import { getAvatarUrl } from "~/utils/helpers";
@@ -69,6 +74,8 @@ const getActivityText = ({
   dateLocale,
   mergedLabels,
   attachmentName,
+  toPriority,
+  toColourCode,
 }: {
   type: ActivityType;
   toTitle: string | null;
@@ -84,6 +91,8 @@ const getActivityText = ({
   dateLocale: DateFnsLocale;
   mergedLabels?: string[];
   attachmentName?: string | null;
+  toPriority?: "none" | "low" | "medium" | "high" | "urgent" | null;
+  toColourCode?: string | null;
 }) => {
   const displayName = memberName ?? memberEmail ?? t`Member`;
   const TextHighlight = ({ children }: { children: React.ReactNode }) => (
@@ -124,6 +133,8 @@ const getActivityText = ({
     "card.created": t`created the card`,
     "card.updated.title": t`updated the title`,
     "card.updated.description": t`updated the description`,
+    "card.updated.priority": t`updated the priority`,
+    "card.updated.colourCode": t`updated the card colour`,
     "card.updated.list": t`moved the card to another list`,
     "card.updated.label.added": t`added a label to the card`,
     "card.updated.label.removed": t`removed a label from the card`,
@@ -151,6 +162,35 @@ const getActivityText = ({
     return (
       <Trans>
         updated the title to <TextHighlight>{truncate(toTitle)}</TextHighlight>
+      </Trans>
+    );
+  }
+
+  if (type === "card.updated.priority") {
+    const priority = getPriorityPresentation(toPriority ?? "none");
+    return (
+      <Trans>
+        changed the priority to <TextHighlight>{priority.label}</TextHighlight>
+      </Trans>
+    );
+  }
+
+  if (type === "card.updated.colourCode") {
+    const colour = colours.find((item) => item.code === toColourCode);
+    if (!colour) return <Trans>removed the card colour</Trans>;
+    return (
+      <Trans>
+        changed the card colour to{" "}
+        <TextHighlight>
+          <span className="inline-flex items-center gap-1">
+            <span
+              className="h-2.5 w-2.5 rounded-full"
+              style={{ backgroundColor: colour.code }}
+              aria-hidden="true"
+            />
+            {getColourName(colour.name)}
+          </span>
+        </TextHighlight>
       </Trans>
     );
   }
@@ -296,7 +336,7 @@ const getActivityText = ({
     const showYear = !isSameYear(toDueDate, new Date());
     const formattedDate = format(
       toDueDate,
-      showYear ? "do MMM yyyy" : "do MMM",
+      showYear ? "do MMM yyyy · HH:mm" : "do MMM · HH:mm",
       { locale: dateLocale },
     );
     return (
@@ -310,7 +350,7 @@ const getActivityText = ({
     const showYear = !isSameYear(toDueDate, new Date());
     const formattedDate = format(
       toDueDate,
-      showYear ? "do MMM yyyy" : "do MMM",
+      showYear ? "do MMM yyyy · HH:mm" : "do MMM · HH:mm",
       { locale: dateLocale },
     );
     return (
@@ -332,6 +372,8 @@ const ACTIVITY_ICON_MAP: Partial<Record<ActivityType, React.ReactNode | null>> =
     "card.created": <HiOutlinePlus />,
     "card.updated.title": <HiOutlinePencil />,
     "card.updated.description": <HiOutlinePencil />,
+    "card.updated.priority": <HiOutlineFlag />,
+    "card.updated.colourCode": <HiOutlinePaintBrush />,
     "card.updated.label.added": <HiOutlineTag />,
     "card.updated.label.removed": <HiOutlineTag />,
     "card.updated.member.added": <HiOutlineUserPlus />,
@@ -371,7 +413,7 @@ const ACTIVITIES_PAGE_SIZE = 20;
 const ActivityList = ({
   cardPublicId,
   isLoading: cardIsLoading,
-  isAdmin,
+  isAdmin: _isAdmin,
   isViewOnly,
 }: {
   cardPublicId: string;
@@ -507,8 +549,10 @@ const ActivityList = ({
           dateLocale: dateLocale,
           mergedLabels: (activity as ActivityWithMergedLabels).mergedLabels,
           attachmentName:
-            (activity as ActivityWithMergedLabels).attachment?.originalFilename ??
-            null,
+            (activity as ActivityWithMergedLabels).attachment
+              ?.originalFilename ?? null,
+          toPriority: activity.toPriority,
+          toColourCode: activity.toColourCode,
         });
 
         if (activity.type === "card.updated.comment.added")
@@ -541,7 +585,9 @@ const ActivityList = ({
                 size="sm"
                 name={activity.user?.name ?? ""}
                 email={activity.user?.email ?? ""}
-                imageUrl={getAvatarUrl(activity.user?.image ?? null) || undefined}
+                imageUrl={
+                  getAvatarUrl(activity.user?.image ?? null) || undefined
+                }
                 icon={getActivityIcon(
                   activity.type,
                   activity.fromList?.index,

@@ -55,6 +55,10 @@ export function BoardCard({
       comments={card.comments}
       attachments={card.attachments}
       dueDate={card.dueDate ?? null}
+      startedAt={card.startedAt ?? null}
+      completedAt={card.completedAt ?? null}
+      priority={card.priority}
+      colourCode={card.colourCode}
       isSelectionMode={isSelectionMode}
       isSelected={isSelected}
     />
@@ -100,6 +104,7 @@ export function BoardCard({
               }
 
               event.preventDefault();
+              event.currentTarget.focus();
               onOpenContextMenu(card.publicId, {
                 x: event.clientX,
                 y: event.clientY,

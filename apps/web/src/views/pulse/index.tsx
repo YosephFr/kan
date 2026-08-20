@@ -9,6 +9,7 @@ import { useLocalisation } from "~/hooks/useLocalisation";
 import { useWorkspace } from "~/providers/workspace";
 import { api } from "~/utils/api";
 import { CompanyProgress } from "./components/CompanyProgress";
+import { PortfolioAttentionList } from "./components/PortfolioAttentionList";
 import { PortfolioKpiStrip } from "./components/PortfolioKpiStrip";
 import { TeamProgress } from "./components/TeamProgress";
 
@@ -181,6 +182,7 @@ export default function PulseView() {
               </section>
             )}
             <PortfolioKpiStrip totals={data.totals} period={period} />
+            <PortfolioAttentionList attention={data.attention} />
             <CompanyProgress companies={data.companies} period={period} />
             <TeamProgress team={data.team} period={period} />
 

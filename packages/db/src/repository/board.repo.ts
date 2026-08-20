@@ -8,12 +8,16 @@ import {
   inArray,
   isNotNull,
   isNull,
-  lt,
+  lte,
   or,
 } from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
-import type { BoardVisibilityStatus } from "@kan/db/schema";
+import type {
+  BoardVisibilityStatus,
+  CardPriority,
+  ListStatus,
+} from "@kan/db/schema";
 import {
   boards,
   cardActivities,
@@ -63,6 +67,8 @@ export const getAllByWorkspaceId = async (
           publicId: true,
           name: true,
           index: true,
+          status: true,
+          colourCode: true,
         },
         where: isNull(lists.deletedAt),
         orderBy: [asc(lists.index)],
@@ -135,7 +141,7 @@ const buildDueDateWhere = (filters: DueDateFilter[]) => {
         if (filter.startDate)
           conditions.push(gte(cards.dueDate, filter.startDate));
 
-        if (filter.endDate) conditions.push(lt(cards.dueDate, filter.endDate));
+        if (filter.endDate) conditions.push(lte(cards.dueDate, filter.endDate));
       }
 
       return conditions.length > 0 ? and(...conditions) : undefined;
@@ -156,6 +162,7 @@ export const getByPublicId = async (
     labels: string[];
     lists: string[];
     dueDate: DueDateFilter[];
+    priorities: CardPriority[];
     type: "regular" | "template" | undefined;
   },
 ) => {
@@ -249,6 +256,8 @@ export const getByPublicId = async (
           name: true,
           boardId: true,
           index: true,
+          status: true,
+          colourCode: true,
         },
         with: {
           cards: {
@@ -260,6 +269,10 @@ export const getByPublicId = async (
               index: true,
               dueDate: true,
               cardNumber: true,
+              priority: true,
+              colourCode: true,
+              startedAt: true,
+              completedAt: true,
             },
             with: {
               labels: {
@@ -334,6 +347,9 @@ export const getByPublicId = async (
               cardIds.length > 0 ? inArray(cards.publicId, cardIds) : undefined,
               isNull(cards.deletedAt),
               buildDueDateWhere(filters.dueDate),
+              filters.priorities.length > 0
+                ? inArray(cards.priority, filters.priorities)
+                : undefined,
             ),
             orderBy: [asc(cards.index)],
           },
@@ -350,6 +366,8 @@ export const getByPublicId = async (
         columns: {
           publicId: true,
           name: true,
+          status: true,
+          colourCode: true,
         },
         where: isNull(lists.deletedAt),
         orderBy: [asc(lists.index)],
@@ -392,6 +410,7 @@ export const getBySlug = async (
     labels: string[];
     lists: string[];
     dueDate: DueDateFilter[];
+    priorities: CardPriority[];
   },
 ) => {
   let cardIds: string[] = [];
@@ -446,6 +465,8 @@ export const getBySlug = async (
           name: true,
           boardId: true,
           index: true,
+          status: true,
+          colourCode: true,
         },
         with: {
           cards: {
@@ -457,6 +478,10 @@ export const getBySlug = async (
               index: true,
               dueDate: true,
               cardNumber: true,
+              priority: true,
+              colourCode: true,
+              startedAt: true,
+              completedAt: true,
             },
             with: {
               labels: {
@@ -510,6 +535,9 @@ export const getBySlug = async (
               cardIds.length > 0 ? inArray(cards.publicId, cardIds) : undefined,
               isNull(cards.deletedAt),
               buildDueDateWhere(filters.dueDate),
+              filters.priorities.length > 0
+                ? inArray(cards.priority, filters.priorities)
+                : undefined,
             ),
             orderBy: [asc(cards.index)],
           },
@@ -526,6 +554,8 @@ export const getBySlug = async (
         columns: {
           publicId: true,
           name: true,
+          status: true,
+          colourCode: true,
         },
         where: isNull(lists.deletedAt),
         orderBy: [asc(lists.index)],
@@ -779,10 +809,14 @@ export const createFromSnapshot = async (
       lists: {
         name: string;
         index: number;
+        status: ListStatus | null;
+        colourCode: string | null;
         cards: {
           title: string;
           description: string | null;
           index: number;
+          priority: CardPriority;
+          colourCode: string | null;
           labels: {
             publicId: string;
             name: string;
@@ -871,6 +905,8 @@ export const createFromSnapshot = async (
             createdBy: args.createdBy,
             boardId: newBoard.id,
             index: list.index,
+            status: list.status,
+            colourCode: list.colourCode,
           })),
         )
         .returning({ id: lists.id, index: lists.index });
@@ -894,6 +930,8 @@ export const createFromSnapshot = async (
             createdBy: args.createdBy,
             listId: newListId,
             index: card.index,
+            priority: card.priority,
+            colourCode: card.colourCode,
           })
           .returning({ id: cards.id });
 

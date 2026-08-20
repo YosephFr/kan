@@ -2,11 +2,12 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
 import { kanRequest } from "../client.js";
+import { accentColourCodes } from "../constants.js";
 
 export function registerCardTools(server: McpServer): void {
   server.tool(
     "create_card",
-    "Create a new card in a list",
+    "Create a new card in a list and return its public ID and planning fields",
     {
       listPublicId: z.string().describe("The list's public ID"),
       title: z.string().describe("Card title"),
@@ -15,6 +16,15 @@ export function registerCardTools(server: McpServer): void {
         .optional()
         .describe("Card description (markdown supported)"),
       dueDate: z.string().optional().describe("Due date in ISO 8601 format"),
+      priority: z
+        .enum(["none", "low", "medium", "high", "urgent"])
+        .optional()
+        .describe("Card priority"),
+      colourCode: z
+        .enum(accentColourCodes)
+        .nullable()
+        .optional()
+        .describe("Card accent colour as a six-digit hex value"),
       labelPublicIds: z
         .array(z.string())
         .optional()
@@ -36,6 +46,8 @@ export function registerCardTools(server: McpServer): void {
       labelPublicIds,
       memberPublicIds,
       position,
+      priority,
+      colourCode,
     }) => {
       const data = await kanRequest("POST", "/cards", {
         listPublicId,
@@ -45,6 +57,8 @@ export function registerCardTools(server: McpServer): void {
         labelPublicIds: labelPublicIds ?? [],
         memberPublicIds: memberPublicIds ?? [],
         position: position ?? "end",
+        priority,
+        colourCode,
       });
       return {
         content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
@@ -66,7 +80,7 @@ export function registerCardTools(server: McpServer): void {
 
   server.tool(
     "update_card",
-    "Update a card's title, description, due date, or move it to another list",
+    "Update a card's title, description, priority, colour, due date, or move it to another list",
     {
       cardPublicId: z.string().describe("The card's public ID"),
       title: z.string().optional().describe("New card title"),
@@ -76,16 +90,35 @@ export function registerCardTools(server: McpServer): void {
         .nullable()
         .optional()
         .describe("Due date in ISO 8601, or null to clear"),
+      priority: z
+        .enum(["none", "low", "medium", "high", "urgent"])
+        .optional()
+        .describe("New card priority"),
+      colourCode: z
+        .enum(accentColourCodes)
+        .nullable()
+        .optional()
+        .describe("New card accent colour, or null to clear"),
       listPublicId: z
         .string()
         .optional()
         .describe("Move card to this list (public ID)"),
     },
-    async ({ cardPublicId, title, description, dueDate, listPublicId }) => {
+    async ({
+      cardPublicId,
+      title,
+      description,
+      dueDate,
+      priority,
+      colourCode,
+      listPublicId,
+    }) => {
       const data = await kanRequest("PUT", `/cards/${cardPublicId}`, {
         title,
         description,
         dueDate,
+        priority,
+        colourCode,
         listPublicId,
       });
       return {
@@ -108,20 +141,49 @@ export function registerCardTools(server: McpServer): void {
 
   server.tool(
     "duplicate_card",
-    "Duplicate a card to the same or a different list",
+    "Duplicate a card to a target list, optionally copying labels, members and checklists",
     {
       cardPublicId: z.string().describe("The card's public ID to duplicate"),
-      targetListPublicId: z
-        .string()
+      listPublicId: z.string().describe("Target list public ID"),
+      title: z.string().optional().describe("Optional title for the copy"),
+      index: z
+        .number()
+        .int()
+        .min(0)
         .optional()
-        .describe("Target list public ID (defaults to same list)"),
+        .describe("Optional zero-based position in the target list"),
+      copyLabels: z
+        .boolean()
+        .default(true)
+        .describe("Copy the source card's labels"),
+      copyMembers: z
+        .boolean()
+        .default(true)
+        .describe("Copy the source card's assigned members"),
+      copyChecklists: z
+        .boolean()
+        .default(true)
+        .describe("Copy the source card's checklists"),
     },
-    async ({ cardPublicId, targetListPublicId }) => {
+    async ({
+      cardPublicId,
+      listPublicId,
+      title,
+      index,
+      copyLabels,
+      copyMembers,
+      copyChecklists,
+    }) => {
       const data = await kanRequest(
         "POST",
         `/cards/${cardPublicId}/duplicate`,
         {
-          targetListPublicId,
+          listPublicId,
+          title,
+          index,
+          copyLabels,
+          copyMembers,
+          copyChecklists,
         },
       );
       return {

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { cardPriorities } from "@kan/db/schema";
+
 const pulseStatusSchema = z.enum([
   "planned",
   "inProgress",
@@ -9,6 +11,7 @@ const pulseStatusSchema = z.enum([
 ]);
 
 const attentionReasonSchema = z.enum([
+  "urgent",
   "blocked",
   "overdue",
   "stalled",
@@ -75,6 +78,7 @@ export const pulseSummarySchema = z.object({
       inactiveDays: z.number().int().nonnegative(),
       dueDate: z.string().datetime().nullable(),
       assignees: z.array(z.string()),
+      cardPriority: z.enum(cardPriorities),
     }),
   ),
   coverage: z.object({
@@ -141,6 +145,24 @@ export const pulsePortfolioSummarySchema = z.object({
           delivered: z.number().int().nonnegative(),
         }),
       ),
+    }),
+  ),
+  attention: z.array(
+    z.object({
+      cardPublicId: z.string(),
+      cardNumber: z.number().int().nullable(),
+      title: z.string(),
+      workspacePublicId: z.string(),
+      workspaceName: z.string(),
+      workspaceLogo: z.string().nullable(),
+      cardPrefix: z.string(),
+      boardName: z.string(),
+      listName: z.string(),
+      reasons: z.array(attentionReasonSchema),
+      inactiveDays: z.number().int().nonnegative(),
+      dueDate: z.string().datetime().nullable(),
+      assignees: z.array(z.string()),
+      cardPriority: z.enum(cardPriorities),
     }),
   ),
   coverage: z.object({

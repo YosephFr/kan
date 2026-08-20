@@ -1,7 +1,7 @@
 import type { getPortfolioSourceByUserId } from "@kan/db/repository/pulse.repo";
 
-import type { PulsePeriod } from "./metrics";
-import { classifyListName, STALE_AFTER_DAYS } from "./metrics";
+import type { PulseAttentionReason, PulsePeriod } from "./metrics";
+import { classifyListName, latestDate, STALE_AFTER_DAYS } from "./metrics";
 
 export type PortfolioMetric = "advanced" | "delivered" | "stalled" | "open";
 export type PortfolioSource = Awaited<
@@ -46,7 +46,10 @@ const preparePortfolio = (
     source.members.map((member) => [member.id, member]),
   );
   const statusByListId = new Map(
-    source.lists.map((list) => [list.id, classifyListName(list.name)]),
+    source.lists.map((list) => [
+      list.id,
+      list.status ?? classifyListName(list.name),
+    ]),
   );
   const workspaceIdByCardId = new Map<number, number>();
   const activitiesByCardId = new Map<number, PortfolioSource["activities"]>();
@@ -96,9 +99,17 @@ const preparePortfolio = (
       (activity.fromListId === null ||
         statusByListId.get(activity.fromListId) !== "done"),
   );
-  const deliveredCardIds = new Set(
-    deliveredActivities.map((activity) => activity.cardId),
-  );
+  const deliveredCardIds = new Set([
+    ...deliveredActivities.map((activity) => activity.cardId),
+    ...source.cards
+      .filter(
+        (card) =>
+          card.completedAt !== null &&
+          card.completedAt >= periodStart &&
+          card.completedAt <= now,
+      )
+      .map((card) => card.id),
+  ]);
   const openCardIds = new Set<number>();
   const stalledCardIds = new Set<number>();
   const inactiveDaysByCardId = new Map<number, number>();
@@ -107,8 +118,11 @@ const preparePortfolio = (
     const status = statusByListId.get(card.listId) ?? "other";
     if (status === "done") continue;
     openCardIds.add(card.id);
-    const lastMovedAt =
-      activitiesByCardId.get(card.id)?.at(-1)?.createdAt ?? card.createdAt;
+    const lastMovedAt = latestDate(
+      card.createdAt,
+      card.startedAt,
+      activitiesByCardId.get(card.id)?.at(-1)?.createdAt,
+    );
     const inactiveDays = Math.max(
       0,
       Math.floor((now.getTime() - lastMovedAt.getTime()) / DAY_MS),
@@ -264,6 +278,78 @@ export const buildPortfolioSummary = (
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const attention = source.cards
+    .flatMap((card) => {
+      const status = prepared.statusByListId.get(card.listId) ?? "other";
+      if (status === "done") return [];
+
+      const list = prepared.listById.get(card.listId);
+      const board = list ? prepared.boardById.get(list.boardId) : undefined;
+      const workspace = board
+        ? prepared.workspaceById.get(board.workspaceId)
+        : undefined;
+      if (!list || !board || !workspace) return [];
+
+      const lastMovedAt = latestDate(
+        card.createdAt,
+        card.startedAt,
+        prepared.activitiesByCardId.get(card.id)?.at(-1)?.createdAt,
+      );
+      const inactiveDays = Math.max(
+        0,
+        Math.floor((now.getTime() - lastMovedAt.getTime()) / DAY_MS),
+      );
+      const isStalled = inactiveDays >= STALE_AFTER_DAYS[status];
+      const isOverdue = card.dueDate !== null && card.dueDate <= now;
+      const memberIds = prepared.assignmentsByCardId.get(card.id) ?? [];
+      const reasons: PulseAttentionReason[] = [];
+
+      if (card.priority === "urgent") reasons.push("urgent");
+      if (status === "blocked") reasons.push("blocked");
+      if (isOverdue) reasons.push("overdue");
+      if (isStalled) reasons.push("stalled");
+      if (memberIds.length === 0) reasons.push("unassigned");
+      if (reasons.length === 0) return [];
+
+      return [
+        {
+          cardPublicId: card.publicId,
+          cardNumber: card.cardNumber,
+          title: card.title,
+          workspacePublicId: workspace.publicId,
+          workspaceName: workspace.name,
+          workspaceLogo: workspace.logo,
+          cardPrefix: workspace.cardPrefix,
+          boardName: board.name,
+          listName: list.name,
+          reasons,
+          inactiveDays,
+          dueDate: card.dueDate?.toISOString() ?? null,
+          assignees: memberIds
+            .map((memberId) => {
+              const member = prepared.memberById.get(memberId);
+              return member?.name ?? member?.email ?? "";
+            })
+            .filter(Boolean),
+          cardPriority: card.priority,
+          score:
+            (card.priority === "urgent" ? 500 : 0) +
+            (status === "blocked" ? 400 : 0) +
+            (isOverdue ? 300 : 0) +
+            (isStalled ? 200 + inactiveDays : 0) +
+            (memberIds.length === 0 ? 100 : 0),
+        },
+      ];
+    })
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        b.inactiveDays - a.inactiveDays ||
+        a.title.localeCompare(b.title),
+    )
+    .slice(0, 20)
+    .map(({ score: _score, ...item }) => item);
+
   return {
     refreshedAt: now.toISOString(),
     period: {
@@ -280,6 +366,7 @@ export const buildPortfolioSummary = (
     },
     companies,
     team,
+    attention,
     coverage: {
       cards: source.cards.length,
       cardsWithTransitions: prepared.activitiesByCardId.size,
@@ -342,12 +429,17 @@ export const buildPortfolioDetail = (
     const memberIds = prepared.assignmentsByCardId.get(card.id) ?? [];
     const matchesSelectedAssignee =
       !selectedMember || memberIds.includes(selectedMember.id);
+    const completedInPeriod =
+      card.completedAt !== null &&
+      card.completedAt >= prepared.periodStart &&
+      card.completedAt <= now;
 
     const matches =
       input.metric === "advanced"
         ? matchingPeriodActivities.length > 0
         : input.metric === "delivered"
-          ? matchingPeriodActivities.length > 0
+          ? matchingPeriodActivities.length > 0 ||
+            (!selectedMember && completedInPeriod)
           : input.metric === "stalled"
             ? prepared.stalledCardIds.has(card.id) && matchesSelectedAssignee
             : prepared.openCardIds.has(card.id) && matchesSelectedAssignee;
@@ -380,7 +472,10 @@ export const buildPortfolioDetail = (
             ? null
             : (prepared.listById.get(activity.toListId)?.name ?? null),
         changedBy: actor?.name ?? actor?.email ?? null,
-        lastChangedAt: activity?.createdAt.toISOString() ?? null,
+        lastChangedAt:
+          activity?.createdAt.toISOString() ??
+          (completedInPeriod ? card.completedAt?.toISOString() : null) ??
+          null,
         inactiveDays: prepared.inactiveDaysByCardId.get(card.id) ?? 0,
         assignees: memberIds
           .map((memberId) => {

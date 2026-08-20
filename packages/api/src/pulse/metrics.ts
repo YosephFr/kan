@@ -8,6 +8,7 @@ export type PulseStatus =
   | "done"
   | "other";
 export type PulseAttentionReason =
+  | "urgent"
   | "blocked"
   | "overdue"
   | "stalled"
@@ -24,6 +25,16 @@ export const STALE_AFTER_DAYS: Record<Exclude<PulseStatus, "done">, number> = {
   blocked: 2,
   other: 14,
 };
+
+export const latestDate = (
+  first: Date,
+  ...dates: (Date | null | undefined)[]
+): Date =>
+  dates.reduce<Date>(
+    (latest, date) =>
+      date && date.getTime() > latest.getTime() ? date : latest,
+    first,
+  );
 
 const normalize = (value: string) =>
   value
@@ -98,7 +109,10 @@ export const buildPulseSummary = (
   );
   const cardsById = new Map(source.cards.map((card) => [card.id, card]));
   const statusByListId = new Map(
-    source.lists.map((list) => [list.id, classifyListName(list.name)]),
+    source.lists.map((list) => [
+      list.id,
+      list.status ?? classifyListName(list.name),
+    ]),
   );
   const activitiesByCard = new Map<number, PulseSource["activities"]>();
   const assignmentsByCard = new Map<number, number[]>();
@@ -139,12 +153,13 @@ export const buildPulseSummary = (
       .find(
         (activity) =>
           activity.toListId !== null &&
-          statusByListId.get(activity.toListId) === "done",
+          statusByListId.get(activity.toListId) === "done" &&
+          (activity.fromListId === null ||
+            statusByListId.get(activity.fromListId) !== "done"),
       );
-    completionByCard.set(
-      card.id,
-      completionActivity?.createdAt ?? card.createdAt,
-    );
+    const completedAt = card.completedAt ?? completionActivity?.createdAt;
+
+    if (completedAt) completionByCard.set(card.id, completedAt);
   }
 
   for (const activity of source.activities) {
@@ -164,14 +179,16 @@ export const buildPulseSummary = (
   for (const card of deliveredCards) {
     const completedAt = completionByCard.get(card.id);
     if (!completedAt) continue;
-    const startedAt = [...(activitiesByCard.get(card.id) ?? [])]
-      .reverse()
-      .find(
-        (activity) =>
-          activity.createdAt < completedAt &&
-          activity.toListId !== null &&
-          statusByListId.get(activity.toListId) === "inProgress",
-      )?.createdAt;
+    const startedAt =
+      card.startedAt ??
+      [...(activitiesByCard.get(card.id) ?? [])]
+        .reverse()
+        .find(
+          (activity) =>
+            activity.createdAt < completedAt &&
+            activity.toListId !== null &&
+            statusByListId.get(activity.toListId) === "inProgress",
+        )?.createdAt;
     if (startedAt)
       cycleHours.push(
         (completedAt.getTime() - startedAt.getTime()) / 3_600_000,
@@ -198,6 +215,7 @@ export const buildPulseSummary = (
     inactiveDays: number;
     dueDate: string | null;
     assignees: string[];
+    cardPriority: PulseSource["cards"][number]["priority"];
     priority: number;
   }[];
   const stalledCardIds = new Set<number>();
@@ -212,7 +230,11 @@ export const buildPulseSummary = (
     openCardIds.add(card.id);
 
     const activities = activitiesByCard.get(card.id) ?? [];
-    const lastMovedAt = activities.at(-1)?.createdAt ?? card.createdAt;
+    const lastMovedAt = latestDate(
+      card.createdAt,
+      card.startedAt,
+      activities.at(-1)?.createdAt,
+    );
     const inactiveDays = Math.max(
       0,
       Math.floor((now.getTime() - lastMovedAt.getTime()) / DAY_MS),
@@ -223,6 +245,7 @@ export const buildPulseSummary = (
     const isUnassigned = memberIds.length === 0;
     const reasons: PulseAttentionReason[] = [];
 
+    if (card.priority === "urgent") reasons.push("urgent");
     if (status === "blocked") reasons.push("blocked");
     if (isOverdue) reasons.push("overdue");
     if (isStalled) reasons.push("stalled");
@@ -253,7 +276,9 @@ export const buildPulseSummary = (
           return member?.name ?? member?.email ?? "";
         })
         .filter(Boolean),
+      cardPriority: card.priority,
       priority:
+        (card.priority === "urgent" ? 500 : 0) +
         (status === "blocked" ? 400 : 0) +
         (isOverdue ? 300 : 0) +
         (isStalled ? 200 + inactiveDays : 0) +

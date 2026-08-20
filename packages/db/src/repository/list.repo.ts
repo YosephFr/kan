@@ -1,8 +1,27 @@
 import { and, count, desc, eq, gt, isNull, sql } from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
-import { lists } from "@kan/db/schema";
+import type { ListStatus } from "@kan/db/schema";
+import { cards, lists } from "@kan/db/schema";
 import { generateUID } from "@kan/shared/utils";
+
+export class ListStatusChangeConfirmationRequiredError extends Error {
+  constructor(public readonly cardCount: number) {
+    super("Confirm the status change for a list containing cards");
+    this.name = "ListStatusChangeConfirmationRequiredError";
+  }
+}
+
+export const inferListStatus = (name: string): ListStatus | null => {
+  const normalized = name.trim().toLocaleLowerCase();
+
+  if (normalized === "por hacer") return "planned";
+  if (normalized === "en progreso") return "inProgress";
+  if (normalized === "estancado") return "blocked";
+  if (normalized === "hecho") return "done";
+
+  return null;
+};
 
 export const getCount = async (db: dbClient) => {
   const result = await db
@@ -20,6 +39,8 @@ export const create = async (
     createdBy: string;
     boardId: number;
     importId?: number;
+    status?: ListStatus | null;
+    colourCode?: string | null;
   },
 ) => {
   return db.transaction(async (tx) => {
@@ -44,12 +65,19 @@ export const create = async (
         boardId: listInput.boardId,
         index,
         importId: listInput.importId,
+        status:
+          listInput.status === undefined
+            ? inferListStatus(listInput.name)
+            : listInput.status,
+        colourCode: listInput.colourCode ?? null,
       })
       .returning({
         id: lists.id,
         publicId: lists.publicId,
         boardId: lists.boardId,
         name: lists.name,
+        status: lists.status,
+        colourCode: lists.colourCode,
       });
 
     if (!result)
@@ -109,6 +137,8 @@ export const bulkCreate = async (
     boardId: number;
     index: number;
     importId?: number;
+    status?: ListStatus | null;
+    colourCode?: string | null;
   }[],
 ) => {
   if (listInput.length === 0) return [];
@@ -129,6 +159,8 @@ export const bulkCreate = async (
       boardId: number;
       index: number;
       importId?: number;
+      status: ListStatus | null;
+      colourCode: string | null;
     }[] = [];
 
     // For each board, append incoming lists after the current max index, preserving their relative order
@@ -152,6 +184,9 @@ export const bulkCreate = async (
           boardId: it.boardId,
           index: nextIndex++,
           importId: it.importId,
+          status:
+            it.status === undefined ? inferListStatus(it.name) : it.status,
+          colourCode: it.colourCode ?? null,
         });
       }
     }
@@ -213,6 +248,8 @@ export const getByPublicId = async (db: dbClient, listPublicId: string) => {
       name: true,
       boardId: true,
       index: true,
+      status: true,
+      colourCode: true,
     },
     where: and(eq(lists.publicId, listPublicId), isNull(lists.deletedAt)),
   });
@@ -242,23 +279,93 @@ export const getWithCardsByPublicId = async (
 export const update = async (
   db: dbClient,
   listInput: {
-    name: string;
+    name?: string;
+    status?: ListStatus | null;
+    colourCode?: string | null;
+    confirmCardLifecycleUpdate?: boolean;
   },
   args: {
     listPublicId: string;
   },
-) => {
-  const [result] = await db
-    .update(lists)
-    .set({ name: listInput.name })
-    .where(and(eq(lists.publicId, args.listPublicId), isNull(lists.deletedAt)))
-    .returning({
-      publicId: lists.publicId,
-      name: lists.name,
-    });
+) =>
+  db.transaction(async (tx) => {
+    const [currentList] = await tx
+      .select({ id: lists.id, status: lists.status })
+      .from(lists)
+      .where(
+        and(eq(lists.publicId, args.listPublicId), isNull(lists.deletedAt)),
+      )
+      .limit(1)
+      .for("update");
 
-  return result;
-};
+    if (!currentList) return undefined;
+
+    const statusChanged =
+      listInput.status !== undefined && listInput.status !== currentList.status;
+    const changedAt = new Date();
+
+    if (statusChanged) {
+      const [cardCount] = await tx
+        .select({ count: count() })
+        .from(cards)
+        .where(and(eq(cards.listId, currentList.id), isNull(cards.deletedAt)));
+
+      if (
+        (cardCount?.count ?? 0) > 0 &&
+        !listInput.confirmCardLifecycleUpdate
+      ) {
+        throw new ListStatusChangeConfirmationRequiredError(
+          cardCount?.count ?? 0,
+        );
+      }
+    }
+
+    const [result] = await tx
+      .update(lists)
+      .set({
+        name: listInput.name,
+        status: listInput.status,
+        colourCode:
+          listInput.colourCode !== undefined ? listInput.colourCode : undefined,
+        updatedAt: changedAt,
+      })
+      .where(
+        and(eq(lists.publicId, args.listPublicId), isNull(lists.deletedAt)),
+      )
+      .returning({
+        publicId: lists.publicId,
+        name: lists.name,
+        status: lists.status,
+        colourCode: lists.colourCode,
+      });
+
+    if (statusChanged) {
+      if (listInput.status === "inProgress") {
+        await tx
+          .update(cards)
+          .set({
+            startedAt: sql`coalesce(${cards.startedAt}, ${changedAt})`,
+            completedAt: null,
+            updatedAt: changedAt,
+          })
+          .where(
+            and(eq(cards.listId, currentList.id), isNull(cards.deletedAt)),
+          );
+      } else {
+        await tx
+          .update(cards)
+          .set({
+            completedAt: listInput.status === "done" ? changedAt : null,
+            updatedAt: changedAt,
+          })
+          .where(
+            and(eq(cards.listId, currentList.id), isNull(cards.deletedAt)),
+          );
+      }
+    }
+
+    return result;
+  });
 
 export const reorder = async (
   db: dbClient,
@@ -337,6 +444,8 @@ export const reorder = async (
       columns: {
         publicId: true,
         name: true,
+        status: true,
+        colourCode: true,
       },
       where: eq(lists.publicId, args.listPublicId),
     });
@@ -419,7 +528,14 @@ export const getWorkspaceAndListIdByListPublicId = async (
   listPublicId: string,
 ) => {
   const result = await db.query.lists.findFirst({
-    columns: { id: true, name: true, createdBy: true },
+    columns: {
+      id: true,
+      boardId: true,
+      name: true,
+      status: true,
+      colourCode: true,
+      createdBy: true,
+    },
     where: and(eq(lists.publicId, listPublicId), isNull(lists.deletedAt)),
     with: {
       board: {
@@ -435,8 +551,11 @@ export const getWorkspaceAndListIdByListPublicId = async (
   return result
     ? {
         id: result.id,
+        boardId: result.boardId,
         publicId: listPublicId,
         name: result.name,
+        status: result.status,
+        colourCode: result.colourCode,
         createdBy: result.createdBy,
         workspaceId: result.board.workspaceId,
         boardPublicId: result.board.publicId,

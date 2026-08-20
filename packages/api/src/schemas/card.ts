@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { cardPriorities, listStatuses } from "@kan/db/schema";
+
 import {
   checklistResponseSchema,
   labelSchema,
@@ -9,6 +11,11 @@ import {
 // ─── card.create ─────────────────────────────────────────────
 export const cardCreateResponseSchema = z.object({
   publicId: z.string(),
+  dueDate: z.date().nullable(),
+  priority: z.enum(cardPriorities),
+  colourCode: z.string().nullable(),
+  startedAt: z.date().nullable(),
+  completedAt: z.date().nullable(),
 });
 
 // ─── card.update ─────────────────────────────────────────────
@@ -17,6 +24,10 @@ export const cardUpdateResponseSchema = z.object({
   title: z.string(),
   description: z.string().nullable(),
   dueDate: z.date().nullable(),
+  priority: z.enum(cardPriorities),
+  colourCode: z.string().nullable(),
+  startedAt: z.date().nullable(),
+  completedAt: z.date().nullable(),
 });
 
 // ─── Comment responses ───────────────────────────────────────
@@ -49,6 +60,10 @@ export const cardDetailSchema = z.object({
   cardNumber: z.number().nullable(),
   index: z.number(),
   dueDate: z.date().nullable(),
+  priority: z.enum(cardPriorities),
+  colourCode: z.string().nullable(),
+  startedAt: z.date().nullable(),
+  completedAt: z.date().nullable(),
   createdBy: z.string().nullable(),
   labels: z.array(labelSchema),
   attachments: z.array(
@@ -65,6 +80,8 @@ export const cardDetailSchema = z.object({
   list: z.object({
     publicId: z.string(),
     name: z.string(),
+    status: z.enum(listStatuses).nullable(),
+    colourCode: z.string().nullable(),
     board: z.object({
       publicId: z.string(),
       name: z.string(),
@@ -73,6 +90,8 @@ export const cardDetailSchema = z.object({
         z.object({
           publicId: z.string(),
           name: z.string(),
+          status: z.enum(listStatuses).nullable(),
+          colourCode: z.string().nullable(),
         }),
       ),
       workspace: z.object({
@@ -96,6 +115,10 @@ export const cardDetailSchema = z.object({
       toDescription: z.string().nullable(),
       fromDueDate: z.date().nullable(),
       toDueDate: z.date().nullable(),
+      fromPriority: z.enum(cardPriorities).nullable(),
+      toPriority: z.enum(cardPriorities).nullable(),
+      fromColourCode: z.string().nullable(),
+      toColourCode: z.string().nullable(),
       fromList: z
         .object({
           publicId: z.string(),
@@ -159,6 +182,10 @@ export const activityItemSchema = z.object({
   toDescription: z.string().nullable(),
   fromDueDate: z.date().nullable(),
   toDueDate: z.date().nullable(),
+  fromPriority: z.enum(cardPriorities).nullable(),
+  toPriority: z.enum(cardPriorities).nullable(),
+  fromColourCode: z.string().nullable(),
+  toColourCode: z.string().nullable(),
   fromList: z
     .object({
       publicId: z.string(),

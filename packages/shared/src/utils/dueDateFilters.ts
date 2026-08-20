@@ -19,7 +19,8 @@ export const convertDueDateFiltersToRanges = (
 ): DueDateFilter[] => {
   if (!filters.length) return [];
 
-  const today = startOfDay(new Date());
+  const now = new Date();
+  const today = startOfDay(now);
   const tomorrow = addDays(today, 1);
   const nextWeekEnd = addDays(today, 8);
   const nextMonthEnd = addDays(today, 31);
@@ -28,7 +29,7 @@ export const convertDueDateFiltersToRanges = (
     switch (filter) {
       case "overdue":
         return {
-          endDate: today,
+          endDate: now,
         };
       case "today":
         return {

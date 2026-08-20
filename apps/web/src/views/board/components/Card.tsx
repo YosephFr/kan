@@ -1,4 +1,4 @@
-import { format, isBefore, isSameYear, startOfDay } from "date-fns";
+import { format, isSameYear } from "date-fns";
 import { HiOutlinePaperClip } from "react-icons/hi";
 import {
   HiBars3BottomLeft,
@@ -8,10 +8,12 @@ import {
 } from "react-icons/hi2";
 import { twMerge } from "tailwind-merge";
 
+import type { CardPriority } from "~/utils/card-presentation";
 import Avatar from "~/components/Avatar";
 import Badge from "~/components/Badge";
-import CircularProgress from "~/components/CircularProgress";
+import CardProgressBars from "~/components/CardProgressBars";
 import LabelIcon from "~/components/LabelIcon";
+import { PriorityIndicator } from "~/components/PrioritySelector";
 import { useLocalisation } from "~/hooks/useLocalisation";
 import { getAvatarUrl } from "~/utils/helpers";
 
@@ -25,6 +27,10 @@ const Card = ({
   comments,
   attachments,
   dueDate,
+  startedAt,
+  completedAt,
+  priority = "none",
+  colourCode,
   isSelectionMode = false,
   isSelected = false,
 }: {
@@ -50,22 +56,20 @@ const Card = ({
   comments: { publicId: string }[];
   attachments?: { publicId: string }[];
   dueDate?: Date | null;
+  startedAt?: Date | null;
+  completedAt?: Date | null;
+  priority?: CardPriority;
+  colourCode?: string | null;
   isSelectionMode?: boolean;
   isSelected?: boolean;
 }) => {
   const { dateLocale } = useLocalisation();
   const showYear = dueDate ? !isSameYear(dueDate, new Date()) : false;
-  const isOverdue = dueDate ? isBefore(dueDate, startOfDay(new Date())) : false;
-  const completedItems = checklists.reduce((acc, checklist) => {
-    return acc + checklist.items.filter((item) => item.completed).length;
-  }, 0);
-
-  const totalItems = checklists.reduce((acc, checklist) => {
-    return acc + checklist.items.length;
-  }, 0);
-
-  const progress =
-    totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+  const isOverdue = dueDate
+    ? completedAt
+      ? completedAt.getTime() > dueDate.getTime()
+      : Date.now() >= dueDate.getTime()
+    : false;
 
   const hasDescription =
     description && description.replace(/<[^>]*>/g, "").trim().length > 0;
@@ -82,6 +86,11 @@ const Card = ({
         isSelected &&
           "border-light-1000 shadow-[inset_0_0_0_1px] shadow-light-1000 dark:border-dark-1000 dark:shadow-dark-1000",
       )}
+      style={
+        colourCode
+          ? { borderLeftColor: colourCode, borderLeftWidth: "4px" }
+          : undefined
+      }
     >
       {isSelectionMode && (
         <span
@@ -102,6 +111,11 @@ const Card = ({
         </span>
       )}
       <span className="break-words">{title}</span>
+      {priority !== "none" && (
+        <div className="mt-1.5">
+          <PriorityIndicator priority={priority} />
+        </div>
+      )}
       {labels.length ||
       members.length ||
       checklists.length > 0 ||
@@ -113,10 +127,20 @@ const Card = ({
           <div className="space-x-0.5">
             {labels.map((label) => (
               <Badge
+                key={`${label.name}-${label.colourCode ?? "none"}`}
                 value={label.name}
                 iconLeft={<LabelIcon colourCode={label.colourCode} />}
               />
             ))}
+          </div>
+          <div className="mt-2">
+            <CardProgressBars
+              checklists={checklists}
+              startedAt={startedAt}
+              dueDate={dueDate}
+              completedAt={completedAt}
+              compact
+            />
           </div>
           <div className="mt-2 flex items-center justify-between gap-1">
             <div className="flex items-center gap-2">
@@ -136,9 +160,11 @@ const Card = ({
                 >
                   <HiOutlineClock className="h-4 w-4" />
                   <span className="text-[11px]">
-                    {format(dueDate, showYear ? "do MMM yyyy" : "do MMM", {
-                      locale: dateLocale,
-                    })}
+                    {format(
+                      dueDate,
+                      showYear ? "do MMM yyyy · HH:mm" : "do MMM · HH:mm",
+                      { locale: dateLocale },
+                    )}
                   </span>
                 </div>
               )}
@@ -154,18 +180,6 @@ const Card = ({
               )}
             </div>
             <div className="flex items-center justify-end gap-1">
-              {checklists.length > 0 && (
-                <div className="flex items-center gap-1 rounded-full border-[1px] border-light-300 px-2 py-1 dark:border-dark-600">
-                  <CircularProgress
-                    progress={progress || 2}
-                    size="sm"
-                    className="flex-shrink-0"
-                  />
-                  <span className="text-[10px] text-light-900 dark:text-dark-950">
-                    {completedItems}/{totalItems}
-                  </span>
-                </div>
-              )}
               {members.length > 0 && (
                 <div className="isolate flex justify-end -space-x-1 overflow-hidden">
                   {members.map(({ user, email }) => {
@@ -175,6 +189,7 @@ const Card = ({
 
                     return (
                       <Avatar
+                        key={`${email}-${user?.email ?? "guest"}`}
                         name={user?.name ?? ""}
                         email={user?.email ?? email}
                         imageUrl={avatarUrl}

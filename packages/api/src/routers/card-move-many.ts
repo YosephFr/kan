@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import * as cardMoveRepo from "@kan/db/repository/card-move.repo";
 import * as listRepo from "@kan/db/repository/list.repo";
+import * as notificationRepo from "@kan/db/repository/notification.repo";
 
 import { cardUpdateResponseSchema } from "../schemas";
 import { protectedProcedure } from "../trpc";
@@ -132,6 +133,16 @@ export const cardMoveManyProcedure = protectedProcedure
       });
     }
 
+    await Promise.all(
+      movedCards
+        .filter((card) => card.completedAt !== null)
+        .map((card) =>
+          notificationRepo.invalidateCardAlerts(ctx.db, {
+            cardId: card.id,
+          }),
+        ),
+    );
+
     const candidatesByPublicId = new Map(
       candidates.map((card) => [card.publicId, card]),
     );
@@ -144,11 +155,14 @@ export const cardMoveManyProcedure = protectedProcedure
         createCardWebhookPayload(
           "card.moved",
           {
-            id: String(card.id),
             publicId: card.publicId,
             title: card.title,
             description: card.description,
             dueDate: card.dueDate,
+            priority: card.priority,
+            colourCode: card.colourCode,
+            startedAt: card.startedAt,
+            completedAt: card.completedAt,
             listId: destinationList.publicId,
           },
           {
@@ -173,10 +187,25 @@ export const cardMoveManyProcedure = protectedProcedure
 
     void Promise.allSettled(webhookDeliveries);
 
-    return movedCards.map(({ publicId, title, description, dueDate }) => ({
-      publicId,
-      title,
-      description,
-      dueDate,
-    }));
+    return movedCards.map(
+      ({
+        publicId,
+        title,
+        description,
+        dueDate,
+        priority,
+        colourCode,
+        startedAt,
+        completedAt,
+      }) => ({
+        publicId,
+        title,
+        description,
+        dueDate,
+        priority,
+        colourCode,
+        startedAt,
+        completedAt,
+      }),
+    );
   });

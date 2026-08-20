@@ -212,4 +212,58 @@ describe("buildPulseSummary", () => {
     expect(result.kpis.cycleTimeHours).toBeNull();
     expect(result.coverage.cycleSamples).toBe(0);
   });
+
+  it("does not count a done card as delivered without entry evidence", () => {
+    const result = buildPulseSummary(
+      {
+        ...source,
+        activities: [
+          {
+            cardId: 103,
+            fromListId: 13,
+            toListId: 13,
+            createdAt: new Date("2026-07-20T12:00:00.000Z"),
+          },
+        ],
+        cards: source.cards.map((card) =>
+          card.id === 103
+            ? {
+                ...card,
+                createdAt: new Date("2026-07-20T12:00:00.000Z"),
+                completedAt: null,
+              }
+            : card,
+        ),
+      } as PulseSource,
+      "week",
+      now,
+    );
+
+    expect(result.kpis.delivered).toBe(0);
+    expect(result.trend.at(-1)?.delivered).toBe(0);
+  });
+
+  it("uses the lifecycle start when a list type starts an older card", () => {
+    const result = buildPulseSummary(
+      {
+        ...source,
+        cards: source.cards.map((card) =>
+          card.id === 101
+            ? {
+                ...card,
+                createdAt: new Date("2026-06-01T12:00:00.000Z"),
+                startedAt: new Date("2026-07-20T12:00:00.000Z"),
+              }
+            : card,
+        ),
+      } as PulseSource,
+      "week",
+      now,
+    );
+
+    expect(
+      result.attention.find((item) => item.cardPublicId === "card10100000")
+        ?.reasons,
+    ).not.toContain("stalled");
+  });
 });

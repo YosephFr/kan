@@ -9,7 +9,7 @@ interface WorkspaceContextProps {
   workspace: Workspace;
   isLoading: boolean;
   hasLoaded: boolean;
-  switchWorkspace: (_workspace: Workspace) => void;
+  switchWorkspace: (_workspace: Workspace, destination?: string) => void;
   availableWorkspaces: Workspace[];
 }
 
@@ -73,7 +73,10 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({
   );
   const utils = api.useUtils();
 
-  const switchWorkspace = (_workspace: Workspace) => {
+  const switchWorkspace = (
+    _workspace: Workspace,
+    destination = WORKSPACE_HOME_PATH,
+  ) => {
     localStorage.setItem("workspacePublicId", _workspace.publicId);
 
     setWorkspace(_workspace);
@@ -81,7 +84,7 @@ export const WorkspaceProvider: React.FC<{ children: ReactNode }> = ({
     // Refetch workspace data to ensure availableWorkspaces is up to date
     void utils.workspace.all.refetch();
 
-    router.push(WORKSPACE_HOME_PATH);
+    router.push(destination);
   };
 
   useEffect(() => {

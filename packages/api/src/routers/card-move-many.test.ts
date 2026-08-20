@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as cardMoveRepo from "@kan/db/repository/card-move.repo";
 import * as listRepo from "@kan/db/repository/list.repo";
+import * as notificationRepo from "@kan/db/repository/notification.repo";
 
 import { createTRPCRouter } from "../trpc";
 import { assertCanEdit } from "../utils/permissions";
@@ -18,6 +19,10 @@ vi.mock("@kan/db/repository/card-move.repo", () => ({
 
 vi.mock("@kan/db/repository/list.repo", () => ({
   getWorkspaceAndListIdByListPublicId: vi.fn(),
+}));
+
+vi.mock("@kan/db/repository/notification.repo", () => ({
+  invalidateCardAlerts: vi.fn(),
 }));
 
 vi.mock("../utils/permissions", () => ({
@@ -38,6 +43,8 @@ const mockGetCandidates = cardMoveRepo.getCandidates as ReturnType<
 const mockMoveMany = cardMoveRepo.moveMany as ReturnType<typeof vi.fn>;
 const mockGetDestinationList =
   listRepo.getWorkspaceAndListIdByListPublicId as ReturnType<typeof vi.fn>;
+const mockInvalidateCardAlerts =
+  notificationRepo.invalidateCardAlerts as ReturnType<typeof vi.fn>;
 const mockAssertCanEdit = assertCanEdit as ReturnType<typeof vi.fn>;
 const mockCreateCardWebhookPayload = createCardWebhookPayload as ReturnType<
   typeof vi.fn
@@ -62,6 +69,10 @@ describe("card.moveMany", () => {
     title: "First card",
     description: null,
     dueDate: null,
+    priority: "none" as const,
+    colourCode: null,
+    startedAt: null,
+    completedAt: null,
     list: {
       publicId: "list-source1",
       name: "Por hacer",
@@ -87,6 +98,8 @@ describe("card.moveMany", () => {
     workspaceId: 10,
     boardPublicId: "board-target",
     boardName: "Foco",
+    status: "inProgress" as const,
+    colourCode: null,
   };
 
   beforeEach(() => {
@@ -101,6 +114,10 @@ describe("card.moveMany", () => {
         title: firstCard.title,
         description: firstCard.description,
         dueDate: firstCard.dueDate,
+        priority: firstCard.priority,
+        colourCode: firstCard.colourCode,
+        startedAt: firstCard.startedAt,
+        completedAt: firstCard.completedAt,
       },
       {
         id: secondCard.id,
@@ -108,6 +125,10 @@ describe("card.moveMany", () => {
         title: secondCard.title,
         description: secondCard.description,
         dueDate: secondCard.dueDate,
+        priority: secondCard.priority,
+        colourCode: secondCard.colourCode,
+        startedAt: secondCard.startedAt,
+        completedAt: secondCard.completedAt,
       },
     ]);
   });
@@ -174,6 +195,10 @@ describe("card.moveMany", () => {
         title: secondCard.title,
         description: secondCard.description,
         dueDate: secondCard.dueDate,
+        priority: secondCard.priority,
+        colourCode: secondCard.colourCode,
+        startedAt: secondCard.startedAt,
+        completedAt: secondCard.completedAt,
       },
       {
         id: firstCard.id,
@@ -181,6 +206,10 @@ describe("card.moveMany", () => {
         title: firstCard.title,
         description: firstCard.description,
         dueDate: firstCard.dueDate,
+        priority: firstCard.priority,
+        colourCode: firstCard.colourCode,
+        startedAt: firstCard.startedAt,
+        completedAt: firstCard.completedAt,
       },
     ]);
 
@@ -216,5 +245,44 @@ describe("card.moveMany", () => {
     ]);
     expect(mockCreateCardWebhookPayload).toHaveBeenCalledTimes(2);
     expect(mockSendWebhooksForWorkspace).toHaveBeenCalledTimes(2);
+  });
+
+  it("invalidates completed cards from the locked move result when the pre-read status is stale", async () => {
+    const completedAt = new Date("2026-08-20T12:00:00.000Z");
+    mockMoveMany.mockResolvedValueOnce([
+      {
+        id: firstCard.id,
+        publicId: firstCard.publicId,
+        title: firstCard.title,
+        description: firstCard.description,
+        dueDate: firstCard.dueDate,
+        priority: firstCard.priority,
+        colourCode: firstCard.colourCode,
+        startedAt: firstCard.startedAt,
+        completedAt,
+      },
+      {
+        id: secondCard.id,
+        publicId: secondCard.publicId,
+        title: secondCard.title,
+        description: secondCard.description,
+        dueDate: secondCard.dueDate,
+        priority: secondCard.priority,
+        colourCode: secondCard.colourCode,
+        startedAt: secondCard.startedAt,
+        completedAt: null,
+      },
+    ]);
+
+    await testRouter.createCaller(mockContext).moveMany({
+      cardPublicIds: [firstCard.publicId, secondCard.publicId],
+      listPublicId: destinationList.publicId,
+    });
+
+    expect(destinationList.status).toBe("inProgress");
+    expect(mockInvalidateCardAlerts).toHaveBeenCalledTimes(1);
+    expect(mockInvalidateCardAlerts).toHaveBeenCalledWith(mockDb, {
+      cardId: firstCard.id,
+    });
   });
 });

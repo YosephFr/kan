@@ -14,6 +14,7 @@ import { authClient } from "@kan/auth/client";
 
 import { useClickOutside } from "~/hooks/useClickOutside";
 import { useModal } from "~/providers/modal";
+import { NotificationsProvider } from "~/providers/notifications";
 import { usePopup } from "~/providers/popup";
 import { useWorkspace, WorkspaceProvider } from "~/providers/workspace";
 import { api } from "~/utils/api";
@@ -22,6 +23,7 @@ import { DeleteWorkspaceConfirmation } from "~/views/settings/components/DeleteW
 import Button from "./Button";
 import Modal from "./modal";
 import { NewWorkspaceForm } from "./NewWorkspaceForm";
+import { NotificationCenter } from "./NotificationCenter";
 import SideNavigation from "./SideNavigation";
 
 interface DashboardProps {
@@ -172,7 +174,7 @@ export default function Dashboard({
   const isDarkMode = resolvedTheme === "dark";
 
   return (
-    <>
+    <NotificationsProvider>
       <style jsx global>{`
         html {
           height: 100vh;
@@ -202,25 +204,28 @@ export default function Dashboard({
             )}
           </button>
 
-          {hasRightPanel && (
-            <button
-              ref={rightPanelButtonRef}
-              onClick={toggleRightPanel}
-              className="rounded p-1.5 transition-all hover:bg-light-200 dark:hover:bg-dark-100"
-            >
-              {isRightPanelOpen ? (
-                <TbLayoutSidebarRightCollapse
-                  size={20}
-                  className="text-light-900 dark:text-dark-900"
-                />
-              ) : (
-                <TbLayoutSidebarRightExpand
-                  size={20}
-                  className="text-light-900 dark:text-dark-900"
-                />
-              )}
-            </button>
-          )}
+          <div className="flex items-center gap-1">
+            <NotificationCenter placement="mobile" />
+            {hasRightPanel && (
+              <button
+                ref={rightPanelButtonRef}
+                onClick={toggleRightPanel}
+                className="rounded p-1.5 transition-all hover:bg-light-200 dark:hover:bg-dark-100"
+              >
+                {isRightPanelOpen ? (
+                  <TbLayoutSidebarRightCollapse
+                    size={20}
+                    className="text-light-900 dark:text-dark-900"
+                  />
+                ) : (
+                  <TbLayoutSidebarRightExpand
+                    size={20}
+                    className="text-light-900 dark:text-dark-900"
+                  />
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="flex h-[calc(100dvh-4.5rem)] min-h-0 w-full md:h-[calc(100dvh-1.5rem)]">
@@ -293,6 +298,6 @@ export default function Dashboard({
           <ChangePasswordFormConfirmation hasPassword={false} />
         )}
       </Modal>
-    </>
+    </NotificationsProvider>
   );
 }

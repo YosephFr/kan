@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as cardRepo from "@kan/db/repository/card.repo";
 import * as cardActivityRepo from "@kan/db/repository/cardActivity.repo";
 import * as listRepo from "@kan/db/repository/list.repo";
+import * as notificationRepo from "@kan/db/repository/notification.repo";
 
 import { assertCanEdit } from "../utils/permissions";
 import {
@@ -26,6 +27,10 @@ vi.mock("@kan/db/repository/label.repo", () => ({}));
 
 vi.mock("@kan/db/repository/list.repo", () => ({
   getWorkspaceAndListIdByListPublicId: vi.fn(),
+}));
+
+vi.mock("@kan/db/repository/notification.repo", () => ({
+  invalidateCardAlerts: vi.fn(),
 }));
 
 vi.mock("@kan/db/repository/workspace.repo", () => ({}));
@@ -63,6 +68,8 @@ const mockBulkCreateActivities = cardActivityRepo.bulkCreate as ReturnType<
 >;
 const mockGetDestinationList =
   listRepo.getWorkspaceAndListIdByListPublicId as ReturnType<typeof vi.fn>;
+const mockInvalidateCardAlerts =
+  notificationRepo.invalidateCardAlerts as ReturnType<typeof vi.fn>;
 const mockAssertCanEdit = assertCanEdit as ReturnType<typeof vi.fn>;
 const mockCreateCardWebhookPayload = createCardWebhookPayload as ReturnType<
   typeof vi.fn
@@ -96,6 +103,10 @@ describe("card.update list moves", () => {
     description: null,
     listId: 100,
     dueDate: null,
+    priority: "none" as const,
+    colourCode: null,
+    startedAt: null,
+    completedAt: null,
     list: {
       publicId: "list-source1",
       name: "Por hacer",
@@ -110,6 +121,8 @@ describe("card.update list moves", () => {
     workspaceId: 10,
     boardPublicId: "board-target",
     boardName: "Foco",
+    status: "planned" as const,
+    colourCode: null,
   };
   const updatedCard = {
     id: 1,
@@ -117,6 +130,10 @@ describe("card.update list moves", () => {
     title: existingCard.title,
     description: existingCard.description,
     dueDate: existingCard.dueDate,
+    priority: existingCard.priority,
+    colourCode: existingCard.colourCode,
+    startedAt: existingCard.startedAt,
+    completedAt: existingCard.completedAt,
   };
 
   beforeEach(() => {
@@ -141,6 +158,19 @@ describe("card.update list moves", () => {
         cardPublicId: existingCard.publicId,
         listPublicId: destinationList.publicId,
         index: 0,
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+    expect(mockReorderCard).not.toHaveBeenCalled();
+  });
+
+  it("rejects card colours outside the product palette", async () => {
+    const { cardRouter } = await import("./card");
+
+    await expect(
+      cardRouter.createCaller(mockContext).update({
+        cardPublicId: existingCard.publicId,
+        colourCode: "#ffffff",
       }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
 
@@ -228,5 +258,22 @@ describe("card.update list moves", () => {
         toListId: destinationList.id,
       },
     ]);
+  });
+
+  it("invalidates alerts from the locked completion even when the pre-read status is stale", async () => {
+    const completedAt = new Date("2026-08-20T12:00:00.000Z");
+    const { cardRouter } = await import("./card");
+    mockReorderCard.mockResolvedValueOnce({ ...updatedCard, completedAt });
+
+    await cardRouter.createCaller(mockContext).update({
+      cardPublicId: existingCard.publicId,
+      listPublicId: destinationList.publicId,
+      index: 0,
+    });
+
+    expect(destinationList.status).toBe("planned");
+    expect(mockInvalidateCardAlerts).toHaveBeenCalledWith(mockDb, {
+      cardId: updatedCard.id,
+    });
   });
 });

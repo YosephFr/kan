@@ -9,6 +9,7 @@ import { migrate } from "drizzle-orm/pglite/migrator";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import * as cardMoveRepo from "@kan/db/repository/card-move.repo";
+import * as listRepo from "@kan/db/repository/list.repo";
 import {
   boards,
   cardActivities,
@@ -50,6 +51,11 @@ describe("card move many repository", () => {
       .select({
         publicId: cards.publicId,
         index: cards.index,
+        dueDate: cards.dueDate,
+        priority: cards.priority,
+        colourCode: cards.colourCode,
+        startedAt: cards.startedAt,
+        completedAt: cards.completedAt,
       })
       .from(cards)
       .where(eq(cards.listId, seeded.destinationList.id))
@@ -91,11 +97,30 @@ describe("card move many repository", () => {
       seeded.secondCard.publicId,
       seeded.firstCard.publicId,
     ]);
-    expect(destinationCards).toEqual([
-      { publicId: seeded.secondCard.publicId, index: 0 },
-      { publicId: seeded.firstCard.publicId, index: 1 },
-      { publicId: seeded.destinationCard.publicId, index: 2 },
+    expect(destinationCards.slice(0, 2)).toEqual([
+      {
+        publicId: seeded.secondCard.publicId,
+        index: 0,
+        dueDate: seeded.secondCard.dueDate,
+        priority: seeded.secondCard.priority,
+        colourCode: seeded.secondCard.colourCode,
+        startedAt: seeded.secondCard.startedAt,
+        completedAt: null,
+      },
+      {
+        publicId: seeded.firstCard.publicId,
+        index: 1,
+        dueDate: seeded.firstCard.dueDate,
+        priority: seeded.firstCard.priority,
+        colourCode: seeded.firstCard.colourCode,
+        startedAt: seeded.firstCard.startedAt,
+        completedAt: null,
+      },
     ]);
+    expect(destinationCards[2]).toMatchObject({
+      publicId: seeded.destinationCard.publicId,
+      index: 2,
+    });
     expect(sourceCards).toEqual([
       {
         publicId: seeded.firstSourceCard.publicId,
@@ -152,6 +177,112 @@ describe("card move many repository", () => {
     );
     expect(await db.select().from(cardActivities)).toEqual([]);
   });
+
+  it("updates every card lifecycle transactionally when a non-empty list changes status", async () => {
+    await expect(
+      listRepo.update(
+        db,
+        { status: "inProgress" },
+        { listPublicId: seeded.firstSourceList.publicId },
+      ),
+    ).rejects.toBeInstanceOf(
+      listRepo.ListStatusChangeConfirmationRequiredError,
+    );
+
+    const [unchangedCard] = await db
+      .select({ startedAt: cards.startedAt })
+      .from(cards)
+      .where(eq(cards.id, seeded.firstSourceCard.id));
+    expect(unchangedCard?.startedAt).toBeNull();
+
+    await listRepo.update(
+      db,
+      { status: "inProgress", confirmCardLifecycleUpdate: true },
+      { listPublicId: seeded.firstSourceList.publicId },
+    );
+    const [startedCard] = await db
+      .select({ startedAt: cards.startedAt, completedAt: cards.completedAt })
+      .from(cards)
+      .where(eq(cards.id, seeded.firstSourceCard.id));
+    expect(startedCard?.startedAt).toBeInstanceOf(Date);
+    expect(startedCard?.completedAt).toBeNull();
+
+    await listRepo.update(
+      db,
+      { status: "blocked", confirmCardLifecycleUpdate: true },
+      { listPublicId: seeded.firstSourceList.publicId },
+    );
+    const [blockedCard] = await db
+      .select({ startedAt: cards.startedAt, completedAt: cards.completedAt })
+      .from(cards)
+      .where(eq(cards.id, seeded.firstSourceCard.id));
+    expect(blockedCard?.startedAt).toEqual(startedCard?.startedAt);
+    expect(blockedCard?.completedAt).toBeNull();
+
+    await listRepo.update(
+      db,
+      { status: "done", confirmCardLifecycleUpdate: true },
+      { listPublicId: seeded.firstSourceList.publicId },
+    );
+    const [completedCard] = await db
+      .select({ startedAt: cards.startedAt, completedAt: cards.completedAt })
+      .from(cards)
+      .where(eq(cards.id, seeded.firstSourceCard.id));
+    expect(completedCard?.startedAt).toEqual(startedCard?.startedAt);
+    expect(completedCard?.completedAt).toBeInstanceOf(Date);
+
+    await listRepo.update(
+      db,
+      { status: "planned", confirmCardLifecycleUpdate: true },
+      { listPublicId: seeded.firstSourceList.publicId },
+    );
+    const [reopenedCard] = await db
+      .select({ startedAt: cards.startedAt, completedAt: cards.completedAt })
+      .from(cards)
+      .where(eq(cards.id, seeded.firstSourceCard.id));
+    expect(reopenedCard).toEqual({
+      startedAt: startedCard?.startedAt,
+      completedAt: null,
+    });
+  });
+
+  it("keeps lifecycle and indices consistent when a move races a list status change", async () => {
+    await Promise.all([
+      cardMoveRepo.moveMany(db, {
+        cardIds: [seeded.firstCard.id],
+        destinationListId: seeded.destinationList.id,
+        createdBy: seeded.user.id,
+      }),
+      listRepo.update(
+        db,
+        { status: "done", confirmCardLifecycleUpdate: true },
+        { listPublicId: seeded.destinationList.publicId },
+      ),
+    ]);
+
+    const [destination] = await db
+      .select({ status: lists.status })
+      .from(lists)
+      .where(eq(lists.id, seeded.destinationList.id));
+    const destinationCards = await db
+      .select({
+        publicId: cards.publicId,
+        index: cards.index,
+        completedAt: cards.completedAt,
+      })
+      .from(cards)
+      .where(eq(cards.listId, seeded.destinationList.id))
+      .orderBy(asc(cards.index));
+
+    expect(destination?.status).toBe("done");
+    expect(destinationCards.map((card) => card.index)).toEqual([0, 1]);
+    expect(destinationCards.map((card) => card.publicId)).toContain(
+      seeded.firstCard.publicId,
+    );
+    expect(
+      destinationCards.every((card) => card.completedAt instanceof Date),
+    ).toBe(true);
+  });
 });
 
 async function seedMoveData(db: TestDbClient) {
@@ -189,6 +320,7 @@ async function seedMoveData(db: TestDbClient) {
         index: 0,
         boardId: sourceBoard.id,
         createdBy: user.id,
+        status: "planned",
       },
       {
         publicId: "listSource02",
@@ -196,6 +328,7 @@ async function seedMoveData(db: TestDbClient) {
         index: 1,
         boardId: sourceBoard.id,
         createdBy: user.id,
+        status: "inProgress",
       },
       {
         publicId: "listTarget01",
@@ -203,6 +336,7 @@ async function seedMoveData(db: TestDbClient) {
         index: 0,
         boardId: destinationBoard.id,
         createdBy: user.id,
+        status: "blocked",
       },
     ])
     .returning();
@@ -226,6 +360,10 @@ async function seedMoveData(db: TestDbClient) {
         index: 0,
         listId: firstSourceList.id,
         createdBy: user.id,
+        dueDate: new Date("2026-08-22T12:00:00.000Z"),
+        priority: "urgent",
+        colourCode: "#dc2626",
+        startedAt: new Date("2026-08-19T09:00:00.000Z"),
       },
       {
         publicId: "cardStay0001",
@@ -240,6 +378,10 @@ async function seedMoveData(db: TestDbClient) {
         index: 0,
         listId: secondSourceList.id,
         createdBy: user.id,
+        dueDate: new Date("2026-08-23T15:30:00.000Z"),
+        priority: "high",
+        colourCode: "#ea580c",
+        startedAt: new Date("2026-08-20T08:00:00.000Z"),
       },
       {
         publicId: "cardStay0002",
@@ -310,6 +452,9 @@ async function seedMoveData(db: TestDbClient) {
 
   return {
     user,
+    workspace,
+    sourceBoard,
+    destinationBoard,
     firstSourceList,
     secondSourceList,
     destinationList,
@@ -318,6 +463,7 @@ async function seedMoveData(db: TestDbClient) {
     secondCard,
     secondSourceCard,
     destinationCard,
+    label,
     selectedCardIds: [firstCard.id, secondCard.id],
   };
 }

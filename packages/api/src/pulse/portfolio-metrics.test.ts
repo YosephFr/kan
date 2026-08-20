@@ -32,12 +32,48 @@ const source = {
     { id: 20, publicId: "board654321", name: "Operación", workspaceId: 2 },
   ],
   lists: [
-    { id: 100, publicId: "planned12345", name: "Por hacer", boardId: 10 },
-    { id: 101, publicId: "progress1234", name: "En curso", boardId: 10 },
-    { id: 102, publicId: "done12345678", name: "Listo", boardId: 10 },
-    { id: 200, publicId: "planned54321", name: "Pendiente", boardId: 20 },
-    { id: 201, publicId: "progress5432", name: "En curso", boardId: 20 },
-    { id: 202, publicId: "done87654321", name: "Hecho", boardId: 20 },
+    {
+      id: 100,
+      publicId: "planned12345",
+      name: "Por hacer",
+      boardId: 10,
+      status: "planned",
+    },
+    {
+      id: 101,
+      publicId: "progress1234",
+      name: "En curso",
+      boardId: 10,
+      status: "inProgress",
+    },
+    {
+      id: 102,
+      publicId: "done12345678",
+      name: "Listo",
+      boardId: 10,
+      status: "done",
+    },
+    {
+      id: 200,
+      publicId: "planned54321",
+      name: "Pendiente",
+      boardId: 20,
+      status: "planned",
+    },
+    {
+      id: 201,
+      publicId: "progress5432",
+      name: "En curso",
+      boardId: 20,
+      status: "inProgress",
+    },
+    {
+      id: 202,
+      publicId: "done87654321",
+      name: "Hecho",
+      boardId: 20,
+      status: "done",
+    },
   ],
   cards: [
     {
@@ -48,6 +84,9 @@ const source = {
       listId: 101,
       createdAt: new Date("2026-07-20T12:00:00.000Z"),
       dueDate: null,
+      priority: "urgent",
+      startedAt: new Date("2026-07-30T12:00:00.000Z"),
+      completedAt: null,
     },
     {
       id: 1001,
@@ -57,6 +96,9 @@ const source = {
       listId: 102,
       createdAt: new Date("2026-07-20T12:00:00.000Z"),
       dueDate: null,
+      priority: "none",
+      startedAt: new Date("2026-07-20T12:00:00.000Z"),
+      completedAt: new Date("2026-07-29T12:00:00.000Z"),
     },
     {
       id: 1002,
@@ -66,6 +108,9 @@ const source = {
       listId: 100,
       createdAt: new Date("2026-07-01T12:00:00.000Z"),
       dueDate: null,
+      priority: "none",
+      startedAt: null,
+      completedAt: null,
     },
     {
       id: 2000,
@@ -75,6 +120,9 @@ const source = {
       listId: 202,
       createdAt: new Date("2026-07-01T12:00:00.000Z"),
       dueDate: null,
+      priority: "none",
+      startedAt: new Date("2026-07-01T12:00:00.000Z"),
+      completedAt: new Date("2026-07-10T12:00:00.000Z"),
     },
     {
       id: 2001,
@@ -83,7 +131,10 @@ const source = {
       cardNumber: 2,
       listId: 201,
       createdAt: new Date("2026-07-01T12:00:00.000Z"),
-      dueDate: null,
+      dueDate: new Date("2026-07-30T12:00:00.000Z"),
+      priority: "high",
+      startedAt: new Date("2026-07-01T12:00:00.000Z"),
+      completedAt: null,
     },
   ],
   activities: [
@@ -229,6 +280,28 @@ describe("buildPortfolioSummary", () => {
         ],
       }),
     ]);
+    expect(result.attention).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          cardPublicId: "card10000000",
+          workspacePublicId: "workspace1234",
+          reasons: ["urgent"],
+          cardPriority: "urgent",
+        }),
+        expect.objectContaining({
+          cardPublicId: "card20100000",
+          workspacePublicId: "workspace5678",
+          reasons: ["overdue", "stalled"],
+          cardPriority: "high",
+        }),
+        expect.objectContaining({
+          cardPublicId: "card10200000",
+          workspacePublicId: "workspace1234",
+          reasons: ["stalled"],
+          cardPriority: "none",
+        }),
+      ]),
+    );
     expect(result.coverage).toEqual({
       cards: 5,
       cardsWithTransitions: 4,
@@ -246,6 +319,30 @@ describe("buildPortfolioSummary", () => {
     expect(
       result.team.find((member) => member.name === "Christan")?.totalAdvanced,
     ).toBe(2);
+  });
+
+  it("does not mark a newly started old card as stalled", () => {
+    const result = buildPortfolioSummary(
+      {
+        ...source,
+        activities: source.activities.map((activity) =>
+          activity.cardId === 1000
+            ? {
+                ...activity,
+                createdAt: new Date("2026-07-20T12:00:00.000Z"),
+              }
+            : activity,
+        ),
+      } as PortfolioSource,
+      "week",
+      now,
+    );
+
+    expect(result.totals.stalled).toBe(2);
+    expect(
+      result.attention.find((item) => item.cardPublicId === "card10000000")
+        ?.reasons,
+    ).toEqual(["urgent"]);
   });
 });
 

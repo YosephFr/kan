@@ -110,6 +110,9 @@ export function registerBoardTools(server: McpServer): void {
           ]),
         )
         .optional(),
+      priorities: z
+        .array(z.enum(["none", "low", "medium", "high", "urgent"]))
+        .optional(),
       type: z.enum(["regular", "template"]).optional(),
     },
     async ({
@@ -119,6 +122,7 @@ export function registerBoardTools(server: McpServer): void {
       listPublicIds,
       dueDateFilters,
       type,
+      priorities,
     }) => {
       const params = new URLSearchParams();
       labelPublicIds?.forEach((value) => params.append("labels", value));
@@ -127,6 +131,7 @@ export function registerBoardTools(server: McpServer): void {
       dueDateFilters?.forEach((value) =>
         params.append("dueDateFilters", value),
       );
+      priorities?.forEach((value) => params.append("priorities", value));
       if (type) params.set("type", type);
       const qs = params.toString() ? `?${params.toString()}` : "";
       const data = await kanRequest("GET", `/boards/${boardPublicId}${qs}`);
@@ -157,6 +162,9 @@ export function registerBoardTools(server: McpServer): void {
           ]),
         )
         .optional(),
+      priorities: z
+        .array(z.enum(["none", "low", "medium", "high", "urgent"]))
+        .optional(),
     },
     async ({
       workspaceSlug,
@@ -165,6 +173,7 @@ export function registerBoardTools(server: McpServer): void {
       memberPublicIds,
       listPublicIds,
       dueDateFilters,
+      priorities,
     }) => {
       const params = new URLSearchParams();
       labelPublicIds?.forEach((value) => params.append("labels", value));
@@ -173,6 +182,7 @@ export function registerBoardTools(server: McpServer): void {
       dueDateFilters?.forEach((value) =>
         params.append("dueDateFilters", value),
       );
+      priorities?.forEach((value) => params.append("priorities", value));
       const query = params.size ? `?${params.toString()}` : "";
       const data = await kanRequest(
         "GET",

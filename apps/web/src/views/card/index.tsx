@@ -9,6 +9,7 @@ import { IoChevronForwardSharp } from "react-icons/io5";
 import { authClient } from "@kan/auth/client";
 
 import Avatar from "~/components/Avatar";
+import CardProgressBars from "~/components/CardProgressBars";
 import Editor from "~/components/Editor";
 import FeedbackModal from "~/components/FeedbackModal";
 import { LabelForm } from "~/components/LabelForm";
@@ -27,6 +28,10 @@ import { DeleteLabelConfirmation } from "../../components/DeleteLabelConfirmatio
 import ActivityList from "./components/ActivityList";
 import { AttachmentThumbnails } from "./components/AttachmentThumbnails";
 import { AttachmentUpload } from "./components/AttachmentUpload";
+import {
+  CardColourSelector,
+  CardPrioritySelector,
+} from "./components/CardFieldSelectors";
 import Checklists from "./components/Checklists";
 import { DeleteCardConfirmation } from "./components/DeleteCardConfirmation";
 import { DeleteChecklistConfirmation } from "./components/DeleteChecklistConfirmation";
@@ -118,7 +123,7 @@ export function CardRightPanel({ isTemplate }: { isTemplate?: boolean }) {
     }) ?? [];
 
   return (
-    <div className="h-full w-[360px] border-l-[1px] border-light-300 bg-light-50 p-8 text-light-900 dark:border-dark-300 dark:bg-dark-50 dark:text-dark-900">
+    <div className="h-full w-full border-l-[1px] border-light-300 bg-light-50 p-4 text-light-900 dark:border-dark-300 dark:bg-dark-50 dark:text-dark-900 sm:p-8 md:w-[360px]">
       <div className="mb-4 flex w-full flex-row pt-[18px]">
         <p className="my-2 mb-2 w-[100px] text-sm font-medium">{t`List`}</p>
         <ListSelector
@@ -149,14 +154,48 @@ export function CardRightPanel({ isTemplate }: { isTemplate?: boolean }) {
         </div>
       )}
       <div className="mb-4 flex w-full flex-row">
-        <p className="my-2 mb-2 w-[100px] text-sm font-medium">{t`Due date`}</p>
-        <DueDateSelector
+        <p className="my-2 mb-2 w-[100px] shrink-0 text-sm font-medium">
+          {t`Priority`}
+        </p>
+        <CardPrioritySelector
           cardPublicId={cardId ?? ""}
-          dueDate={card?.dueDate}
-          isLoading={!card}
-          disabled={!canEdit}
+          priority={card?.priority}
+          disabled={!canEdit || !card}
         />
       </div>
+      <div className="mb-4 flex w-full flex-row">
+        <p className="my-2 mb-2 w-[100px] shrink-0 text-sm font-medium">
+          {t`Colour`}
+        </p>
+        <CardColourSelector
+          cardPublicId={cardId ?? ""}
+          colourCode={card?.colourCode}
+          disabled={!canEdit || !card}
+        />
+      </div>
+      {!isTemplate && (
+        <div className="mb-4 flex w-full flex-row">
+          <p className="my-2 mb-2 w-[100px] shrink-0 text-sm font-medium">
+            {t`Due date`}
+          </p>
+          <DueDateSelector
+            cardPublicId={cardId ?? ""}
+            dueDate={card?.dueDate}
+            isLoading={!card}
+            disabled={!canEdit}
+          />
+        </div>
+      )}
+      {!isTemplate && card && (
+        <div className="mt-6 border-t border-light-300 pt-4 dark:border-dark-400">
+          <CardProgressBars
+            checklists={card.checklists}
+            startedAt={card.startedAt}
+            dueDate={card.dueDate}
+            completedAt={card.completedAt}
+          />
+        </div>
+      )}
     </div>
   );
 }

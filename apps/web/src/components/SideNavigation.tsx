@@ -30,6 +30,7 @@ import templatesIconLight from "~/assets/templates-light.json";
 import BoardsNavigation from "~/components/BoardsNavigation";
 import { BrandMark } from "~/components/BrandMark";
 import ButtonComponent from "~/components/Button";
+import { NotificationCenter } from "~/components/NotificationCenter";
 import ReactiveButton from "~/components/ReactiveButton";
 import UserMenu from "~/components/UserMenu";
 import WorkspaceMenu from "~/components/WorkspaceMenu";
@@ -265,6 +266,9 @@ export default function SideNavigation({
         </div>
 
         <div className="flex-shrink-0 space-y-2">
+          <div className="hidden md:block">
+            <NotificationCenter placement="sidebar" isCollapsed={isCollapsed} />
+          </div>
           <UserMenu
             displayName={user.displayName ?? undefined}
             email={user.email ?? "Email not provided?"}

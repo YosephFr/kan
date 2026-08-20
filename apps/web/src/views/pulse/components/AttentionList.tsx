@@ -1,33 +1,91 @@
 import Link from "next/link";
 import { t } from "@lingui/core/macro";
-import { HiChevronRight } from "react-icons/hi2";
+import {
+  HiChevronRight,
+  HiExclamationTriangle,
+  HiOutlineClock,
+  HiOutlinePauseCircle,
+  HiOutlineUserCircle,
+} from "react-icons/hi2";
 
 import type { RouterOutputs } from "~/utils/api";
 
 type Attention = RouterOutputs["pulse"]["summary"]["attention"];
-type Reason = Attention[number]["reasons"][number];
+export type AttentionReason = Attention[number]["reasons"][number];
 
 interface AttentionListProps {
   attention: Attention;
   cardPrefix: string;
 }
 
-const reasonLabel = (reason: Reason) => {
-  const labels: Record<Reason, string> = {
-    blocked: t`Blocked`,
-    overdue: t`Overdue`,
-    stalled: t`Without movement`,
-    unassigned: t`Unassigned`,
+const reasonPresentation = (reason: AttentionReason) => {
+  const presentations: Record<
+    AttentionReason,
+    {
+      label: string;
+      className: string;
+      icon: typeof HiExclamationTriangle;
+    }
+  > = {
+    urgent: {
+      label: t`Urgent priority`,
+      className: "text-red-700 dark:text-red-400",
+      icon: HiExclamationTriangle,
+    },
+    blocked: {
+      label: t`Blocked`,
+      className: "text-red-700 dark:text-red-400",
+      icon: HiOutlinePauseCircle,
+    },
+    overdue: {
+      label: t`Overdue`,
+      className: "text-red-700 dark:text-red-400",
+      icon: HiOutlineClock,
+    },
+    stalled: {
+      label: t`Without movement`,
+      className: "text-amber-700 dark:text-amber-400",
+      icon: HiOutlinePauseCircle,
+    },
+    unassigned: {
+      label: t`Unassigned`,
+      className: "text-light-800 dark:text-dark-800",
+      icon: HiOutlineUserCircle,
+    },
   };
-  return labels[reason];
+  return presentations[reason];
 };
 
-const reasonClass: Record<Reason, string> = {
-  blocked: "text-red-700 dark:text-red-400",
-  overdue: "text-red-700 dark:text-red-400",
-  stalled: "text-amber-700 dark:text-amber-400",
-  unassigned: "text-light-800 dark:text-dark-800",
-};
+export function AttentionReasons({
+  reasons,
+  inactiveDays,
+}: {
+  reasons: AttentionReason[];
+  inactiveDays: number;
+}) {
+  return (
+    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+      {reasons.map((reason) => {
+        const presentation = reasonPresentation(reason);
+        const Icon = presentation.icon;
+        return (
+          <span
+            key={reason}
+            className={`inline-flex items-center gap-1 ${presentation.className}`}
+          >
+            <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+            {presentation.label}
+          </span>
+        );
+      })}
+      <span className="text-light-700 dark:text-dark-700">
+        {inactiveDays === 1
+          ? t`1 day in this stage`
+          : t`${inactiveDays} days in this stage`}
+      </span>
+    </div>
+  );
+}
 
 export function AttentionList({ attention, cardPrefix }: AttentionListProps) {
   return (
@@ -47,7 +105,7 @@ export function AttentionList({ attention, cardPrefix }: AttentionListProps) {
             {t`No immediate flow risks`}
           </p>
           <p className="mt-1 text-xs text-light-800 dark:text-dark-800">
-            {t`There are no blocked, overdue, stalled, or unassigned open cards.`}
+            {t`There are no urgent, blocked, overdue, stalled, or unassigned open cards.`}
           </p>
         </div>
       ) : (
@@ -72,18 +130,10 @@ export function AttentionList({ attention, cardPrefix }: AttentionListProps) {
                   <p className="mt-1 truncate text-xs text-light-800 dark:text-dark-800">
                     {card.boardName} · {card.listName}
                   </p>
-                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
-                    {card.reasons.map((reason) => (
-                      <span key={reason} className={reasonClass[reason]}>
-                        {reasonLabel(reason)}
-                      </span>
-                    ))}
-                    <span className="text-light-700 dark:text-dark-700">
-                      {card.inactiveDays === 1
-                        ? t`1 day in this stage`
-                        : t`${card.inactiveDays} days in this stage`}
-                    </span>
-                  </div>
+                  <AttentionReasons
+                    reasons={card.reasons}
+                    inactiveDays={card.inactiveDays}
+                  />
                 </div>
                 <HiChevronRight className="h-4 w-4 shrink-0 text-light-700 transition-transform group-hover:translate-x-0.5 dark:text-dark-700" />
               </Link>

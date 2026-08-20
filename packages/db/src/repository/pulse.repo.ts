@@ -85,6 +85,7 @@ export const getSourceByWorkspaceId = async (
       publicId: lists.publicId,
       name: lists.name,
       boardId: lists.boardId,
+      status: lists.status,
     })
     .from(lists)
     .where(
@@ -120,6 +121,9 @@ export const getSourceByWorkspaceId = async (
       listId: cards.listId,
       createdAt: cards.createdAt,
       dueDate: cards.dueDate,
+      priority: cards.priority,
+      startedAt: cards.startedAt,
+      completedAt: cards.completedAt,
     })
     .from(cards)
     .where(
@@ -309,6 +313,7 @@ export const getPortfolioSourceByUserId = async (
       publicId: lists.publicId,
       name: lists.name,
       boardId: lists.boardId,
+      status: lists.status,
     })
     .from(lists)
     .where(
@@ -343,6 +348,9 @@ export const getPortfolioSourceByUserId = async (
       listId: cards.listId,
       createdAt: cards.createdAt,
       dueDate: cards.dueDate,
+      priority: cards.priority,
+      startedAt: cards.startedAt,
+      completedAt: cards.completedAt,
     })
     .from(cards)
     .where(
