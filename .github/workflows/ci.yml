@@ -64,6 +64,9 @@ jobs:
           pnpm --filter @kan/web lingui:compile
           git diff --exit-code -- apps/web/src/locales
 
+      - name: Build type dependencies for lint
+        run: pnpm exec turbo run build --filter='@kan/email'
+
       - name: Lint changed source files
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
