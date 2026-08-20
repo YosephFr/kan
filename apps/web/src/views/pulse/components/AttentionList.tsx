@@ -81,7 +81,7 @@ export function AttentionReasons({
       <span className="text-light-700 dark:text-dark-700">
         {inactiveDays === 1
           ? t`1 day in this stage`
-          : t`${inactiveDays} days in this stage`}
+          : `${inactiveDays} ${t`days in this stage`}`}
       </span>
     </div>
   );

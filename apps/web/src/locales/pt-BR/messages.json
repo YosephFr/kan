@@ -1,4 +1,11 @@
 {
+  "/+mqQP": {
+    "message": "days in this stage",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/pulse/components/AttentionList.tsx", 84]],
+    "translation": ""
+  },
   "X0N0PA": {
     "message": " (edited)",
     "placeholders": {},
