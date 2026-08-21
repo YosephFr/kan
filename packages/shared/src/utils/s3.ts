@@ -1,11 +1,16 @@
+import { createHash } from "node:crypto";
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "next-runtime-env";
+
+import { ATTACHMENT_SNIFF_BYTES } from "./attachments";
 
 export function resolveS3Endpoint(usePublicEndpoint = false): string {
   const internalEndpoint = process.env.S3_ENDPOINT ?? "";
@@ -42,6 +47,7 @@ export async function generateUploadUrl(
   bucket: string,
   key: string,
   contentType: string,
+  contentLength: number,
   expiresIn = 3600,
 ) {
   const client = createS3Client(true);
@@ -51,6 +57,7 @@ export async function generateUploadUrl(
       Bucket: bucket,
       Key: key,
       ContentType: contentType,
+      ContentLength: contentLength,
       // Don't set ACL for private files
     }),
     { expiresIn },
@@ -79,6 +86,107 @@ export async function deleteObject(bucket: string, key: string) {
     new DeleteObjectCommand({
       Bucket: bucket,
       Key: key,
+    }),
+  );
+}
+
+export function attachmentContentDisposition(
+  disposition: "attachment" | "inline",
+  filename: string,
+): string {
+  const fallback = filename
+    .replace(/[^\x20-\x7e]/g, "_")
+    .replace(/["\\]/g, "_");
+  const encoded = encodeURIComponent(filename).replace(
+    /['()*]/g,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `${disposition}; filename="${fallback}"; filename*=UTF-8''${encoded}`;
+}
+
+export async function getAttachmentObject(input: {
+  bucket: string;
+  key: string;
+  range?: string;
+}) {
+  const client = createS3Client();
+  return client.send(
+    new GetObjectCommand({
+      Bucket: input.bucket,
+      Key: input.key,
+      Range: input.range,
+    }),
+  );
+}
+
+export async function inspectObject(bucket: string, key: string) {
+  const client = createS3Client();
+  const head = await client.send(
+    new HeadObjectCommand({ Bucket: bucket, Key: key }),
+  );
+  if (!head.ETag) throw new Error("Attachment object ETag is missing");
+  const object = await client.send(
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      IfMatch: head.ETag,
+    }),
+  );
+
+  if (!object.Body) throw new Error("Attachment object body is missing");
+
+  const hash = createHash("sha256");
+  const prefix: number[] = [];
+  for await (const value of object.Body as AsyncIterable<Uint8Array>) {
+    const chunk = value instanceof Uint8Array ? value : new Uint8Array(value);
+    hash.update(chunk);
+    for (const byte of chunk) {
+      if (prefix.length >= ATTACHMENT_SNIFF_BYTES) break;
+      prefix.push(byte);
+    }
+  }
+
+  return {
+    contentType: head.ContentType ?? "",
+    etag: head.ETag,
+    prefix: new Uint8Array(prefix),
+    sha256: hash.digest("hex"),
+    size: head.ContentLength,
+  };
+}
+
+export async function getObjectPrefix(
+  bucket: string,
+  key: string,
+): Promise<Uint8Array> {
+  const client = createS3Client();
+  const object = await client.send(
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Range: `bytes=0-${ATTACHMENT_SNIFF_BYTES - 1}`,
+    }),
+  );
+  if (!object.Body) return new Uint8Array();
+  return object.Body.transformToByteArray();
+}
+
+export async function copyObject(input: {
+  bucket: string;
+  sourceKey: string;
+  destinationKey: string;
+  sourceEtag: string;
+  contentType: string;
+}) {
+  const client = createS3Client();
+  await client.send(
+    new CopyObjectCommand({
+      Bucket: input.bucket,
+      Key: input.destinationKey,
+      CopySource: `${input.bucket}/${input.sourceKey}`,
+      CopySourceIfMatch: input.sourceEtag,
+      ContentType: input.contentType,
+      MetadataDirective: "REPLACE",
     }),
   );
 }
@@ -134,31 +242,6 @@ export async function generateWorkspaceLogoUrl(
   try {
     return await generateDownloadUrl(bucket, imageKey, expiresIn);
   } catch {
-    return null;
-  }
-}
-
-/**
- * Generate presigned URL for an attachment
- * Returns null if attachment key is missing, bucket is not configured, or URL generation fails
- */
-export async function generateAttachmentUrl(
-  attachmentKey: string | null | undefined,
-  expiresIn = 86400, // 24 hours
-): Promise<string | null> {
-  if (!attachmentKey) {
-    return null;
-  }
-
-  const bucket = env("NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME");
-  if (!bucket) {
-    return null;
-  }
-
-  try {
-    return await generateDownloadUrl(bucket, attachmentKey, expiresIn);
-  } catch {
-    // If URL generation fails, return null
     return null;
   }
 }

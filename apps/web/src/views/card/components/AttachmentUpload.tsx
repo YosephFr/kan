@@ -1,5 +1,4 @@
 import { t } from "@lingui/core/macro";
-import { env } from "next-runtime-env";
 import { useRef, useState } from "react";
 import { HiOutlinePaperClip } from "react-icons/hi";
 import { HiCheckBadge } from "react-icons/hi2";
@@ -10,6 +9,10 @@ import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
 import { invalidateCard } from "~/utils/cardInvalidation";
+import {
+  AttachmentValidationError,
+  prepareAttachmentUpload,
+} from "./attachment-upload";
 
 export function AttachmentUpload({ cardPublicId }: { cardPublicId: string }) {
   const { openModal } = useModal();
@@ -18,27 +21,32 @@ export function AttachmentUpload({ cardPublicId }: { cardPublicId: string }) {
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const createUploadSession = api.attachment.generateUploadUrl.useMutation();
+  const confirmUpload = api.attachment.confirm.useMutation();
 
   const uploadFile = async (file: File) => {
     setUploading(true);
 
     try {
-      const baseUrl = env("NEXT_PUBLIC_BASE_URL") ?? "";
-      const response = await fetch(
-        `${baseUrl}/api/upload/attachment?cardPublicId=${encodeURIComponent(cardPublicId)}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": file.type,
-            "x-original-filename": encodeURIComponent(file.name),
-          },
-          body: file,
-        },
+      const { contentType, uploadSession } = await prepareAttachmentUpload(
+        file,
+        cardPublicId,
+        (input) => createUploadSession.mutateAsync(input),
       );
+      const response = await fetch(uploadSession.url, {
+        method: "PUT",
+        headers: { "Content-Type": contentType },
+        body: file,
+      });
 
       if (!response.ok) {
         throw new Error("Upload failed");
       }
+
+      await confirmUpload.mutateAsync({
+        cardPublicId,
+        uploadSessionPublicId: uploadSession.uploadSessionPublicId,
+      });
 
       await invalidateCard(utils, cardPublicId);
       showPopup({
@@ -46,12 +54,18 @@ export function AttachmentUpload({ cardPublicId }: { cardPublicId: string }) {
         message: t`Your file has been uploaded successfully.`,
         icon: "success",
       });
-    } catch {
+    } catch (error) {
       showPopup({
         header: t`Upload failed`,
-        message: t`Failed to upload attachment. Please try again.`,
+        message:
+          error instanceof AttachmentValidationError
+            ? error.code === "unsupported"
+              ? t`This file type is not supported.`
+              : t`Attachments must be between 1 byte and 50 MiB.`
+            : t`Failed to upload attachment. Please try again.`,
         icon: "error",
       });
+    } finally {
       setUploading(false);
     }
   };
@@ -62,7 +76,6 @@ export function AttachmentUpload({ cardPublicId }: { cardPublicId: string }) {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Reset input
     event.target.value = "";
 
     await uploadFile(file);
@@ -89,11 +102,10 @@ export function AttachmentUpload({ cardPublicId }: { cardPublicId: string }) {
 
     if (uploading) return;
 
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length === 0) return;
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
 
-    // Upload the first file (or could upload all files)
-    await uploadFile(files[0] ?? new File([], ""));
+    await uploadFile(file);
   };
 
   return (
@@ -126,6 +138,7 @@ export function AttachmentUpload({ cardPublicId }: { cardPublicId: string }) {
             }
             iconOnly
             size="sm"
+            aria-label={t`Add checklist`}
             onClick={() => openModal("ADD_CHECKLIST")}
           />
           <Button
@@ -138,6 +151,7 @@ export function AttachmentUpload({ cardPublicId }: { cardPublicId: string }) {
             disabled={uploading}
             iconOnly
             size="sm"
+            aria-label={t`Upload attachment`}
             onClick={() => inputRef.current?.click()}
           />
         </div>

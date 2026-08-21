@@ -11,7 +11,10 @@ import * as notificationRepo from "@kan/db/repository/notification.repo";
 import * as workspaceRepo from "@kan/db/repository/workspace.repo";
 import { cardPriorities } from "@kan/db/schema";
 import { colours } from "@kan/shared/constants";
-import { generateAttachmentUrl, generateAvatarUrl } from "@kan/shared/utils";
+import {
+  generateAvatarUrl,
+  isInlineAttachmentContentType,
+} from "@kan/shared/utils";
 
 import {
   activityItemSchema,
@@ -747,20 +750,16 @@ export const cardRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      // Generate URLs for all attachments
-      const attachmentsWithUrls = await Promise.all(
-        result.attachments.map(async (attachment) => {
-          const url = await generateAttachmentUrl(attachment.s3Key);
-          return {
-            publicId: attachment.publicId,
-            contentType: attachment.contentType,
-            s3Key: attachment.s3Key,
-            originalFilename: attachment.originalFilename,
-            size: attachment.size,
-            url,
-          };
-        }),
-      );
+      const attachmentsWithUrls = result.attachments.map((attachment) => ({
+        publicId: attachment.publicId,
+        contentType: attachment.contentType,
+        originalFilename: attachment.originalFilename,
+        size: attachment.size,
+        viewUrl: isInlineAttachmentContentType(attachment.contentType)
+          ? `/api/attachments/${attachment.publicId}/view`
+          : null,
+        downloadUrl: `/api/attachments/${attachment.publicId}/download`,
+      }));
 
       // Generate presigned URLs for workspace member avatars
       const workspaceWithAvatarUrls = {

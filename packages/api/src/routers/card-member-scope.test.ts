@@ -33,6 +33,7 @@ vi.mock("@kan/db/repository/workspace.repo", () => ({
 vi.mock("@kan/shared/utils", () => ({
   generateAttachmentUrl: vi.fn(),
   generateAvatarUrl: vi.fn(),
+  isInlineAttachmentContentType: vi.fn(),
 }));
 vi.mock("../utils/activities", () => ({ mergeActivities: vi.fn() }));
 vi.mock("../utils/notifications", () => ({ sendMentionEmails: vi.fn() }));

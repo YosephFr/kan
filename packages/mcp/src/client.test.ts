@@ -162,7 +162,7 @@ describe("putBinary", () => {
 
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       method: "PUT",
-      headers: { "Content-Type": "text/plain" },
+      headers: { "Content-Length": "7", "Content-Type": "text/plain" },
     });
     const request = fetchMock.mock.calls[0] as unknown as
       | [string, RequestInit]

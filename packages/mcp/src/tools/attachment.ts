@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { basename, extname } from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -10,37 +11,30 @@ const MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024;
 
 const contentTypes: Record<string, string> = {
   ".csv": "text/csv",
+  ".doc": "application/msword",
   ".docx":
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ".gif": "image/gif",
   ".jpeg": "image/jpeg",
   ".jpg": "image/jpeg",
-  ".json": "application/json",
-  ".m4a": "audio/mp4",
-  ".md": "text/markdown",
-  ".mov": "video/quicktime",
-  ".mp3": "audio/mpeg",
-  ".mp4": "video/mp4",
   ".pdf": "application/pdf",
   ".png": "image/png",
+  ".ppt": "application/vnd.ms-powerpoint",
   ".pptx":
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".rtf": "application/rtf",
   ".txt": "text/plain",
-  ".wav": "audio/wav",
-  ".webm": "video/webm",
   ".webp": "image/webp",
+  ".xls": "application/vnd.ms-excel",
   ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  ".zip": "application/zip",
 };
+
+const allowedContentTypes = new Set(Object.values(contentTypes));
 
 function inferContentType(filePath: string): string {
   return (
     contentTypes[extname(filePath).toLowerCase()] ?? "application/octet-stream"
   );
-}
-
-function sanitizedFilename(filename: string): string {
-  return filename.replace(/[^a-zA-Z0-9._-]/g, "_").substring(0, 200);
 }
 
 export function registerAttachmentTools(server: McpServer): void {
@@ -50,24 +44,25 @@ export function registerAttachmentTools(server: McpServer): void {
       description:
         "Generate a one-hour presigned upload URL for a card attachment.",
       inputSchema: {
-        cardPublicId: z.string().min(12),
+        cardPublicId: z.string().length(12),
         filename: z.string().min(1).max(255),
         contentType: z.string().min(1),
         size: z.number().int().positive().max(MAX_ATTACHMENT_SIZE),
+        sha256: z.string().regex(/^[a-f0-9]{64}$/i),
       },
       annotations: {
-        readOnlyHint: true,
+        readOnlyHint: false,
         destructiveHint: false,
         idempotentHint: false,
         openWorldHint: true,
       },
     },
-    async ({ cardPublicId, filename, contentType, size }) =>
+    async ({ cardPublicId, filename, contentType, size, sha256 }) =>
       jsonResult(
         await kanRequest(
           "POST",
           `/cards/${cardPublicId}/attachments/upload-url`,
-          { filename, contentType, size },
+          { filename, contentType, size, sha256 },
         ),
       ),
   );
@@ -78,12 +73,8 @@ export function registerAttachmentTools(server: McpServer): void {
       description:
         "Confirm a completed object upload and create its card attachment record.",
       inputSchema: {
-        cardPublicId: z.string().min(12),
-        s3Key: z.string().min(1),
-        filename: z.string().min(1),
-        originalFilename: z.string().min(1),
-        contentType: z.string().min(1),
-        size: z.number().int().positive().max(MAX_ATTACHMENT_SIZE),
+        cardPublicId: z.string().length(12),
+        uploadSessionPublicId: z.string().length(12),
       },
       annotations: {
         readOnlyHint: false,
@@ -92,21 +83,10 @@ export function registerAttachmentTools(server: McpServer): void {
         openWorldHint: false,
       },
     },
-    async ({
-      cardPublicId,
-      s3Key,
-      filename,
-      originalFilename,
-      contentType,
-      size,
-    }) =>
+    async ({ cardPublicId, uploadSessionPublicId }) =>
       jsonResult(
         await kanRequest("POST", `/cards/${cardPublicId}/attachments/confirm`, {
-          s3Key,
-          filename,
-          originalFilename,
-          contentType,
-          size,
+          uploadSessionPublicId,
         }),
       ),
   );
@@ -117,7 +97,7 @@ export function registerAttachmentTools(server: McpServer): void {
       description:
         "Upload one explicitly supplied local file to a card, then confirm the attachment in Kan. The path must identify a regular file no larger than 50 MiB.",
       inputSchema: {
-        cardPublicId: z.string().min(12),
+        cardPublicId: z.string().length(12),
         filePath: z.string().min(1),
         filename: z.string().min(1).max(255).optional(),
         contentType: z.string().min(1).optional(),
@@ -139,31 +119,35 @@ export function registerAttachmentTools(server: McpServer): void {
       }
 
       const originalFilename = filename ?? basename(filePath);
-      const resolvedContentType =
-        contentType ?? inferContentType(originalFilename);
-      const upload = await kanRequest<{ url: string; key: string }>(
-        "POST",
-        `/cards/${cardPublicId}/attachments/upload-url`,
-        {
-          filename: originalFilename,
-          contentType: resolvedContentType,
-          size: fileStat.size,
-        },
-      );
+      const resolvedContentType = (
+        contentType ?? inferContentType(originalFilename)
+      )
+        .split(";", 1)[0]
+        ?.trim()
+        .toLowerCase();
+      if (
+        !resolvedContentType ||
+        !allowedContentTypes.has(resolvedContentType)
+      ) {
+        throw new Error("Unsupported attachment type");
+      }
+      const data = await readFile(filePath);
+      const sha256 = createHash("sha256").update(data).digest("hex");
+      const upload = await kanRequest<{
+        url: string;
+        uploadSessionPublicId: string;
+      }>("POST", `/cards/${cardPublicId}/attachments/upload-url`, {
+        filename: originalFilename,
+        contentType: resolvedContentType,
+        size: fileStat.size,
+        sha256,
+      });
 
-      await putBinary(
-        upload.url,
-        await readFile(filePath),
-        resolvedContentType,
-      );
+      await putBinary(upload.url, data, resolvedContentType);
 
       return jsonResult(
         await kanRequest("POST", `/cards/${cardPublicId}/attachments/confirm`, {
-          s3Key: upload.key,
-          filename: sanitizedFilename(originalFilename),
-          originalFilename,
-          contentType: resolvedContentType,
-          size: fileStat.size,
+          uploadSessionPublicId: upload.uploadSessionPublicId,
         }),
       );
     },
@@ -174,7 +158,7 @@ export function registerAttachmentTools(server: McpServer): void {
     {
       description:
         "Soft-delete an attachment and remove its object from storage.",
-      inputSchema: { attachmentPublicId: z.string().min(12) },
+      inputSchema: { attachmentPublicId: z.string().length(12) },
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,

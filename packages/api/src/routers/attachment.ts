@@ -1,51 +1,95 @@
+import { timingSafeEqual } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import * as cardRepo from "@kan/db/repository/card.repo";
-import * as cardActivityRepo from "@kan/db/repository/cardActivity.repo";
 import * as cardAttachmentRepo from "@kan/db/repository/cardAttachment.repo";
-import * as workspaceRepo from "@kan/db/repository/workspace.repo";
-import { generateUID } from "@kan/shared/utils";
+import { createLogger } from "@kan/logger";
+import {
+  ATTACHMENT_UPLOAD_CLAIM_TTL_MS,
+  ATTACHMENT_UPLOAD_TTL_MS,
+  copyObject,
+  deleteObject,
+  generateUID,
+  generateUploadUrl,
+  hasDetectableActiveAttachmentContent,
+  hasValidAttachmentSignature,
+  inspectObject,
+  isAllowedAttachmentContentType,
+  isAttachmentFilenameContentTypeCompatible,
+  isValidAttachmentSha256,
+  MAX_ATTACHMENT_SIZE,
+  normalizeAttachmentContentType,
+  sanitizeAttachmentFilename,
+} from "@kan/shared/utils";
 
-import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { attachmentConfirmResponseSchema } from "../schemas";
+import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { assertPermission } from "../utils/permissions";
-import { deleteObject, generateUploadUrl } from "@kan/shared/utils";
+
+const log = createLogger("attachment-router");
+const publicIdSchema = z.string().regex(/^[a-z0-9]{12}$/);
+
+const contentTypeSchema = z
+  .string()
+  .min(1)
+  .max(100)
+  .transform(normalizeAttachmentContentType)
+  .refine(isAllowedAttachmentContentType, "Unsupported attachment type");
+
+const uploadRequestSchema = z
+  .object({
+    cardPublicId: publicIdSchema,
+    filename: z.string().min(1).max(255),
+    contentType: contentTypeSchema,
+    size: z.number().int().positive().max(MAX_ATTACHMENT_SIZE),
+    sha256: z
+      .string()
+      .length(64)
+      .refine(isValidAttachmentSha256, "Invalid SHA-256 digest")
+      .transform((value) => value.toLowerCase()),
+  })
+  .refine(
+    (input) =>
+      isAttachmentFilenameContentTypeCompatible(
+        input.filename,
+        input.contentType,
+      ),
+    { message: "Filename extension does not match attachment type" },
+  );
+
+function hashesMatch(expected: string, actual: string): boolean {
+  const expectedHash = Buffer.from(expected, "hex");
+  const actualHash = Buffer.from(actual, "hex");
+  return (
+    expectedHash.length === actualHash.length &&
+    timingSafeEqual(expectedHash, actualHash)
+  );
+}
 
 export const attachmentRouter = createTRPCRouter({
   generateUploadUrl: protectedProcedure
     .meta({
       openapi: {
-        summary: "Generate presigned URL for attachment upload",
+        summary: "Create an attachment upload session",
         method: "POST",
         path: "/cards/{cardPublicId}/attachments/upload-url",
         description:
-          "Generates a presigned URL for uploading an attachment to S3",
+          "Creates a single-use upload session and a presigned S3 upload URL",
         tags: ["Attachments"],
         protect: true,
       },
     })
-    .input(
+    .input(uploadRequestSchema)
+    .output(
       z.object({
-        cardPublicId: z.string().min(12),
-        filename: z.string().min(1).max(255),
-        contentType: z.string(),
-        size: z
-          .number()
-          .positive()
-          .max(50 * 1024 * 1024), // 50MB max
+        url: z.string(),
+        uploadSessionPublicId: z.string(),
       }),
     )
-    .output(z.object({ url: z.string(), key: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
-
-      if (!userId)
-        throw new TRPCError({
-          message: `User not authenticated`,
-          code: "UNAUTHORIZED",
-        });
-
+      if (!userId) throw new TRPCError({ code: "UNAUTHORIZED" });
       const card = await cardRepo.getWorkspaceAndCardIdByCardPublicId(
         ctx.db,
         input.cardPublicId,
@@ -56,71 +100,100 @@ export const attachmentRouter = createTRPCRouter({
           message: `Card with public ID ${input.cardPublicId} not found`,
           code: "NOT_FOUND",
         });
-      await assertPermission(ctx.db, userId, card.workspaceId, "card:edit");
 
-      // Get workspace publicId
-      const workspace = await workspaceRepo.getById(ctx.db, card.workspaceId);
-      if (!workspace)
-        throw new TRPCError({
-          message: `Workspace not found`,
-          code: "NOT_FOUND",
-        });
+      await assertPermission(ctx.db, userId, card.workspaceId, "card:edit");
 
       const bucket = process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME;
       if (!bucket)
         throw new TRPCError({
-          message: `Attachments bucket not configured`,
+          message: "Attachments bucket not configured",
           code: "INTERNAL_SERVER_ERROR",
         });
 
-      // Sanitize filename
-      const sanitizedFilename = input.filename
-        .replace(/[^a-zA-Z0-9._-]/g, "_")
-        .substring(0, 200);
+      const uploadSessionPublicId = generateUID();
+      const filename = sanitizeAttachmentFilename(input.filename);
+      const s3Key = `.uploads/${uploadSessionPublicId}/${filename}`;
 
-      const s3Key = `${workspace.publicId}/${input.cardPublicId}/${generateUID()}-${sanitizedFilename}`;
-
-      const url = await generateUploadUrl(
-        bucket,
+      const creation = await cardAttachmentRepo.createUploadSession(ctx.db, {
+        publicId: uploadSessionPublicId,
+        cardId: card.id,
+        workspaceId: card.workspaceId,
+        userId,
         s3Key,
-        input.contentType,
-        3600, // 1 hour
-      );
+        filename,
+        originalFilename: input.filename,
+        contentType: input.contentType,
+        size: input.size,
+        sha256: input.sha256,
+        expiresAt: new Date(Date.now() + ATTACHMENT_UPLOAD_TTL_MS),
+      });
 
-      return { url, key: s3Key };
+      if (
+        creation.status === "user_limit" ||
+        creation.status === "card_limit"
+      ) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "Too many pending attachment uploads",
+        });
+      }
+      if (creation.status !== "created") {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Card workspace changed while creating the upload",
+        });
+      }
+
+      let url: string;
+      try {
+        url = await generateUploadUrl(
+          bucket,
+          s3Key,
+          input.contentType,
+          input.size,
+          ATTACHMENT_UPLOAD_TTL_MS / 1000,
+        );
+      } catch (error) {
+        try {
+          await cardAttachmentRepo.deleteUnissuedUploadSession(ctx.db, {
+            publicId: uploadSessionPublicId,
+            cardId: card.id,
+            workspaceId: card.workspaceId,
+            userId,
+          });
+        } catch (cleanupError) {
+          log.warn(
+            { err: cleanupError, uploadSessionPublicId },
+            "Failed to delete an unissued attachment upload session",
+          );
+        }
+        throw error;
+      }
+
+      return { url, uploadSessionPublicId };
     }),
   confirm: protectedProcedure
     .meta({
       openapi: {
-        summary: "Confirm attachment upload and save to database",
+        summary: "Confirm an attachment upload",
         method: "POST",
         path: "/cards/{cardPublicId}/attachments/confirm",
         description:
-          "Confirms an attachment upload and saves the record to the database",
+          "Validates and consumes an attachment upload session exactly once",
         tags: ["Attachments"],
         protect: true,
       },
     })
     .input(
       z.object({
-        cardPublicId: z.string().min(12),
-        s3Key: z.string(),
-        filename: z.string(),
-        originalFilename: z.string(),
-        contentType: z.string(),
-        size: z.number().positive(),
+        cardPublicId: publicIdSchema,
+        uploadSessionPublicId: publicIdSchema,
       }),
     )
     .output(attachmentConfirmResponseSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
-
-      if (!userId)
-        throw new TRPCError({
-          message: `User not authenticated`,
-          code: "UNAUTHORIZED",
-        });
-
+      if (!userId) throw new TRPCError({ code: "UNAUTHORIZED" });
       const card = await cardRepo.getWorkspaceAndCardIdByCardPublicId(
         ctx.db,
         input.cardPublicId,
@@ -131,34 +204,122 @@ export const attachmentRouter = createTRPCRouter({
           message: `Card with public ID ${input.cardPublicId} not found`,
           code: "NOT_FOUND",
         });
+
       await assertPermission(ctx.db, userId, card.workspaceId, "card:edit");
 
-      const attachment = await cardAttachmentRepo.create(ctx.db, {
-        cardId: card.id,
-        filename: input.filename,
-        originalFilename: input.originalFilename,
-        contentType: input.contentType,
-        size: input.size,
-        s3Key: input.s3Key,
-        createdBy: userId,
-      });
-
-      if (!attachment) {
+      const bucket = process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME;
+      if (!bucket)
         throw new TRPCError({
-          message: "Failed to create attachment",
+          message: "Attachments bucket not configured",
           code: "INTERNAL_SERVER_ERROR",
         });
+
+      const claimToken = generateUID();
+      const claim = await cardAttachmentRepo.claimUploadSessionForConfirmation(
+        ctx.db,
+        {
+          publicId: input.uploadSessionPublicId,
+          cardId: card.id,
+          workspaceId: card.workspaceId,
+          userId,
+          claimToken,
+          claimExpiresAt: new Date(Date.now() + ATTACHMENT_UPLOAD_CLAIM_TTL_MS),
+        },
+      );
+
+      if (claim.status !== "claimed")
+        throw new TRPCError({
+          message: "Attachment upload is unavailable or already processing",
+          code: "CONFLICT",
+        });
+      const session = claim.session;
+
+      const finalS3Key = `.objects/${generateUID()}`;
+      let copied = false;
+      let persisted = false;
+
+      try {
+        const inspected = await inspectObject(bucket, session.s3Key);
+        if (
+          inspected.size !== session.size ||
+          normalizeAttachmentContentType(inspected.contentType) !==
+            session.contentType ||
+          !hashesMatch(session.sha256, inspected.sha256) ||
+          hasDetectableActiveAttachmentContent(inspected.prefix) ||
+          !hasValidAttachmentSignature(session.contentType, inspected.prefix)
+        ) {
+          throw new TRPCError({
+            message: "Uploaded attachment does not match its upload session",
+            code: "BAD_REQUEST",
+          });
+        }
+
+        await copyObject({
+          bucket,
+          sourceKey: session.s3Key,
+          destinationKey: finalS3Key,
+          sourceEtag: inspected.etag,
+          contentType: session.contentType,
+        });
+        copied = true;
+
+        const consumption =
+          await cardAttachmentRepo.consumeClaimedUploadSessionAndCreate(
+            ctx.db,
+            {
+              sessionPublicId: session.publicId,
+              cardId: card.id,
+              workspaceId: card.workspaceId,
+              userId,
+              claimToken,
+              finalS3Key,
+            },
+          );
+
+        if (consumption.status !== "created") {
+          throw new TRPCError({
+            message: "Card workspace changed or upload claim expired",
+            code: "CONFLICT",
+          });
+        }
+        persisted = true;
+
+        try {
+          await deleteObject(bucket, session.s3Key);
+        } catch (error) {
+          log.warn(
+            { err: error, uploadSessionPublicId: session.publicId },
+            "Failed to delete confirmed attachment staging object",
+          );
+        }
+
+        return consumption.attachment;
+      } catch (error) {
+        if (!persisted) {
+          try {
+            await cardAttachmentRepo.releaseUploadSessionClaim(ctx.db, {
+              publicId: session.publicId,
+              claimToken,
+            });
+          } catch (releaseError) {
+            log.warn(
+              { err: releaseError, uploadSessionPublicId: session.publicId },
+              "Failed to release attachment upload claim",
+            );
+          }
+          if (copied) {
+            try {
+              await deleteObject(bucket, finalS3Key);
+            } catch (cleanupError) {
+              log.warn(
+                { err: cleanupError, uploadSessionPublicId: session.publicId },
+                "Failed to clean up an unconfirmed attachment object",
+              );
+            }
+          }
+        }
+        throw error;
       }
-
-      await cardActivityRepo.create(ctx.db, {
-        type: "card.updated.attachment.added",
-        cardId: card.id,
-        attachmentId: attachment.id,
-        toTitle: input.originalFilename,
-        createdBy: userId,
-      });
-
-      return attachment;
     }),
   delete: protectedProcedure
     .meta({
@@ -171,17 +332,11 @@ export const attachmentRouter = createTRPCRouter({
         protect: true,
       },
     })
-    .input(z.object({ attachmentPublicId: z.string().min(12) }))
+    .input(z.object({ attachmentPublicId: publicIdSchema }))
     .output(z.object({ success: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user?.id;
-
-      if (!userId)
-        throw new TRPCError({
-          message: `User not authenticated`,
-          code: "UNAUTHORIZED",
-        });
-
+      if (!userId) throw new TRPCError({ code: "UNAUTHORIZED" });
       const attachment = await cardAttachmentRepo.getByPublicId(
         ctx.db,
         input.attachmentPublicId,
@@ -196,30 +351,34 @@ export const attachmentRouter = createTRPCRouter({
       const workspaceId = attachment.card.list.board.workspaceId;
       await assertPermission(ctx.db, userId, workspaceId, "card:edit");
 
+      const deletion = await cardAttachmentRepo.softDeleteWithWorkspaceGuard(
+        ctx.db,
+        {
+          attachmentPublicId: input.attachmentPublicId,
+          workspaceId,
+          userId,
+          deletedAt: new Date(),
+        },
+      );
+      if (deletion.status !== "deleted") {
+        throw new TRPCError({
+          code:
+            deletion.status === "workspace_mismatch" ? "CONFLICT" : "NOT_FOUND",
+          message: "Attachment is unavailable or changed workspace",
+        });
+      }
+
       const bucket = process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME;
       if (bucket) {
         try {
-          await deleteObject(bucket, attachment.s3Key);
+          await deleteObject(bucket, deletion.attachment.s3Key);
         } catch (error) {
-          console.error(
-            `Failed to delete attachment from S3: ${attachment.s3Key}`,
-            error,
+          log.warn(
+            { err: error, attachmentPublicId: deletion.attachment.publicId },
+            "Failed to delete attachment object",
           );
         }
       }
-
-      await cardAttachmentRepo.softDelete(ctx.db, {
-        attachmentId: attachment.id,
-        deletedAt: new Date(),
-      });
-
-      await cardActivityRepo.create(ctx.db, {
-        type: "card.updated.attachment.removed",
-        cardId: attachment.cardId,
-        attachmentId: attachment.id,
-        fromTitle: attachment.originalFilename,
-        createdBy: userId,
-      });
 
       return { success: true };
     }),

@@ -267,6 +267,34 @@
       "when": 1787227691584,
       "tag": "20260820120811_AddCardPlanningFields",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1787315383942,
+      "tag": "20260821122943_SecureAttachmentUploads",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1787317833505,
+      "tag": "20260821131033_ClaimAndQuarantineAttachmentUploads",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1787318466883,
+      "tag": "20260821132106_PreserveConfirmedAttachmentsAfterUserDeletion",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1787318704635,
+      "tag": "20260821132504_IndexPendingAttachmentUploads",
+      "breakpoints": true
     }
   ]
 }

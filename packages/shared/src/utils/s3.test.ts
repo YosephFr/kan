@@ -1,13 +1,46 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { generateWorkspaceLogoUrl, resolveS3Endpoint } from "./s3";
+import {
+  generateUploadUrl,
+  generateWorkspaceLogoUrl,
+  resolveS3Endpoint,
+} from "./s3";
 
 const originalInternalEndpoint = process.env.S3_ENDPOINT;
 const originalPublicEndpoint = process.env.S3_PUBLIC_ENDPOINT;
+const originalAccessKey = process.env.S3_ACCESS_KEY_ID;
+const originalSecretKey = process.env.S3_SECRET_ACCESS_KEY;
+const originalRegion = process.env.S3_REGION;
 
 afterEach(() => {
   process.env.S3_ENDPOINT = originalInternalEndpoint;
   process.env.S3_PUBLIC_ENDPOINT = originalPublicEndpoint;
+  process.env.S3_ACCESS_KEY_ID = originalAccessKey;
+  process.env.S3_SECRET_ACCESS_KEY = originalSecretKey;
+  process.env.S3_REGION = originalRegion;
+});
+
+describe("generateUploadUrl", () => {
+  it("signs the exact content length supplied by the client", async () => {
+    process.env.S3_ENDPOINT = "https://storage.example.com";
+    process.env.S3_PUBLIC_ENDPOINT = "https://storage.example.com";
+    process.env.S3_ACCESS_KEY_ID = "test-access-key";
+    process.env.S3_SECRET_ACCESS_KEY = "test-secret-key";
+    process.env.S3_REGION = "us-east-1";
+
+    const url = new URL(
+      await generateUploadUrl(
+        "attachments",
+        ".uploads/session/file.pdf",
+        "application/pdf",
+        1234,
+      ),
+    );
+
+    expect(url.searchParams.get("X-Amz-SignedHeaders")).toBe(
+      "content-length;host",
+    );
+  });
 });
 
 describe("resolveS3Endpoint", () => {

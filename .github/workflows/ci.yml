@@ -106,6 +106,13 @@ jobs:
           deploy/imanleads/deploy.sh
           deploy/imanleads/init-minio.sh
           deploy/imanleads/install-nginx.sh
+          deploy/imanleads/config.test.sh
+
+      - name: Check deployment configuration
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes nginx
+          deploy/imanleads/config.test.sh
 
       - name: Generate Next.js types
         run: pnpm --filter @kan/web exec next typegen

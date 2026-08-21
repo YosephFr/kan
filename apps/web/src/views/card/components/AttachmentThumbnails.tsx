@@ -18,10 +18,18 @@ import { invalidateCard } from "~/utils/cardInvalidation";
 interface Attachment {
   publicId: string;
   contentType: string;
-  url: string | null;
+  viewUrl: string | null;
+  downloadUrl: string;
   originalFilename: string | null;
-  s3Key: string;
   size?: number | null;
+}
+
+function getAttachmentFilename(
+  filename: string | null,
+  fallback: string,
+): string {
+  const normalized = filename?.trim();
+  return normalized?.length ? normalized : fallback;
 }
 
 export function AttachmentThumbnails({
@@ -38,13 +46,13 @@ export function AttachmentThumbnails({
   const imageAttachments =
     attachments?.filter(
       (attachment) =>
-        attachment.contentType.startsWith("image/") && attachment.url,
+        attachment.contentType.startsWith("image/") && attachment.viewUrl,
     ) ?? [];
 
   const nonImageAttachments =
     attachments?.filter(
       (attachment) =>
-        !attachment.contentType.startsWith("image/") && attachment.url,
+        !(attachment.contentType.startsWith("image/") && attachment.viewUrl),
     ) ?? [];
 
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -137,7 +145,7 @@ export function AttachmentThumbnails({
   };
 
   const handleDownload = (attachment: Attachment) => {
-    if (!attachment.url) {
+    if (!attachment.downloadUrl) {
       showPopup({
         header: t`Download failed`,
         message: t`No download URL available for this attachment.`,
@@ -146,13 +154,12 @@ export function AttachmentThumbnails({
       return;
     }
 
-    const downloadUrl = `/api/download/attatchment?url=${encodeURIComponent(attachment.url)}&filename=${encodeURIComponent(attachment.originalFilename ?? "attachment")}`;
-
     const link = document.createElement("a");
-    link.href = downloadUrl;
+    link.href = attachment.downloadUrl;
     link.style.display = "none";
     document.body.appendChild(link);
     link.click();
+    link.remove();
   };
 
   const selectedAttachment =
@@ -162,14 +169,17 @@ export function AttachmentThumbnails({
     <>
       <div className="mb-3 flex flex-wrap gap-2 pt-1">
         {imageAttachments.map((attachment, index) => {
-          if (!attachment.url) return null;
+          if (!attachment.viewUrl) return null;
           return (
             <AttachmentThumbnail
               key={attachment.publicId}
               attachment={{
                 publicId: attachment.publicId,
-                url: attachment.url,
-                originalFilename: attachment.originalFilename ?? "",
+                url: attachment.viewUrl,
+                originalFilename: getAttachmentFilename(
+                  attachment.originalFilename,
+                  t`Attachment`,
+                ),
                 contentType: attachment.contentType,
               }}
               onClick={() => openViewer(index)}
@@ -182,7 +192,6 @@ export function AttachmentThumbnails({
       {nonImageAttachments.length > 0 && (
         <div className="mb-3 flex flex-col gap-2">
           {nonImageAttachments.map((attachment) => {
-            if (!attachment.url) return null;
             return (
               <FileListItem
                 key={attachment.publicId}
@@ -204,14 +213,7 @@ export function AttachmentThumbnails({
       )}
 
       <Transition.Root show={selectedIndex !== null} as={Fragment}>
-        <Dialog
-          as="div"
-          className="relative z-50"
-          onClose={() => {
-            // Dialog closing is handled by the background overlay click
-          }}
-          static
-        >
+        <Dialog as="div" className="relative z-50" onClose={closeViewer} static>
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"
@@ -224,7 +226,6 @@ export function AttachmentThumbnails({
             <div
               className="fixed inset-0 bg-light-50 transition-opacity dark:bg-dark-50"
               onClick={(e) => {
-                // Only close if clicking directly on the background, not on buttons
                 if (e.target === e.currentTarget) {
                   closeViewer();
                 }
@@ -241,6 +242,7 @@ export function AttachmentThumbnails({
               >
                 {!isReadOnly && (
                   <button
+                    type="button"
                     onMouseDown={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -252,14 +254,15 @@ export function AttachmentThumbnails({
                         attachmentPublicId: selectedAttachment.publicId,
                       });
                     }}
-                    className="rounded-full bg-light-50 p-1.5 text-light-1000 transition-colors hover:bg-light-100 focus:outline-none dark:bg-dark-50 dark:text-dark-1000 dark:hover:bg-dark-100"
-                    aria-label="Delete image"
+                    className="rounded-full bg-light-50 p-1.5 text-light-1000 transition-colors hover:bg-light-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-dark-50 dark:text-dark-1000 dark:hover:bg-dark-100 dark:focus-visible:ring-dark-700"
+                    aria-label={t`Delete image`}
                     disabled={deleteAttachment.isPending}
                   >
                     <HiOutlineTrash className="h-4 w-4" />
                   </button>
                 )}
                 <button
+                  type="button"
                   onMouseDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -269,8 +272,8 @@ export function AttachmentThumbnails({
                     e.stopPropagation();
                     handleDownload(selectedAttachment);
                   }}
-                  className="rounded-full bg-light-50 p-1.5 text-light-1000 transition-colors hover:bg-light-100 focus:outline-none dark:bg-dark-50 dark:text-dark-1000 dark:hover:bg-dark-100"
-                  aria-label="Download image"
+                  className="rounded-full bg-light-50 p-1.5 text-light-1000 transition-colors hover:bg-light-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-700 dark:bg-dark-50 dark:text-dark-1000 dark:hover:bg-dark-100 dark:focus-visible:ring-dark-700"
+                  aria-label={t`Download image`}
                 >
                   <HiArrowDownTray className="h-4 w-4" />
                 </button>
@@ -280,12 +283,13 @@ export function AttachmentThumbnails({
             <div className="fixed right-2 top-2 z-20 flex gap-1">
               {imageAttachments.length > 1 && selectedIndex !== null && (
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     goToPrevious();
                   }}
-                  className="rounded-full bg-light-50 p-1.5 text-light-1000 transition-colors hover:bg-light-100 focus:outline-none dark:bg-dark-50 dark:text-dark-1000 dark:hover:bg-dark-100"
-                  aria-label="Previous image"
+                  className="rounded-full bg-light-50 p-1.5 text-light-1000 transition-colors hover:bg-light-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-700 dark:bg-dark-50 dark:text-dark-1000 dark:hover:bg-dark-100 dark:focus-visible:ring-dark-700"
+                  aria-label={t`Previous image`}
                 >
                   <HiChevronLeft className="h-4 w-4" />
                 </button>
@@ -293,12 +297,13 @@ export function AttachmentThumbnails({
 
               {imageAttachments.length > 1 && selectedIndex !== null && (
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     goToNext();
                   }}
-                  className="rounded-full bg-light-50 p-1.5 text-light-1000 transition-colors hover:bg-light-100 focus:outline-none dark:bg-dark-50 dark:text-dark-1000 dark:hover:bg-dark-100"
-                  aria-label="Next image"
+                  className="rounded-full bg-light-50 p-1.5 text-light-1000 transition-colors hover:bg-light-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-700 dark:bg-dark-50 dark:text-dark-1000 dark:hover:bg-dark-100 dark:focus-visible:ring-dark-700"
+                  aria-label={t`Next image`}
                 >
                   <HiChevronRight className="h-4 w-4" />
                 </button>
@@ -306,12 +311,13 @@ export function AttachmentThumbnails({
 
               {selectedIndex !== null && (
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     closeViewer();
                   }}
-                  className="rounded-full bg-light-50 p-1.5 text-light-1000 transition-colors hover:bg-light-100 focus:outline-none dark:bg-dark-50 dark:text-dark-1000 dark:hover:bg-dark-100"
-                  aria-label="Close"
+                  className="rounded-full bg-light-50 p-1.5 text-light-1000 transition-colors hover:bg-light-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-700 dark:bg-dark-50 dark:text-dark-1000 dark:hover:bg-dark-100 dark:focus-visible:ring-dark-700"
+                  aria-label={t`Close`}
                 >
                   <HiXMark className="h-4 w-4" />
                 </button>
@@ -332,14 +338,18 @@ export function AttachmentThumbnails({
                   className="relative w-full max-w-7xl"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {selectedAttachment?.url && (
+                  <Dialog.Title className="sr-only">
+                    {t`Attachment preview`}
+                  </Dialog.Title>
+                  {selectedAttachment?.viewUrl && (
                     <div className="relative">
                       <div className="relative mx-auto max-h-[90vh] w-full">
                         <Image
-                          src={selectedAttachment.url}
-                          alt={
-                            selectedAttachment.originalFilename ?? "Attachment"
-                          }
+                          src={selectedAttachment.viewUrl}
+                          alt={getAttachmentFilename(
+                            selectedAttachment.originalFilename,
+                            t`Attachment`,
+                          )}
                           width={1920}
                           height={1080}
                           className="mx-auto max-h-[90vh] w-auto object-contain"
@@ -381,15 +391,17 @@ function AttachmentThumbnail({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="relative h-16 w-16 overflow-hidden rounded-xl border border-light-300 transition-transform hover:scale-105 dark:border-dark-300"
-      aria-label={`View ${attachment.originalFilename}`}
+      className="relative h-16 w-16 overflow-hidden rounded-xl border border-light-300 transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-700 focus-visible:ring-offset-2 dark:border-dark-300 dark:focus-visible:ring-dark-700"
+      aria-label={t`View ${attachment.originalFilename}`}
     >
       {isImage ? (
         <Image
           src={attachment.url}
           alt={attachment.originalFilename}
           fill
+          unoptimized
           className="object-cover"
           sizes="64px"
         />
@@ -419,15 +431,17 @@ function FileListItem({
   onDownload: () => void;
   onDelete?: () => void;
 }) {
+  const filename = getAttachmentFilename(attachment.originalFilename, t`File`);
+
   return (
     <div className="group flex w-full items-center gap-3 rounded-lg border border-light-300 bg-light-50 px-3 py-2 dark:border-dark-200 dark:bg-dark-100">
       <div className="flex-shrink-0">
         <HiDocumentText className="h-5 w-5 text-light-700 dark:text-dark-700" />
       </div>
       <div className="min-w-0 flex-1 truncate text-sm text-light-1000 dark:text-dark-1000">
-        {attachment.originalFilename ?? "File"}
+        {filename}
       </div>
-      <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="flex items-center gap-2 opacity-100 transition-opacity sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
         <div className="text-xs text-light-500 dark:text-dark-900">
           {attachment.size != null &&
             !isNaN(attachment.size) &&
@@ -435,23 +449,25 @@ function FileListItem({
         </div>
         <div className="flex items-center gap-1">
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               onDownload();
             }}
-            className="flex-shrink-0 rounded-full bg-light-100 p-1.5 text-light-1000 transition-colors hover:bg-light-200 focus:outline-none dark:bg-dark-100 dark:text-dark-950 dark:hover:bg-dark-300"
-            aria-label={`Download ${attachment.originalFilename}`}
+            className="flex-shrink-0 rounded-full bg-light-100 p-1.5 text-light-1000 transition-colors hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-700 dark:bg-dark-100 dark:text-dark-950 dark:hover:bg-dark-300 dark:focus-visible:ring-dark-700"
+            aria-label={t`Download ${filename}`}
           >
             <HiArrowDownTray className="h-4 w-4" />
           </button>
           {onDelete && (
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete();
               }}
-              className="flex-shrink-0 rounded-full bg-light-100 p-1.5 text-light-1000 transition-colors hover:bg-light-200 focus:outline-none dark:bg-dark-100 dark:text-dark-950 dark:hover:bg-dark-300"
-              aria-label={`Delete ${attachment.originalFilename}`}
+              className="flex-shrink-0 rounded-full bg-light-100 p-1.5 text-light-1000 transition-colors hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-700 dark:bg-dark-100 dark:text-dark-950 dark:hover:bg-dark-300 dark:focus-visible:ring-dark-700"
+              aria-label={t`Delete ${filename}`}
             >
               <HiXMark className="h-4 w-4" />
             </button>

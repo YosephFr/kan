@@ -20,7 +20,7 @@ import { registerWorkspaceTools } from "./tools/workspace.js";
 const server = new McpServer(
   {
     name: "kan",
-    version: "0.2.0",
+    version: "0.3.0",
   },
   {
     instructions:

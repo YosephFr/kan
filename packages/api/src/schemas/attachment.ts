@@ -7,6 +7,5 @@ export const attachmentConfirmResponseSchema = z.object({
   originalFilename: z.string(),
   contentType: z.string(),
   size: z.number(),
-  s3Key: z.string(),
   createdAt: z.date(),
 });

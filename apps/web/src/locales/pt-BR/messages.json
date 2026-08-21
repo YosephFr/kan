@@ -9155,5 +9155,18 @@
   "TFedjd": {"message":"You were removed from a workspace.","placeholders":{},"comments":[],"origin":[["src/components/NotificationCenter.tsx",61]],"translation":"You were removed from a workspace."},
   "PK3+Q2": {"message":"You're all caught up","placeholders":{},"comments":[],"origin":[["src/components/NotificationCenter.tsx",242]],"translation":"You're all caught up"},
   "jShxhx": {"message":"Your workspace permissions were updated.","placeholders":{},"comments":[],"origin":[["src/components/NotificationCenter.tsx",68]],"translation":"Your workspace permissions were updated."},
-  "Vb5FmB": {"message":"Card actions","placeholders":{},"comments":[],"origin":[["src/views/board/components/CardContextMenu.tsx",184]],"translation":"Card actions"}
+  "Vb5FmB": {"message":"Card actions","placeholders":{},"comments":[],"origin":[["src/views/board/components/CardContextMenu.tsx",184]],"translation":"Card actions"},
+  "UY1vmE": {"message":"Attachment","placeholders":{},"comments":[],"origin":[["src/views/card/components/AttachmentThumbnails.tsx",172],["src/views/card/components/AttachmentThumbnails.tsx",346]],"translation":"Anexo"},
+  "eNw730": {"message":"Attachment preview","placeholders":{},"comments":[],"origin":[["src/views/card/components/AttachmentThumbnails.tsx",337]],"translation":"Pré-visualização do anexo"},
+  "D3TbUA": {"message":"Attachments must be between 1 byte and 50 MiB.","placeholders":{},"comments":[],"origin":[["src/views/card/components/AttachmentUpload.tsx",66]],"translation":"Os anexos devem ter entre 1 byte e 50 MiB."},
+  "NlPnb6": {"message":"Delete {filename}","placeholders":{"filename":["filename"]},"comments":[],"origin":[["src/views/card/components/AttachmentThumbnails.tsx",465]],"translation":"Excluir {filename}"},
+  "+jw/c1": {"message":"Delete image","placeholders":{},"comments":[],"origin":[["src/views/card/components/AttachmentThumbnails.tsx",253]],"translation":"Excluir imagem"},
+  "qnTwse": {"message":"Download {filename}","placeholders":{"filename":["filename"]},"comments":[],"origin":[["src/views/card/components/AttachmentThumbnails.tsx",453]],"translation":"Baixar {filename}"},
+  "dhu12h": {"message":"Download image","placeholders":{},"comments":[],"origin":[["src/views/card/components/AttachmentThumbnails.tsx",271]],"translation":"Baixar imagem"},
+  "J2eKUI": {"message":"File","placeholders":{},"comments":[],"origin":[["src/views/card/components/AttachmentThumbnails.tsx",429]],"translation":"Arquivo"},
+  "EatZYJ": {"message":"Next image","placeholders":{},"comments":[],"origin":[["src/views/card/components/AttachmentThumbnails.tsx",301]],"translation":"Próxima imagem"},
+  "MHk+7g": {"message":"Previous image","placeholders":{},"comments":[],"origin":[["src/views/card/components/AttachmentThumbnails.tsx",287]],"translation":"Imagem anterior"},
+  "ZQv0Iq": {"message":"This file type is not supported.","placeholders":{},"comments":[],"origin":[["src/views/card/components/AttachmentUpload.tsx",65]],"translation":"Este tipo de arquivo não é compatível."},
+  "VHmXZm": {"message":"Upload attachment","placeholders":{},"comments":[],"origin":[["src/views/card/components/AttachmentUpload.tsx",157]],"translation":"Enviar anexo"},
+  "4bzlcu": {"message":"View {0}","placeholders":{"0":["attachment.originalFilename"]},"comments":[],"origin":[["src/views/card/components/AttachmentThumbnails.tsx",392]],"translation":"Ver {0}"}
 }

@@ -182,7 +182,10 @@ export async function putBinary(
 
   const response = await fetch(parsedUrl, {
     method: "PUT",
-    headers: { "Content-Type": contentType },
+    headers: {
+      "Content-Length": String(data.byteLength),
+      "Content-Type": contentType,
+    },
     body: data,
     signal: AbortSignal.timeout(config.requestTimeoutMs),
   });

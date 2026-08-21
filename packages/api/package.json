@@ -43,6 +43,10 @@
     "./utils/workspace": {
       "types": "./src/utils/workspace.ts",
       "default": "./src/utils/workspace.ts"
+    },
+    "./utils/attachment-access": {
+      "types": "./src/utils/attachment-access.ts",
+      "default": "./src/utils/attachment-access.ts"
     }
   },
   "license": "GPL-3.0",

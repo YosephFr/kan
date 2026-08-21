@@ -70,10 +70,10 @@ export const cardDetailSchema = z.object({
     z.object({
       publicId: z.string(),
       contentType: z.string(),
-      s3Key: z.string(),
       originalFilename: z.string().nullable(),
       size: z.number().nullable(),
-      url: z.string().nullable(),
+      viewUrl: z.string().nullable(),
+      downloadUrl: z.string(),
     }),
   ),
   checklists: z.array(checklistResponseSchema),

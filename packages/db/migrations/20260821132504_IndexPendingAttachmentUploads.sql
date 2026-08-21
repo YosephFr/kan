@@ -1,0 +1,2 @@
+CREATE INDEX IF NOT EXISTS "attachment_upload_session_pending_card_idx" ON "card_attachment_upload_session" USING btree ("cardId","expiresAt") WHERE "card_attachment_upload_session"."consumedAt" is null;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "attachment_upload_session_pending_user_idx" ON "card_attachment_upload_session" USING btree ("userId","expiresAt") WHERE "card_attachment_upload_session"."consumedAt" is null;

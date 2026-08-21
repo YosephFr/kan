@@ -5,7 +5,7 @@ The Kan MCP server exposes the complete public Kan API plus two idempotent orche
 ## Capabilities
 
 - Workspaces, boards, lists, cards, comments, labels, members, and checklists
-- Attachments, including an explicit local-file upload flow through presigned S3 URLs
+- Attachments through opaque, single-use upload sessions with exact size, MIME, and SHA-256 validation
 - User profile, instance health, and administrator statistics
 - Workspace roles, member permission overrides, invite links, and invite acceptance
 - Webhooks and Trello or GitHub imports
@@ -33,7 +33,7 @@ pnpm --filter @kan/mcp build
 KAN_BASE_URL=https://kan.example.com KAN_API_TOKEN=kan_xxx node packages/mcp/dist/index.js
 ```
 
-For this checkout, `packages/mcp/bin/start-local.sh` reads the ignored `.env.kan-mcp.local` file and starts the compiled stdio server.
+For this checkout, `packages/mcp/bin/start-local.sh` reads the ignored `.env.kan-mcp.local` file, atomically rebuilds when source, package metadata, or the lockfile is newer than the compiled bundle, and starts the stdio server. Build locks record their owner PID; dead owners are recovered immediately, while an ownerless lock waits 30 seconds to avoid stealing the lock during creation. MCP `0.3.0` requires the upload-session contract; storage keys are never accepted or returned.
 
 ## Codex
 

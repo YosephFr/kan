@@ -29,3 +29,9 @@ curl --fail --show-error --silent https://work.imanleads.com/api/v1/health
 ```
 
 Production rollback is a revert commit on `main`. That preserves the same CI, backup, migration, and health gates instead of bypassing the tested history with an arbitrary old checkout.
+
+## Attachment limits and cleanup
+
+Each attachment must be between 1 byte and 50 MiB. A card can have at most five pending upload sessions, and a user can have at most ten pending upload sessions across cards. Upload sessions are valid for one hour; confirmation claims are valid for ten minutes.
+
+On every start, the `minio-init` service lists the private attachments bucket lifecycle rules, adds the `.uploads/` expiration rule only when it is absent, and verifies it afterward. The rule expires staging objects after one day without replacing unrelated bucket rules. Confirmed objects use `.objects/` and are not covered by that rule. No hard capacity quota is configured for the bucket, so production storage usage must be monitored at the MinIO volume level.

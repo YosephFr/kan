@@ -19,7 +19,7 @@ import { imports } from "./imports";
 import { labels } from "./labels";
 import { lists } from "./lists";
 import { users } from "./users";
-import { workspaceMembers } from "./workspaces";
+import { workspaceMembers, workspaces } from "./workspaces";
 
 export const activityTypes = [
   "card.created",
@@ -327,6 +327,66 @@ export const commentsRelations = relations(comments, ({ one }) => ({
   }),
 }));
 
+export const cardAttachmentUploadSessions = pgTable(
+  "card_attachment_upload_session",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    publicId: varchar("publicId", { length: 12 }).notNull().unique(),
+    cardId: bigint("cardId", { mode: "number" })
+      .notNull()
+      .references(() => cards.id, { onDelete: "cascade" }),
+    workspaceId: bigint("workspaceId", { mode: "number" })
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid("userId").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    s3Key: varchar("s3Key", { length: 500 }).notNull().unique(),
+    filename: varchar("filename", { length: 255 }).notNull(),
+    originalFilename: varchar("originalFilename", { length: 255 }).notNull(),
+    contentType: varchar("contentType", { length: 100 }).notNull(),
+    size: bigint("size", { mode: "number" }).notNull(),
+    sha256: varchar("sha256", { length: 64 }).notNull(),
+    expiresAt: timestamp("expiresAt", { withTimezone: true }).notNull(),
+    claimToken: varchar("claimToken", { length: 12 }),
+    claimExpiresAt: timestamp("claimExpiresAt", { withTimezone: true }),
+    consumedAt: timestamp("consumedAt", { withTimezone: true }),
+    createdAt: timestamp("createdAt", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("attachment_upload_session_expires_idx").on(table.expiresAt),
+    index("attachment_upload_session_pending_card_idx")
+      .on(table.cardId, table.expiresAt)
+      .where(sql`${table.consumedAt} is null`),
+    index("attachment_upload_session_pending_user_idx")
+      .on(table.userId, table.expiresAt)
+      .where(sql`${table.consumedAt} is null`),
+  ],
+).enableRLS();
+
+export const cardAttachmentUploadSessionsRelations = relations(
+  cardAttachmentUploadSessions,
+  ({ one }) => ({
+    card: one(cards, {
+      fields: [cardAttachmentUploadSessions.cardId],
+      references: [cards.id],
+      relationName: "cardAttachmentUploadSessionCard",
+    }),
+    workspace: one(workspaces, {
+      fields: [cardAttachmentUploadSessions.workspaceId],
+      references: [workspaces.id],
+      relationName: "cardAttachmentUploadSessionWorkspace",
+    }),
+    user: one(users, {
+      fields: [cardAttachmentUploadSessions.userId],
+      references: [users.id],
+      relationName: "cardAttachmentUploadSessionUser",
+    }),
+  }),
+);
+
 export const cardAttachments = pgTable("card_attachment", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
   publicId: varchar("publicId", { length: 12 }).notNull().unique(),
@@ -338,6 +398,15 @@ export const cardAttachments = pgTable("card_attachment", {
   contentType: varchar("contentType", { length: 100 }).notNull(),
   size: bigint("size", { mode: "number" }).notNull(),
   s3Key: varchar("s3Key", { length: 500 }).notNull(),
+  sha256: varchar("sha256", { length: 64 }),
+  uploadSessionId: bigint("uploadSessionId", { mode: "number" })
+    .unique()
+    .references(() => cardAttachmentUploadSessions.id, {
+      onDelete: "set null",
+    }),
+  storageQuarantinedAt: timestamp("storageQuarantinedAt", {
+    withTimezone: true,
+  }),
   createdBy: uuid("createdBy").references(() => users.id, {
     onDelete: "set null",
   }),
@@ -357,6 +426,11 @@ export const cardAttachmentsRelations = relations(
       fields: [cardAttachments.createdBy],
       references: [users.id],
       relationName: "cardAttachmentsCreatedByUser",
+    }),
+    uploadSession: one(cardAttachmentUploadSessions, {
+      fields: [cardAttachments.uploadSessionId],
+      references: [cardAttachmentUploadSessions.id],
+      relationName: "cardAttachmentUploadSession",
     }),
   }),
 );
