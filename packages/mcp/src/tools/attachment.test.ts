@@ -83,6 +83,51 @@ describe("attachment MCP contracts", () => {
     );
   });
 
+  it("carries the public visibility acknowledgement through both upload steps", async () => {
+    vi.mocked(kanRequest).mockResolvedValue({ ok: true });
+    const generateTool = tools.get("generate_attachment_upload_url");
+    const confirmTool = tools.get("confirm_attachment_upload");
+    if (!generateTool || !confirmTool) {
+      throw new Error("Attachment upload tools were not registered");
+    }
+
+    await generateTool.handler({
+      cardPublicId: "cardpublic01",
+      filename: "public.pdf",
+      contentType: "application/pdf",
+      size: 100,
+      sha256: "a".repeat(64),
+      publicVisibilityAcknowledged: true,
+    });
+    await confirmTool.handler({
+      cardPublicId: "cardpublic01",
+      uploadSessionPublicId: "uploadsess01",
+      publicVisibilityAcknowledged: true,
+    });
+
+    expect(kanRequest).toHaveBeenNthCalledWith(
+      1,
+      "POST",
+      "/cards/cardpublic01/attachments/upload-url",
+      {
+        filename: "public.pdf",
+        contentType: "application/pdf",
+        size: 100,
+        sha256: "a".repeat(64),
+        publicVisibilityAcknowledged: true,
+      },
+    );
+    expect(kanRequest).toHaveBeenNthCalledWith(
+      2,
+      "POST",
+      "/cards/cardpublic01/attachments/confirm",
+      {
+        uploadSessionPublicId: "uploadsess01",
+        publicVisibilityAcknowledged: true,
+      },
+    );
+  });
+
   it("rejects unsupported local file formats before creating a session", async () => {
     const tool = tools.get("upload_card_attachment");
     if (!tool) throw new Error("Upload tool was not registered");

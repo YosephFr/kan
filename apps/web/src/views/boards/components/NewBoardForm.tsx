@@ -15,6 +15,7 @@ import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
 import { useWorkspace } from "~/providers/workspace";
 import { api } from "~/utils/api";
+import { getBoardUploadCount } from "~/utils/resource-summary";
 import TemplateBoards from "./TemplateBoards";
 
 const schema = z.object({
@@ -68,6 +69,16 @@ export function NewBoardForm({ isTemplate }: { isTemplate?: boolean }) {
   });
 
   const currentTemplate = watch("template");
+  const sourceTemplateQuery = api.board.byId.useQuery(
+    {
+      boardPublicId: currentTemplate?.sourceBoardPublicId ?? "",
+      type: "template",
+    },
+    { enabled: !!currentTemplate?.sourceBoardPublicId },
+  );
+  const sourceUploadCount = getBoardUploadCount(
+    sourceTemplateQuery.data?.lists ?? [],
+  );
 
   const refetchBoards = () => utils.board.all.refetch();
 
@@ -88,6 +99,12 @@ export function NewBoardForm({ isTemplate }: { isTemplate?: boolean }) {
   });
 
   const onSubmit = (data: NewBoardInputWithTemplate) => {
+    if (
+      data.template?.sourceBoardPublicId &&
+      (!sourceTemplateQuery.data || sourceTemplateQuery.isError)
+    ) {
+      return;
+    }
     createBoard.mutate({
       name: data.name,
       workspacePublicId: data.workspacePublicId,
@@ -140,10 +157,18 @@ export function NewBoardForm({ isTemplate }: { isTemplate?: boolean }) {
         showTemplates={showTemplates}
         customTemplates={formattedTemplates ?? []}
       />
-      {currentTemplate?.sourceBoardPublicId && (
+      {sourceUploadCount > 0 && (
         <div className="px-5 pt-4">
-          <DuplicateResourcesNotice />
+          <DuplicateResourcesNotice uploadCount={sourceUploadCount} />
         </div>
+      )}
+      {sourceTemplateQuery.isError && (
+        <p
+          role="alert"
+          className="px-5 pt-4 text-xs text-red-600 dark:text-red-400"
+        >
+          {t`Uploaded files could not be checked. Try selecting the template again.`}
+        </p>
       )}
       <div className="mt-12 flex items-center justify-end space-x-4 border-t border-light-600 px-5 pb-5 pt-5 dark:border-dark-600">
         {!isTemplate && (
@@ -159,7 +184,11 @@ export function NewBoardForm({ isTemplate }: { isTemplate?: boolean }) {
           />
         )}
         <div>
-          <Button type="submit" isLoading={createBoard.isPending}>
+          <Button
+            type="submit"
+            isLoading={createBoard.isPending || sourceTemplateQuery.isLoading}
+            disabled={sourceTemplateQuery.isError}
+          >
             {t`Create ${isTemplate ? "template" : "board"}`}
           </Button>
         </div>

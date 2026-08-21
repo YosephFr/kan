@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as cardMoveRepo from "@kan/db/repository/card-move.repo";
+import { PublicVisibilityAcknowledgementError } from "@kan/db/repository/cardResourceVisibility.repo";
 import * as listRepo from "@kan/db/repository/list.repo";
 import * as notificationRepo from "@kan/db/repository/notification.repo";
 
@@ -240,6 +241,7 @@ describe("card.moveMany", () => {
       expectedWorkspaceId: firstCard.list.board.workspaceId,
       createdBy: mockUser.id,
       confirmOpenSubtasks: undefined,
+      publicVisibilityAcknowledged: false,
     });
     expect(result.map((card) => card.publicId)).toEqual([
       secondCard.publicId,
@@ -317,6 +319,23 @@ describe("card.moveMany", () => {
       expectedWorkspaceId: firstCard.list.board.workspaceId,
       createdBy: mockUser.id,
       confirmOpenSubtasks: true,
+      publicVisibilityAcknowledged: false,
+    });
+  });
+
+  it("maps public resource exposure to an acknowledgement precondition", async () => {
+    mockMoveMany.mockRejectedValueOnce(
+      new PublicVisibilityAcknowledgementError(),
+    );
+
+    await expect(
+      testRouter.createCaller(mockContext).moveMany({
+        cardPublicIds: [firstCard.publicId, secondCard.publicId],
+        listPublicId: destinationList.publicId,
+      }),
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: "PUBLIC_VISIBILITY_ACKNOWLEDGEMENT_REQUIRED",
     });
   });
 });

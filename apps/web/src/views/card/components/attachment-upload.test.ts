@@ -2,32 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   MAX_ATTACHMENT_SIZE,
-  prepareAttachmentUpload,
   validateAttachmentFile,
 } from "./attachment-upload";
 
 describe("attachment upload validation", () => {
-  it("rejects an oversized file before reading it or creating a session", async () => {
-    const arrayBuffer = vi.fn<() => Promise<ArrayBuffer>>();
-    const createUploadSession = vi.fn();
-
-    await expect(
-      prepareAttachmentUpload(
-        {
-          name: "oversized.pdf",
-          type: "application/pdf",
-          size: MAX_ATTACHMENT_SIZE + 1,
-          arrayBuffer,
-        },
-        "cardpublic01",
-        createUploadSession,
-      ),
-    ).rejects.toMatchObject({
-      code: "too-large",
-    });
-
-    expect(arrayBuffer).not.toHaveBeenCalled();
-    expect(createUploadSession).not.toHaveBeenCalled();
+  it("rejects an oversized file before hashing", () => {
+    expect(() =>
+      validateAttachmentFile({
+        name: "oversized.pdf",
+        type: "application/pdf",
+        size: MAX_ATTACHMENT_SIZE + 1,
+        arrayBuffer: vi.fn(),
+      }),
+    ).toThrowError("too-large");
   });
 
   it("requires a non-empty file", () => {
@@ -39,6 +26,17 @@ describe("attachment upload validation", () => {
         arrayBuffer: vi.fn(),
       }),
     ).toThrowError("empty");
+  });
+
+  it("rejects file names longer than the server title limit", () => {
+    expect(() =>
+      validateAttachmentFile({
+        name: `${"a".repeat(252)}.txt`,
+        type: "text/plain",
+        size: 12,
+        arrayBuffer: vi.fn(),
+      }),
+    ).toThrowError("name-too-long");
   });
 
   it("requires both the extension and MIME type to match the allowlist", () => {

@@ -4,10 +4,13 @@ import { HiOutlineEye, HiOutlineEyeSlash } from "react-icons/hi2";
 
 import Button from "~/components/Button";
 import CheckboxDropdown from "~/components/CheckboxDropdown";
+import { MakeBoardPublicDialog } from "~/components/MakeBoardPublicDialog";
 import { Tooltip } from "~/components/Tooltip";
 import { usePermissions } from "~/hooks/usePermissions";
 import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
+import { isPublicVisibilityAcknowledgementError } from "~/utils/card-workspace";
+import { getBoardResourceCount } from "~/utils/resource-summary";
 
 interface QueryParams {
   boardPublicId: string;
@@ -36,6 +39,15 @@ const VisibilityButton = ({
   const [stateVisibility, setStateVisibility] = useState<"public" | "private">(
     visibility,
   );
+  const [isPublicConfirmationOpen, setIsPublicConfirmationOpen] =
+    useState(false);
+  const resourceBoardQuery = api.board.byId.useQuery(
+    { boardPublicId, members: [], labels: [], lists: [] },
+    { enabled: stateVisibility === "private" },
+  );
+  const resourceCount = getBoardResourceCount(
+    resourceBoardQuery.data?.lists ?? [],
+  );
 
   useEffect(() => {
     setStateVisibility(visibility);
@@ -44,14 +56,22 @@ const VisibilityButton = ({
   const isPublic = stateVisibility === "public";
 
   const updateBoardVisibility = api.board.update.useMutation({
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      setStateVisibility(variables.visibility ?? visibility);
+      setIsPublicConfirmationOpen(false);
       showPopup({
         header: t`Board visibility updated`,
-        message: t`The visibility of your board has been set to ${isPublic ? "public" : "private"}.`,
+        message: t`The visibility of your board has been set to ${variables.visibility ?? visibility}.`,
         icon: "success",
       });
     },
-    onError: () => {
+    onError: (error) => {
+      if (isPublicVisibilityAcknowledgementError(error)) {
+        setIsPublicConfirmationOpen(true);
+        void resourceBoardQuery.refetch();
+        return;
+      }
+      setStateVisibility(visibility);
       showPopup({
         header: t`Unable to update board visibility`,
         message: t`Please try again later, or contact customer support.`,
@@ -64,6 +84,17 @@ const VisibilityButton = ({
   });
 
   const canEdit = canEditBoard || isAdmin;
+
+  const updateVisibility = (
+    nextVisibility: "public" | "private",
+    publicVisibilityAcknowledged = false,
+  ) => {
+    updateBoardVisibility.mutate({
+      visibility: nextVisibility,
+      boardPublicId,
+      publicVisibilityAcknowledged,
+    });
+  };
 
   return (
     <div className="relative">
@@ -87,23 +118,45 @@ const VisibilityButton = ({
           ]}
           handleSelect={(_g, i) => {
             if (!canEdit) return;
-            setStateVisibility(isPublic ? "private" : "public");
-            updateBoardVisibility.mutate({
-              visibility: i.key as "public" | "private",
-              boardPublicId,
-            });
+            const nextVisibility = i.key as "public" | "private";
+            if (nextVisibility === stateVisibility) return;
+            if (nextVisibility === "public" && !resourceBoardQuery.data) {
+              showPopup({
+                header: t`Unable to verify public resources`,
+                message: t`Reload the board and try again before making it public.`,
+                icon: "error",
+              });
+              return;
+            }
+            if (nextVisibility === "public" && resourceCount > 0) {
+              setIsPublicConfirmationOpen(true);
+              return;
+            }
+            updateVisibility(nextVisibility);
           }}
           menuSpacing="md"
         >
           <Button
             variant="secondary"
             iconLeft={isPublic ? <HiOutlineEye /> : <HiOutlineEyeSlash />}
-            disabled={isLoading || !canEdit}
+            disabled={
+              isLoading ||
+              resourceBoardQuery.isLoading ||
+              updateBoardVisibility.isPending ||
+              !canEdit
+            }
           >
             {t`Visibility`}
           </Button>
         </CheckboxDropdown>
       </Tooltip>
+      <MakeBoardPublicDialog
+        isOpen={isPublicConfirmationOpen}
+        isLoading={updateBoardVisibility.isPending}
+        resourceCount={resourceCount || undefined}
+        onCancel={() => setIsPublicConfirmationOpen(false)}
+        onConfirm={() => updateVisibility("public", true)}
+      />
     </div>
   );
 };

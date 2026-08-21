@@ -1,3 +1,4 @@
+import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
 import { Dialog } from "@headlessui/react";
 import { t } from "@lingui/core/macro";
@@ -12,12 +13,32 @@ import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
 import { getCardWorkspaceView } from "~/utils/card-workspace";
 import ActivityList from "~/views/card/components/ActivityList";
-import { AttachmentThumbnails } from "~/views/card/components/AttachmentThumbnails";
+import { CardResourceSummary } from "~/views/card/components/CardResourceSummary";
 import { CardSubtasksView } from "~/views/card/components/CardSubtasksView";
 import { CardWorkspaceComingSoon } from "~/views/card/components/CardWorkspaceComingSoon";
 import { CardWorkspaceTabs } from "~/views/card/components/CardWorkspaceTabs";
 import Checklists from "~/views/card/components/Checklists";
 import { DevelopmentProgress } from "~/views/card/components/DevelopmentProgress";
+
+const CardFilesView = dynamic(
+  () =>
+    import("~/views/card/components/CardFilesView").then(
+      (module) => module.CardFilesView,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid grid-cols-1 gap-3 p-1 sm:grid-cols-2">
+        {[0, 1].map((item) => (
+          <div
+            key={item}
+            className="h-52 animate-pulse rounded-lg bg-light-200 dark:bg-dark-200"
+          />
+        ))}
+      </div>
+    ),
+  },
+);
 
 export function CardModal({
   cardPublicId,
@@ -150,6 +171,7 @@ export function CardModal({
                       delete nextQuery.view;
                       delete nextQuery.vista;
                       delete nextQuery.subtask;
+                      delete nextQuery.recurso;
                       void router.replace(
                         {
                           pathname: router.pathname,
@@ -189,6 +211,7 @@ export function CardModal({
                 <CardWorkspaceTabs
                   activeView={activeView}
                   developmentCount={data.subtaskSummary.total}
+                  resourceCount={data.resourceSummary.total}
                   compact
                 />
               </div>
@@ -225,17 +248,11 @@ export function CardModal({
                     />
                   </div>
                 )}
-                {data?.attachments &&
-                  data.attachments.length > 0 &&
-                  cardPublicId && (
-                    <div className="mb-10 max-w-2xl">
-                      <AttachmentThumbnails
-                        attachments={data.attachments}
-                        cardPublicId={cardPublicId}
-                        isReadOnly
-                      />
-                    </div>
-                  )}
+                {data && (
+                  <div className="mb-8 max-w-2xl">
+                    <CardResourceSummary {...data.resourceSummary} />
+                  </div>
+                )}
                 {data?.checklists && data.checklists.length > 0 && (
                   <Checklists
                     checklists={data.checklists}
@@ -279,12 +296,17 @@ export function CardModal({
           )}
           {activeView === "whiteboard" && (
             <div className="max-h-[32rem] overflow-y-auto">
-              <CardWorkspaceComingSoon view="whiteboard" />
+              <CardWorkspaceComingSoon />
             </div>
           )}
           {activeView === "files" && (
-            <div className="max-h-[32rem] overflow-y-auto">
-              <CardWorkspaceComingSoon view="files" />
+            <div className="h-[min(36rem,calc(100dvh-12rem))] min-h-80 overflow-hidden">
+              <CardFilesView
+                cardPublicId={cardPublicId ?? ""}
+                canEdit={false}
+                isPublicBoard
+                compact
+              />
             </div>
           )}
         </div>

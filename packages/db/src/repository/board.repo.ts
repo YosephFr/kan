@@ -17,7 +17,6 @@ import type { BoardVisibilityStatus, CardPriority } from "@kan/db/schema";
 import {
   boards,
   cardActivities,
-  cardAttachments,
   cards,
   cardsToLabels,
   cardToWorkspaceMembers,
@@ -34,6 +33,7 @@ import {
 import { generateUID } from "@kan/shared/utils";
 
 import type { WorkspaceBoundaryTransaction } from "./workspace-boundary";
+import { assertActiveResourcesAcknowledged } from "./cardResourceVisibility.repo";
 import { clearInvalidOwnersForCardIdsTx } from "./cardSubtask.repo";
 import { invalidateCardAlertsForBoard } from "./notification-alert.repo";
 import {
@@ -318,13 +318,6 @@ export const queryByPublicId = async (
                   },
                 },
               },
-              attachments: {
-                columns: {
-                  publicId: true,
-                },
-                where: isNull(cardAttachments.deletedAt),
-                orderBy: asc(cardAttachments.createdAt),
-              },
               checklists: {
                 columns: {
                   publicId: true,
@@ -507,13 +500,6 @@ export const queryBySlug = async (
                   },
                 },
               },
-              attachments: {
-                columns: {
-                  publicId: true,
-                },
-                where: isNull(cardAttachments.deletedAt),
-                orderBy: asc(cardAttachments.createdAt),
-              },
               comments: {
                 columns: {
                   publicId: true,
@@ -690,6 +676,7 @@ export const update = async (
     visibility: BoardVisibilityStatus | undefined;
     boardPublicId: string;
     expectedWorkspaceId: number;
+    publicVisibilityAcknowledged: boolean;
     isArchived?: boolean;
   },
 ) =>
@@ -705,12 +692,34 @@ export const update = async (
       )
       .limit(1);
     if (!candidate) throw new WorkspaceChangedError();
-    await lockBoardTreeInWorkspace(
+    const lockedTree = await lockBoardTreeInWorkspace(
       tx,
       candidate.id,
       boardInput.expectedWorkspaceId,
       { boardLock: "update" },
     );
+    const [currentBoard] = await tx
+      .select({ visibility: boards.visibility })
+      .from(boards)
+      .where(
+        and(
+          eq(boards.id, candidate.id),
+          eq(boards.workspaceId, boardInput.expectedWorkspaceId),
+          isNull(boards.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (!currentBoard) throw new WorkspaceChangedError();
+    if (
+      currentBoard.visibility === "private" &&
+      boardInput.visibility === "public"
+    ) {
+      await assertActiveResourcesAcknowledged(
+        tx,
+        lockedTree.cardIds,
+        boardInput.publicVisibilityAcknowledged,
+      );
+    }
 
     const updatedAt = new Date();
     const [result] = await tx

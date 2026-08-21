@@ -85,4 +85,59 @@ describe("duplicate_card", () => {
       }),
     );
   });
+
+  it("forwards the public visibility acknowledgement", async () => {
+    vi.mocked(kanRequest).mockResolvedValue({ publicId: "card-copy001" });
+    const input = z.object(schema).parse({
+      cardPublicId: "card-source1",
+      listPublicId: "list-target1",
+      publicVisibilityAcknowledged: true,
+    });
+
+    await handler(input);
+
+    expect(kanRequest).toHaveBeenCalledWith(
+      "POST",
+      "/cards/card-source1/duplicate",
+      expect.objectContaining({ publicVisibilityAcknowledged: true }),
+    );
+  });
+});
+
+describe("update_card", () => {
+  it("forwards acknowledgement when a move may expose resources", async () => {
+    let schema: z.ZodRawShape | undefined;
+    let handler: ToolHandler | undefined;
+    const server = {
+      tool: vi.fn(
+        (
+          name: string,
+          _description: string,
+          toolSchema: z.ZodRawShape,
+          toolHandler: ToolHandler,
+        ) => {
+          if (name === "update_card") {
+            schema = toolSchema;
+            handler = toolHandler;
+          }
+        },
+      ),
+    };
+    registerCardTools(server as unknown as McpServer);
+    vi.mocked(kanRequest).mockResolvedValue({ publicId: "card-source1" });
+
+    await handler?.(
+      z.object(schema ?? {}).parse({
+        cardPublicId: "card-source1",
+        listPublicId: "list-public01",
+        publicVisibilityAcknowledged: true,
+      }),
+    );
+
+    expect(kanRequest).toHaveBeenCalledWith(
+      "PUT",
+      "/cards/card-source1",
+      expect.objectContaining({ publicVisibilityAcknowledged: true }),
+    );
+  });
 });

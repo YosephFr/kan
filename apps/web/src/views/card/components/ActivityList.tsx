@@ -11,6 +11,8 @@ import {
   HiOutlineCheckCircle,
   HiOutlineClock,
   HiOutlineFlag,
+  HiOutlineLink,
+  HiOutlineLinkSlash,
   HiOutlinePaintBrush,
   HiOutlinePaperClip,
   HiOutlinePencil,
@@ -152,6 +154,10 @@ const getActivityText = ({
     "card.updated.checklist.item.deleted": t`deleted a checklist item`,
     "card.updated.attachment.added": t`added an attachment`,
     "card.updated.attachment.removed": t`removed an attachment`,
+    "card.updated.resource.added": t`added a Drive link`,
+    "card.updated.resource.removed": t`removed a resource`,
+    "card.updated.resource.linked": t`linked a resource to a subtask`,
+    "card.updated.resource.unlinked": t`unlinked a resource from a subtask`,
     "card.updated.dueDate.added": t`set the due date`,
     "card.updated.dueDate.updated": t`updated the due date`,
     "card.updated.dueDate.removed": t`removed the due date`,
@@ -345,6 +351,22 @@ const getActivityText = ({
     );
   }
 
+  if (type === "card.updated.resource.added" && toTitle) {
+    return (
+      <Trans>
+        added Drive link <TextHighlight>{truncate(toTitle)}</TextHighlight>
+      </Trans>
+    );
+  }
+
+  if (type === "card.updated.resource.removed" && fromTitle) {
+    return (
+      <Trans>
+        removed resource <TextHighlight>{truncate(fromTitle)}</TextHighlight>
+      </Trans>
+    );
+  }
+
   if (type === "card.updated.dueDate.added" && toDueDate) {
     const showYear = !isSameYear(toDueDate, new Date());
     const formattedDate = format(
@@ -450,6 +472,10 @@ const ACTIVITY_ICON_MAP: Partial<Record<ActivityType, React.ReactNode | null>> =
     "card.updated.checklist.item.deleted": <HiOutlineTrash />,
     "card.updated.attachment.added": <HiOutlinePaperClip />,
     "card.updated.attachment.removed": <HiOutlinePaperClip />,
+    "card.updated.resource.added": <HiOutlineLink />,
+    "card.updated.resource.removed": <HiOutlineTrash />,
+    "card.updated.resource.linked": <HiOutlineLink />,
+    "card.updated.resource.unlinked": <HiOutlineLinkSlash />,
     "card.updated.dueDate.added": <HiOutlineClock />,
     "card.updated.dueDate.updated": <HiOutlineClock />,
     "card.updated.dueDate.removed": <HiOutlineClock />,

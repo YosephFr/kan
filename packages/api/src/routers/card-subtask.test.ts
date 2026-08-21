@@ -4,6 +4,7 @@ import * as cardRepo from "@kan/db/repository/card.repo";
 import * as cardPipelineRepo from "@kan/db/repository/cardPipeline.repo";
 import * as cardSubtaskRepo from "@kan/db/repository/cardSubtask.repo";
 import * as checklistRepo from "@kan/db/repository/cardSubtaskChecklist.repo";
+import * as resourceRepo from "@kan/db/repository/cardSubtaskResource.repo";
 
 import type * as WebhookUtils from "../utils/webhook";
 import { assertPermission } from "../utils/permissions";
@@ -31,7 +32,10 @@ vi.mock("@kan/db/repository/cardSubtaskChecklist.repo", () => ({
   getChecklistItemContextByPublicId: vi.fn(),
   updateChecklistItem: vi.fn(),
 }));
-vi.mock("@kan/db/repository/cardSubtaskResource.repo", () => ({}));
+vi.mock("@kan/db/repository/cardSubtaskResource.repo", () => ({
+  linkResource: vi.fn(),
+  unlinkResource: vi.fn(),
+}));
 vi.mock("@kan/db/repository/notification.repo", () => ({}));
 vi.mock("../utils/permissions", () => ({ assertPermission: vi.fn() }));
 vi.mock("../utils/webhook", async (importOriginal) => {
@@ -129,6 +133,19 @@ describe("card subtask router", () => {
     vi.mocked(cardSubtaskRepo.getByPublicId).mockResolvedValue(
       subtask as never,
     );
+    vi.mocked(resourceRepo.linkResource).mockResolvedValue({
+      status: "linked",
+      relation: {
+        publicId: "relation0001",
+        resourcePublicId: "resource0001",
+        kind: "drive",
+        attachmentPublicId: null,
+      },
+    });
+    vi.mocked(resourceRepo.unlinkResource).mockResolvedValue({
+      status: "unlinked",
+      publicId: "relation0001",
+    });
     vi.mocked(assertPermission).mockResolvedValue(undefined);
     vi.mocked(sendWebhooksForWorkspace).mockImplementation(() =>
       Promise.resolve(),
@@ -216,6 +233,75 @@ describe("card subtask router", () => {
       title: "Nuevo",
       expectedWorkspaceId: context.workspaceId,
       updatedBy: user.id,
+    });
+  });
+
+  it("links and unlinks a resource using only public IDs", async () => {
+    const driveResource = {
+      publicId: "resource0001",
+      kind: "drive" as const,
+      title: "Plan",
+      driveType: "document" as const,
+      openUrl: "https://docs.google.com/document/d/DocumentId12345/edit",
+      previewUrl: "https://docs.google.com/document/d/DocumentId12345/preview",
+    };
+    vi.mocked(cardPipelineRepo.getByCardPublicIdGuarded).mockResolvedValue({
+      pipeline: {
+        ...pipeline,
+        stages: [
+          {
+            ...pipeline.stages[0],
+            subtasks: [
+              {
+                ...subtask,
+                resources: [
+                  {
+                    publicId: driveResource.publicId,
+                    kind: "drive",
+                    title: driveResource.title,
+                    driveType: driveResource.driveType,
+                    driveFileId: "DocumentId12345",
+                    resourceKey: null,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      summary: {
+        total: 1,
+        completed: 0,
+        blocked: 0,
+        progressPercent: 0,
+      },
+    } as never);
+    const { cardSubtaskRouter } = await import("./card-subtask");
+    const caller = cardSubtaskRouter.createCaller({ db, user } as never);
+
+    await expect(
+      caller.linkResource({
+        subtaskPublicId,
+        resourcePublicId: driveResource.publicId,
+      }),
+    ).resolves.toEqual(driveResource);
+    expect(resourceRepo.linkResource).toHaveBeenCalledWith(db, {
+      subtaskPublicId,
+      resourcePublicId: driveResource.publicId,
+      expectedWorkspaceId: context.workspaceId,
+      createdBy: user.id,
+    });
+    await expect(
+      caller.unlinkResource({
+        subtaskPublicId,
+        resourcePublicId: driveResource.publicId,
+      }),
+    ).resolves.toEqual({ success: true });
+    expect(resourceRepo.unlinkResource).toHaveBeenCalledWith(db, {
+      subtaskPublicId,
+      resourcePublicId: driveResource.publicId,
+      expectedWorkspaceId: context.workspaceId,
+      deletedBy: user.id,
     });
   });
 });

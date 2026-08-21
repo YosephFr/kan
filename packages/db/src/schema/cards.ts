@@ -61,6 +61,10 @@ export const activityTypes = [
   "card.updated.subtask.checklist.item.completed",
   "card.updated.subtask.checklist.item.uncompleted",
   "card.updated.subtask.checklist.item.deleted",
+  "card.updated.resource.added",
+  "card.updated.resource.removed",
+  "card.updated.resource.linked",
+  "card.updated.resource.unlinked",
   "card.archived",
 ] as const;
 

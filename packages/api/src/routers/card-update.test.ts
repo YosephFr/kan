@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as cardRepo from "@kan/db/repository/card.repo";
+import { PublicVisibilityAcknowledgementError } from "@kan/db/repository/cardResourceVisibility.repo";
 import * as listRepo from "@kan/db/repository/list.repo";
 import * as notificationRepo from "@kan/db/repository/notification.repo";
 
@@ -203,6 +204,7 @@ describe("card.update list moves", () => {
       expectedWorkspaceId: sourceCard.workspaceId,
       clearLabels: true,
       confirmOpenSubtasks: undefined,
+      publicVisibilityAcknowledged: false,
       activities: [
         {
           type: "card.updated.list",
@@ -259,6 +261,7 @@ describe("card.update list moves", () => {
       expectedWorkspaceId: sourceCard.workspaceId,
       clearLabels: false,
       confirmOpenSubtasks: undefined,
+      publicVisibilityAcknowledged: false,
       activities: [
         {
           type: "card.updated.list",
@@ -291,6 +294,7 @@ describe("card.update list moves", () => {
       expectedWorkspaceId: sourceCard.workspaceId,
       clearLabels: true,
       confirmOpenSubtasks: undefined,
+      publicVisibilityAcknowledged: false,
       updates: { priority: "urgent" },
       activities: [
         {
@@ -424,6 +428,7 @@ describe("card.update list moves", () => {
       expectedWorkspaceId: sourceCard.workspaceId,
       clearLabels: true,
       confirmOpenSubtasks: true,
+      publicVisibilityAcknowledged: false,
       activities: [
         {
           type: "card.updated.list",
@@ -442,6 +447,23 @@ describe("card.update list moves", () => {
           labelId: 502,
         },
       ],
+    });
+  });
+
+  it("maps public resource exposure to an acknowledgement precondition", async () => {
+    mockReorderCard.mockRejectedValueOnce(
+      new PublicVisibilityAcknowledgementError(),
+    );
+    const { cardRouter } = await import("./card");
+
+    await expect(
+      cardRouter.createCaller(mockContext).update({
+        cardPublicId: existingCard.publicId,
+        listPublicId: destinationList.publicId,
+      }),
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: "PUBLIC_VISIBILITY_ACKNOWLEDGEMENT_REQUIRED",
     });
   });
 });

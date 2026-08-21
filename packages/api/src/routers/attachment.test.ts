@@ -11,6 +11,7 @@ import {
   inspectObject,
 } from "@kan/shared/utils";
 
+import { deleteCardResource } from "../utils/card-resource-delete";
 import { assertPermission } from "../utils/permissions";
 
 vi.mock("@kan/db/repository/card.repo", () => ({
@@ -45,6 +46,9 @@ vi.mock("@kan/shared/utils", async (importOriginal) => {
   };
 });
 vi.mock("../utils/permissions", () => ({ assertPermission: vi.fn() }));
+vi.mock("../utils/card-resource-delete", () => ({
+  deleteCardResource: vi.fn(),
+}));
 
 const originalBucket = process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME;
 const db = {} as never;
@@ -95,6 +99,7 @@ describe("attachment upload boundary", () => {
     vi.mocked(generateUploadUrl).mockResolvedValue("https://upload.test/url");
     vi.mocked(inspectObject).mockResolvedValue(inspected);
     vi.mocked(deleteObject).mockResolvedValue(undefined);
+    vi.mocked(deleteCardResource).mockResolvedValue(undefined);
     vi.mocked(cardAttachmentRepo.createUploadSession).mockResolvedValue({
       status: "created",
       session: { publicId: session.publicId },
@@ -129,10 +134,15 @@ describe("attachment upload boundary", () => {
         sha256: session.sha256,
       });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       url: "https://upload.test/url",
       uploadSessionPublicId: "uploadsess01",
     });
+    expect(result.expiresAt).toBeInstanceOf(Date);
+    expect(cardAttachmentRepo.createUploadSession).toHaveBeenCalledWith(
+      db,
+      expect.objectContaining({ expiresAt: result.expiresAt }),
+    );
     expect(result).not.toHaveProperty("key");
     expect(result).not.toHaveProperty("s3Key");
     expect(generateUploadUrl).toHaveBeenCalledWith(
@@ -168,6 +178,27 @@ describe("attachment upload boundary", () => {
         userId: "user-owner",
       },
     );
+  });
+
+  it("requires acknowledgement before issuing an upload to a public board", async () => {
+    vi.mocked(cardAttachmentRepo.createUploadSession).mockResolvedValueOnce({
+      status: "public_ack_required",
+    });
+    const { attachmentRouter } = await import("./attachment");
+
+    await expect(
+      attachmentRouter.createCaller(context).generateUploadUrl({
+        cardPublicId: "cardpublic01",
+        filename: "file.png",
+        contentType: "image/png",
+        size: 8,
+        sha256: session.sha256,
+      }),
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: "PUBLIC_VISIBILITY_ACKNOWLEDGEMENT_REQUIRED",
+    });
+    expect(generateUploadUrl).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -209,6 +240,64 @@ describe("attachment upload boundary", () => {
     ).rejects.toMatchObject({ code: "CONFLICT" });
     expect(inspectObject).not.toHaveBeenCalled();
     expect(copyObject).not.toHaveBeenCalled();
+  });
+
+  it("returns an already confirmed upload without touching storage or persistence", async () => {
+    vi.mocked(
+      cardAttachmentRepo.claimUploadSessionForConfirmation,
+    ).mockResolvedValue({
+      status: "already_created",
+      attachment,
+    });
+    delete process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME;
+    const { attachmentRouter } = await import("./attachment");
+
+    await expect(
+      attachmentRouter.createCaller(context).confirm({
+        cardPublicId: "cardpublic01",
+        uploadSessionPublicId: "uploadsess01",
+      }),
+    ).resolves.toEqual(attachment);
+    expect(inspectObject).not.toHaveBeenCalled();
+    expect(copyObject).not.toHaveBeenCalled();
+    expect(
+      cardAttachmentRepo.consumeClaimedUploadSessionAndCreate,
+    ).not.toHaveBeenCalled();
+    expect(cardAttachmentRepo.releaseUploadSessionClaim).not.toHaveBeenCalled();
+    expect(deleteObject).not.toHaveBeenCalled();
+  });
+
+  it("maps an idempotent retry through the card resource confirmation API", async () => {
+    vi.mocked(
+      cardAttachmentRepo.claimUploadSessionForConfirmation,
+    ).mockResolvedValue({
+      status: "already_created",
+      attachment,
+    });
+    delete process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME;
+    const { cardResourceRouter } = await import("./card-resource");
+
+    await expect(
+      cardResourceRouter.createCaller(context).confirmUpload({
+        cardPublicId: "cardpublic01",
+        uploadSessionPublicId: "uploadsess01",
+      }),
+    ).resolves.toEqual({
+      kind: "upload",
+      publicId: attachment.publicId,
+      title: attachment.originalFilename,
+      originalFilename: attachment.originalFilename,
+      contentType: attachment.contentType,
+      size: attachment.size,
+      viewUrl: `/api/attachments/${attachment.publicId}/view`,
+      downloadUrl: `/api/attachments/${attachment.publicId}/download`,
+      createdAt: attachment.createdAt,
+    });
+    expect(inspectObject).not.toHaveBeenCalled();
+    expect(copyObject).not.toHaveBeenCalled();
+    expect(
+      cardAttachmentRepo.consumeClaimedUploadSessionAndCreate,
+    ).not.toHaveBeenCalled();
   });
 
   it("rejects HTML disguised as an allowed image", async () => {
@@ -261,6 +350,26 @@ describe("attachment upload boundary", () => {
     ).toHaveBeenCalledTimes(1);
   });
 
+  it("rechecks public visibility when confirming an already uploaded object", async () => {
+    vi.mocked(
+      cardAttachmentRepo.consumeClaimedUploadSessionAndCreate,
+    ).mockResolvedValueOnce({ status: "public_ack_required" });
+    const { attachmentRouter } = await import("./attachment");
+
+    await expect(
+      attachmentRouter.createCaller(context).confirm({
+        cardPublicId: "cardpublic01",
+        uploadSessionPublicId: "uploadsess01",
+      }),
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: "PUBLIC_VISIBILITY_ACKNOWLEDGEMENT_REQUIRED",
+    });
+    expect(copyObject).toHaveBeenCalledOnce();
+    expect(deleteObject).toHaveBeenCalledOnce();
+    expect(cardAttachmentRepo.releaseUploadSessionClaim).toHaveBeenCalledOnce();
+  });
+
   it("does not expose internal fields in a confirmed attachment", async () => {
     const { attachmentRouter } = await import("./attachment");
     const result = await attachmentRouter.createCaller(context).confirm({
@@ -275,5 +384,19 @@ describe("attachment upload boundary", () => {
     const copyInput = vi.mocked(copyObject).mock.calls[0]?.[0];
     expect(copyInput?.destinationKey).toMatch(/^\.objects\/[a-z0-9]{12}$/);
     expect(copyInput?.sourceEtag).toBe('"etag"');
+  });
+
+  it("routes legacy deletion through resource reference checks", async () => {
+    const { attachmentRouter } = await import("./attachment");
+    await expect(
+      attachmentRouter.createCaller(context).delete({
+        attachmentPublicId: "attachment01",
+      }),
+    ).resolves.toEqual({ success: true });
+    expect(deleteCardResource).toHaveBeenCalledWith(db, {
+      userId: "user-owner",
+      resourcePublicId: "attachment01",
+      removeReferences: false,
+    });
   });
 });

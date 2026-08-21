@@ -4,10 +4,14 @@ import { Fragment } from "react";
 
 import Button from "~/components/Button";
 import { DuplicateResourcesNotice } from "~/components/DuplicateResourcesNotice";
+import { PublicResourceVisibilityNotice } from "~/components/PublicResourceVisibilityNotice";
 
 interface DuplicateCardConfirmationDialogProps {
   isOpen: boolean;
   isLoading: boolean;
+  uploadCount: number;
+  publicDriveLinkCount?: number;
+  requiresPublicVisibilityAcknowledgement: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 }
@@ -15,6 +19,9 @@ interface DuplicateCardConfirmationDialogProps {
 export function DuplicateCardConfirmationDialog({
   isOpen,
   isLoading,
+  uploadCount,
+  publicDriveLinkCount,
+  requiresPublicVisibilityAcknowledgement,
   onCancel,
   onConfirm,
 }: DuplicateCardConfirmationDialogProps) {
@@ -54,8 +61,16 @@ export function DuplicateCardConfirmationDialog({
                 <Dialog.Description className="mt-2 text-sm leading-6 text-light-800 dark:text-dark-800">
                   {t`Review what will stay with the original before continuing.`}
                 </Dialog.Description>
-                <div className="mt-4">
-                  <DuplicateResourcesNotice />
+                <div className="mt-4 space-y-3">
+                  {uploadCount > 0 && (
+                    <DuplicateResourcesNotice uploadCount={uploadCount} />
+                  )}
+                  {requiresPublicVisibilityAcknowledgement && (
+                    <PublicResourceVisibilityNotice
+                      resourceCount={publicDriveLinkCount}
+                      driveOnly
+                    />
+                  )}
                 </div>
                 <div className="mt-6 flex justify-end gap-2">
                   <Button
@@ -71,7 +86,9 @@ export function DuplicateCardConfirmationDialog({
                     onClick={onConfirm}
                     isLoading={isLoading}
                   >
-                    {t`Duplicate card`}
+                    {requiresPublicVisibilityAcknowledgement
+                      ? t`Confirm and duplicate`
+                      : t`Duplicate card`}
                   </Button>
                 </div>
               </Dialog.Panel>

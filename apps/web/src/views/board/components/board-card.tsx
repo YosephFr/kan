@@ -53,7 +53,7 @@ export function BoardCard({
       checklists={card.checklists}
       description={card.description ?? null}
       comments={card.comments}
-      attachments={card.attachments}
+      resourceSummary={card.resourceSummary}
       dueDate={card.dueDate ?? null}
       startedAt={card.startedAt ?? null}
       completedAt={card.completedAt ?? null}

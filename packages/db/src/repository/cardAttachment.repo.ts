@@ -1,4 +1,4 @@
-import { and, count, eq, gt, isNull, lte, or } from "drizzle-orm";
+import { and, count, eq, gt, isNotNull, isNull, lte, or } from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
 import {
@@ -6,6 +6,7 @@ import {
   cardActivities,
   cardAttachments,
   cardAttachmentUploadSessions,
+  cardResources,
   cards,
   lists,
   users,
@@ -45,7 +46,11 @@ async function lockCardHierarchy(tx: DbTransaction, cardId: number) {
   if (card.listId !== list.id) return { status: "moved" as const };
 
   const [board] = await tx
-    .select({ id: boards.id, workspaceId: boards.workspaceId })
+    .select({
+      id: boards.id,
+      workspaceId: boards.workspaceId,
+      visibility: boards.visibility,
+    })
     .from(boards)
     .where(and(eq(boards.id, list.boardId), isNull(boards.deletedAt)))
     .limit(1)
@@ -163,6 +168,7 @@ export const createUploadSession = async (
     size: number;
     sha256: string;
     expiresAt: Date;
+    publicVisibilityAcknowledged: boolean;
   },
 ) => {
   return db.transaction(async (tx) => {
@@ -172,6 +178,12 @@ export const createUploadSession = async (
       hierarchy.board.workspaceId !== input.workspaceId
     ) {
       return { status: "workspace_mismatch" as const };
+    }
+    if (
+      hierarchy.board.visibility === "public" &&
+      !input.publicVisibilityAcknowledged
+    ) {
+      return { status: "public_ack_required" as const };
     }
 
     const [user] = await tx
@@ -229,9 +241,11 @@ export const createUploadSession = async (
       return { status: "card_limit" as const };
     }
 
+    const { publicVisibilityAcknowledged: _acknowledged, ...sessionValues } =
+      input;
     const [session] = await tx
       .insert(cardAttachmentUploadSessions)
-      .values(input)
+      .values(sessionValues)
       .returning({ publicId: cardAttachmentUploadSessions.publicId });
 
     return session
@@ -284,8 +298,50 @@ export const claimUploadSessionForConfirmation = async (
       )
       .returning();
 
-    return session
-      ? { status: "claimed" as const, session }
+    if (session) return { status: "claimed" as const, session };
+
+    const [confirmedAttachment] = await tx
+      .select({
+        publicId: cardAttachments.publicId,
+        filename: cardAttachments.filename,
+        originalFilename: cardAttachments.originalFilename,
+        contentType: cardAttachments.contentType,
+        size: cardAttachments.size,
+        createdAt: cardAttachments.createdAt,
+      })
+      .from(cardAttachmentUploadSessions)
+      .innerJoin(
+        cardAttachments,
+        and(
+          eq(cardAttachments.uploadSessionId, cardAttachmentUploadSessions.id),
+          eq(cardAttachments.cardId, input.cardId),
+          isNull(cardAttachments.deletedAt),
+          isNull(cardAttachments.storageQuarantinedAt),
+        ),
+      )
+      .innerJoin(
+        cardResources,
+        and(
+          eq(cardResources.attachmentId, cardAttachments.id),
+          eq(cardResources.publicId, cardAttachments.publicId),
+          eq(cardResources.cardId, input.cardId),
+          eq(cardResources.kind, "upload"),
+          isNull(cardResources.deletedAt),
+        ),
+      )
+      .where(
+        and(
+          eq(cardAttachmentUploadSessions.publicId, input.publicId),
+          eq(cardAttachmentUploadSessions.cardId, input.cardId),
+          eq(cardAttachmentUploadSessions.workspaceId, input.workspaceId),
+          eq(cardAttachmentUploadSessions.userId, input.userId),
+          isNotNull(cardAttachmentUploadSessions.consumedAt),
+        ),
+      )
+      .limit(1);
+
+    return confirmedAttachment
+      ? { status: "already_created" as const, attachment: confirmedAttachment }
       : { status: "unavailable" as const };
   });
 };
@@ -359,6 +415,7 @@ export const consumeClaimedUploadSessionAndCreate = async (
     userId: string;
     claimToken: string;
     finalS3Key: string;
+    publicVisibilityAcknowledged: boolean;
   },
 ) => {
   return db.transaction(async (tx) => {
@@ -378,6 +435,22 @@ export const consumeClaimedUploadSessionAndCreate = async (
           ),
         );
       return { status: "workspace_mismatch" as const };
+    }
+    if (
+      hierarchy.board.visibility === "public" &&
+      !input.publicVisibilityAcknowledged
+    ) {
+      await tx
+        .update(cardAttachmentUploadSessions)
+        .set({ claimToken: null, claimExpiresAt: null })
+        .where(
+          and(
+            eq(cardAttachmentUploadSessions.publicId, input.sessionPublicId),
+            eq(cardAttachmentUploadSessions.claimToken, input.claimToken),
+            isNull(cardAttachmentUploadSessions.consumedAt),
+          ),
+        );
+      return { status: "public_ack_required" as const };
     }
 
     const now = new Date();
@@ -400,10 +473,11 @@ export const consumeClaimedUploadSessionAndCreate = async (
 
     if (!session) return { status: "unavailable" as const };
 
+    const attachmentPublicId = generateUID();
     const [attachment] = await tx
       .insert(cardAttachments)
       .values({
-        publicId: generateUID(),
+        publicId: attachmentPublicId,
         cardId: session.cardId,
         filename: session.filename,
         originalFilename: session.originalFilename,
@@ -425,6 +499,18 @@ export const consumeClaimedUploadSessionAndCreate = async (
       });
 
     if (!attachment) return { status: "unavailable" as const };
+
+    await tx
+      .insert(cardResources)
+      .values({
+        publicId: attachmentPublicId,
+        cardId: session.cardId,
+        kind: "upload",
+        title: session.originalFilename,
+        attachmentId: attachment.id,
+        createdBy: session.userId,
+      })
+      .onConflictDoNothing({ target: cardResources.publicId });
 
     await tx.insert(cardActivities).values({
       publicId: generateUID(),

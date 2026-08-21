@@ -3,6 +3,7 @@ import { z } from "zod";
 import { cardPriorities, listStatuses } from "@kan/db/schema";
 
 import { subtaskSummarySchema } from "./card-pipeline";
+import { resourceSummarySchema } from "./card-resource";
 import {
   checklistResponseSchema,
   labelSchema,
@@ -52,10 +53,10 @@ const boardDetailCardSchema = z.object({
   completedAt: z.date().nullable(),
   labels: z.array(labelSchema),
   members: z.array(boardCardMemberSchema),
-  attachments: z.array(z.object({ publicId: z.string() })),
   checklists: z.array(checklistResponseSchema),
   comments: z.array(z.object({ publicId: z.string() })),
   subtaskSummary: subtaskSummarySchema,
+  resourceSummary: resourceSummarySchema,
 });
 
 // ─── board.byId ──────────────────────────────────────────────
@@ -104,10 +105,10 @@ const boardSlugCardSchema = z.object({
   startedAt: z.date().nullable(),
   completedAt: z.date().nullable(),
   labels: z.array(labelSchema),
-  attachments: z.array(z.object({ publicId: z.string() })),
   checklists: z.array(checklistResponseSchema),
   comments: z.array(z.object({ publicId: z.string() })),
   subtaskSummary: subtaskSummarySchema,
+  resourceSummary: resourceSummarySchema,
 });
 
 // ─── board.bySlug ────────────────────────────────────────────
@@ -146,6 +147,7 @@ export const boardBySlugSchema = z.object({
 export const boardCreateResponseSchema = z.object({
   publicId: z.string(),
   name: z.string(),
+  skippedResourceCount: z.number().int().nonnegative(),
 });
 
 // ─── board.update ────────────────────────────────────────────

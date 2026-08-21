@@ -39,8 +39,17 @@ export { memberInviteResponseSchema } from "./member";
 export { attachmentConfirmResponseSchema } from "./attachment";
 
 export {
+  cardResourceListSchema,
+  cardResourceSchema,
+  driveCardResourceSchema,
+  resourceSummarySchema,
+  uploadCardResourceSchema,
+} from "./card-resource";
+
+export {
   cardPipelineSchema,
   cardPipelineStageSchema,
+  legacyCardSubtaskAttachmentResourceSchema,
   cardSubtaskChecklistItemSchema,
   cardSubtaskOwnerSchema,
   cardSubtaskResourceSchema,

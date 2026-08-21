@@ -3,6 +3,7 @@ import { boardRouter } from "./routers/board";
 import { brandingRouter } from "./routers/branding";
 import { cardRouter } from "./routers/card";
 import { cardPipelineRouter } from "./routers/card-pipeline";
+import { cardResourceRouter } from "./routers/card-resource";
 import { cardSubtaskRouter } from "./routers/card-subtask";
 import { checklistRouter } from "./routers/checklist";
 import { feedbackRouter } from "./routers/feedback";
@@ -26,6 +27,7 @@ export const appRouter = createTRPCRouter({
   branding: brandingRouter,
   card: cardRouter,
   cardPipeline: cardPipelineRouter,
+  cardResource: cardResourceRouter,
   cardSubtask: cardSubtaskRouter,
   checklist: checklistRouter,
   feedback: feedbackRouter,

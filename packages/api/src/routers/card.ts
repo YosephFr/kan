@@ -8,6 +8,7 @@ import * as cardAssociationsRepo from "@kan/db/repository/cardAssociations.repo"
 import * as cardCommentRepo from "@kan/db/repository/cardComment.repo";
 import * as cardDuplicateRepo from "@kan/db/repository/cardDuplicate.repo";
 import * as cardReadRepo from "@kan/db/repository/cardRead.repo";
+import { PublicVisibilityAcknowledgementError } from "@kan/db/repository/cardResourceVisibility.repo";
 import * as labelRepo from "@kan/db/repository/label.repo";
 import * as listRepo from "@kan/db/repository/list.repo";
 import * as notificationRepo from "@kan/db/repository/notification.repo";
@@ -16,10 +17,7 @@ import * as workspaceRepo from "@kan/db/repository/workspace.repo";
 import { cardPriorities } from "@kan/db/schema";
 import { createLogger } from "@kan/logger";
 import { colours } from "@kan/shared/constants";
-import {
-  generateAvatarUrl,
-  isInlineAttachmentContentType,
-} from "@kan/shared/utils";
+import { generateAvatarUrl } from "@kan/shared/utils";
 
 import {
   activityItemSchema,
@@ -63,6 +61,12 @@ function rethrowWorkspaceChanged(error: unknown): never {
 }
 
 function rethrowCardMutationError(error: unknown): never {
+  if (error instanceof PublicVisibilityAcknowledgementError) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: error.message,
+    });
+  }
   if (
     error instanceof Error &&
     error.message === cardRepo.OPEN_SUBTASKS_CONFIRMATION_REQUIRED
@@ -639,7 +643,11 @@ export const cardRouter = createTRPCRouter({
         await assertPermission(ctx.db, userId, card.workspaceId, "card:view");
       }
 
-      const { card: result, subtaskSummary } = await cardReadRepo
+      const {
+        card: result,
+        subtaskSummary,
+        resourceSummary,
+      } = await cardReadRepo
         .getDetailSnapshot(ctx.db, {
           cardPublicId: input.cardPublicId,
           expectedWorkspaceId: card.workspaceId,
@@ -647,16 +655,6 @@ export const cardRouter = createTRPCRouter({
         })
         .catch(rethrowWorkspaceChanged);
 
-      const attachmentsWithUrls = result.attachments.map((attachment) => ({
-        publicId: attachment.publicId,
-        contentType: attachment.contentType,
-        originalFilename: attachment.originalFilename,
-        size: attachment.size,
-        viewUrl: isInlineAttachmentContentType(attachment.contentType)
-          ? `/api/attachments/${attachment.publicId}/view`
-          : null,
-        downloadUrl: `/api/attachments/${attachment.publicId}/download`,
-      }));
       // Generate presigned URLs for workspace member avatars
       const workspaceWithAvatarUrls = {
         ...result.list.board.workspace,
@@ -680,8 +678,8 @@ export const cardRouter = createTRPCRouter({
 
       return {
         ...result,
-        attachments: attachmentsWithUrls,
         subtaskSummary,
+        resourceSummary,
         list: {
           ...result.list,
           board: {
@@ -815,6 +813,7 @@ export const cardRouter = createTRPCRouter({
         priority: z.enum(cardPriorities).optional(),
         colourCode: colourCodeSchema.optional(),
         confirmOpenSubtasks: z.boolean().optional(),
+        publicVisibilityAcknowledged: z.boolean().optional().default(false),
       }),
     )
     .output(cardUpdateResponseSchema)
@@ -1016,6 +1015,7 @@ export const cardRouter = createTRPCRouter({
             expectedWorkspaceId: card.workspaceId,
             clearLabels: movedToNewBoard,
             confirmOpenSubtasks: input.confirmOpenSubtasks,
+            publicVisibilityAcknowledged: input.publicVisibilityAcknowledged,
             ...(hasScalarUpdates && { updates: scalarUpdates }),
             activities,
           });
@@ -1265,6 +1265,7 @@ export const cardRouter = createTRPCRouter({
         copyMembers: z.boolean(),
         copyChecklists: z.boolean(),
         copyPipeline: z.boolean().optional().default(true),
+        publicVisibilityAcknowledged: z.boolean().optional().default(false),
       }),
     )
     .output(
@@ -1318,6 +1319,7 @@ export const cardRouter = createTRPCRouter({
           copyMembers: input.copyMembers,
           copyChecklists: input.copyChecklists,
           copyPipeline: input.copyPipeline,
+          publicVisibilityAcknowledged: input.publicVisibilityAcknowledged,
         })
         .catch((error: unknown) => {
           if (error instanceof cardDuplicateRepo.CardPipelineCloneError) {
@@ -1328,6 +1330,13 @@ export const cardRouter = createTRPCRouter({
           }
           return rethrowWorkspaceChanged(error);
         });
+
+      if (newCard.status === "public_ack_required") {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "PUBLIC_VISIBILITY_ACKNOWLEDGEMENT_REQUIRED",
+        });
+      }
 
       if (newCard.priority === "urgent") {
         await runUrgentAlertBestEffort(

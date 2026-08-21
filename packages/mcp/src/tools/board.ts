@@ -215,6 +215,12 @@ export function registerBoardTools(server: McpServer): void {
       labels: z.array(z.string().min(1)).default([]),
       type: z.enum(["regular", "template"]).optional(),
       sourceBoardPublicId: z.string().min(12).optional(),
+      publicVisibilityAcknowledged: z
+        .boolean()
+        .optional()
+        .describe(
+          "Confirm that cloned Drive resources may be anonymously visible when publishing the new board",
+        ),
     },
     async ({
       workspacePublicId,
@@ -225,6 +231,7 @@ export function registerBoardTools(server: McpServer): void {
       labels,
       type,
       sourceBoardPublicId,
+      publicVisibilityAcknowledged,
     }) => {
       const created = await kanRequest<{ publicId: string }>(
         "POST",
@@ -249,6 +256,9 @@ export function registerBoardTools(server: McpServer): void {
       if (Object.keys(update).length > 0) {
         await kanRequest("PUT", `/boards/${created.publicId}`, {
           ...update,
+          ...(publicVisibilityAcknowledged !== undefined
+            ? { publicVisibilityAcknowledged }
+            : {}),
         });
       }
       const data = await kanRequest("GET", `/boards/${created.publicId}`);
@@ -277,6 +287,12 @@ export function registerBoardTools(server: McpServer): void {
         .boolean()
         .optional()
         .describe("Whether the board is archived"),
+      publicVisibilityAcknowledged: z
+        .boolean()
+        .optional()
+        .describe(
+          "Confirm that resources on the board may become anonymously visible when publishing it",
+        ),
     },
     async ({
       boardPublicId,
@@ -285,6 +301,7 @@ export function registerBoardTools(server: McpServer): void {
       visibility,
       isFavorite,
       isArchived,
+      publicVisibilityAcknowledged,
     }) => {
       const data = await kanRequest("PUT", `/boards/${boardPublicId}`, {
         name,
@@ -292,6 +309,9 @@ export function registerBoardTools(server: McpServer): void {
         visibility,
         favorite: isFavorite,
         isArchived,
+        ...(publicVisibilityAcknowledged !== undefined
+          ? { publicVisibilityAcknowledged }
+          : {}),
       });
       return {
         content: [{ type: "text", text: JSON.stringify(data, null, 2) }],

@@ -231,6 +231,7 @@ describe("parent alert atomicity", () => {
         name: undefined,
         slug: undefined,
         visibility: undefined,
+        publicVisibilityAcknowledged: false,
         isArchived: true,
       }),
     ).rejects.toThrow(/parent notification update rejected/);

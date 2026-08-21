@@ -280,6 +280,21 @@ export function CardSubtasksView({
     );
   };
 
+  const openResource = (resourcePublicId: string) => {
+    const nextQuery: Record<string, string | string[] | undefined> = {
+      ...router.query,
+      vista: getCardWorkspaceQueryValue("files"),
+      recurso: resourcePublicId,
+    };
+    delete nextQuery.view;
+    delete nextQuery.subtask;
+    void router.replace(
+      { pathname: router.pathname, query: nextQuery },
+      undefined,
+      { shallow: true },
+    );
+  };
+
   const reorderStages = (sourceIndex: number, destinationIndex: number) => {
     if (!canEdit || !isOnline || sourceIndex === destinationIndex) return;
     const nextStages = [...stages];
@@ -623,6 +638,7 @@ export function CardSubtasksView({
 
       <SubtaskEditorDialog
         key={selectedSubtask?.publicId ?? "closed"}
+        cardPublicId={cardPublicId}
         subtask={selectedSubtask}
         stages={stages}
         members={members}
@@ -666,6 +682,7 @@ export function CardSubtasksView({
         onDeleteChecklistItem={(checklistItemPublicId) =>
           deleteChecklistItem.mutate({ checklistItemPublicId })
         }
+        onOpenResource={openResource}
         onDelete={() => {
           if (!selectedSubtask) return;
           deleteSubtask.mutate({

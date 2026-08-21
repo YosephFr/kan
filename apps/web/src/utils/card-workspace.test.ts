@@ -7,6 +7,7 @@ import {
   getNextTabIndex,
   isCardWorkspaceAligned,
   isOpenSubtasksConfirmationError,
+  isPublicVisibilityAcknowledgementError,
   toLocalDateTimeInput,
 } from "./card-workspace";
 
@@ -68,6 +69,23 @@ describe("isOpenSubtasksConfirmationError", () => {
     expect(
       isOpenSubtasksConfirmationError({
         message: "OPEN_SUBTASKS_CONFIRMATION_REQUIRED",
+        data: { code: "BAD_REQUEST" },
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("isPublicVisibilityAcknowledgementError", () => {
+  it("recognises only the structured backend precondition", () => {
+    expect(
+      isPublicVisibilityAcknowledgementError({
+        message: "PUBLIC_VISIBILITY_ACKNOWLEDGEMENT_REQUIRED",
+        data: { code: "PRECONDITION_FAILED" },
+      }),
+    ).toBe(true);
+    expect(
+      isPublicVisibilityAcknowledgementError({
+        message: "PUBLIC_VISIBILITY_ACKNOWLEDGEMENT_REQUIRED",
         data: { code: "BAD_REQUEST" },
       }),
     ).toBe(false);

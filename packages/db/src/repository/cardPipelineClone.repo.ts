@@ -238,5 +238,6 @@ export const clonePipelineForCardTx = async (
     status: "cloned" as const,
     stages: insertedStages.map(({ id: _id, ...stage }) => stage),
     subtaskPublicIds: insertedSubtasks.map((subtask) => subtask.publicId),
+    subtaskBySourceId: destinationBySourceSubtaskId,
   };
 };

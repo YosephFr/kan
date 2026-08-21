@@ -2,12 +2,11 @@ import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
 import {
+  boards,
   cardActivities,
-  cardAttachments,
+  cardResources,
   cards,
   cardsToLabels,
-  cardSubtaskResources,
-  cardSubtasks,
   cardToWorkspaceMembers,
   checklistItems,
   checklists,
@@ -19,6 +18,7 @@ import {
 import { generateUID } from "@kan/shared/utils";
 
 import { clonePipelineForCardTx } from "./cardPipelineClone.repo";
+import { cloneCardResourcesTx } from "./cardResourceClone.repo";
 import {
   assertBoardsInWorkspace,
   WorkspaceChangedError,
@@ -44,6 +44,7 @@ export const duplicateCard = async (
     copyMembers: boolean;
     copyChecklists: boolean;
     copyPipeline: boolean;
+    publicVisibilityAcknowledged: boolean;
   },
 ) =>
   db.transaction(async (tx) => {
@@ -117,8 +118,38 @@ export const duplicateCard = async (
       tx,
       lockedLists.map((list) => list.boardId),
       input.expectedWorkspaceId,
-      { workspaceLock: "update" },
+      { boardLock: "update", workspaceLock: "update" },
     );
+
+    const [targetBoard] = await tx
+      .select({ visibility: boards.visibility })
+      .from(boards)
+      .where(
+        and(
+          eq(boards.id, targetList.boardId),
+          eq(boards.workspaceId, input.expectedWorkspaceId),
+          isNull(boards.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (!targetBoard) throw new WorkspaceChangedError();
+    if (
+      targetBoard.visibility === "public" &&
+      !input.publicVisibilityAcknowledged
+    ) {
+      const [driveResource] = await tx
+        .select({ id: cardResources.id })
+        .from(cardResources)
+        .where(
+          and(
+            eq(cardResources.cardId, sourceCard.id),
+            eq(cardResources.kind, "drive"),
+            isNull(cardResources.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (driveResource) return { status: "public_ack_required" as const };
+    }
 
     const sourceLabelRows = input.copyLabels
       ? await tx
@@ -339,29 +370,10 @@ export const duplicateCard = async (
       });
     }
 
-    let skippedResourceCount = 0;
+    let subtaskBySourceId:
+      | Map<number, { id: number; publicId: string }>
+      | undefined;
     if (input.copyPipeline) {
-      const [resources] = await tx
-        .select({ count: sql<number>`count(*)`.mapWith(Number) })
-        .from(cardSubtaskResources)
-        .innerJoin(
-          cardSubtasks,
-          eq(cardSubtaskResources.subtaskId, cardSubtasks.id),
-        )
-        .innerJoin(
-          cardAttachments,
-          eq(cardSubtaskResources.attachmentId, cardAttachments.id),
-        )
-        .where(
-          and(
-            eq(cardSubtasks.cardId, sourceCard.id),
-            isNull(cardSubtasks.deletedAt),
-            isNull(cardSubtaskResources.deletedAt),
-            isNull(cardAttachments.deletedAt),
-            isNull(cardAttachments.storageQuarantinedAt),
-          ),
-        );
-      skippedResourceCount = resources?.count ?? 0;
       const cloneResult = await clonePipelineForCardTx(tx, {
         sourceCardId: sourceCard.id,
         destinationCardId: createdCard.id,
@@ -375,7 +387,21 @@ export const duplicateCard = async (
       ) {
         throw new CardPipelineCloneError();
       }
+      if (cloneResult.status === "cloned") {
+        subtaskBySourceId = cloneResult.subtaskBySourceId;
+      }
     }
 
-    return { ...createdCard, skippedResourceCount };
+    const clonedResources = await cloneCardResourcesTx(tx, {
+      sourceCardId: sourceCard.id,
+      destinationCardId: createdCard.id,
+      createdBy: input.createdBy,
+      subtaskBySourceId,
+    });
+
+    return {
+      status: "duplicated" as const,
+      ...createdCard,
+      skippedResourceCount: clonedResources.skippedUploadCount,
+    };
   });

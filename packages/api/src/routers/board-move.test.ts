@@ -365,6 +365,7 @@ describe("board.create clone authorization", () => {
     mockCreateFromSnapshot.mockResolvedValue({
       publicId: "board-cloned",
       name: input.name,
+      skippedResourceCount: 0,
     });
     mockAssertPermission.mockResolvedValue(undefined);
   });
@@ -403,7 +404,11 @@ describe("board.create clone authorization", () => {
 
     const result = await boardRouter.createCaller(context).create(input);
 
-    expect(result).toEqual({ publicId: "board-cloned", name: input.name });
+    expect(result).toEqual({
+      publicId: "board-cloned",
+      name: input.name,
+      skippedResourceCount: 0,
+    });
     expect(mockCreateFromSnapshot).toHaveBeenCalledWith(
       mockDb,
       expect.objectContaining({

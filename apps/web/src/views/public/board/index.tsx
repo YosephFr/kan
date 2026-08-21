@@ -205,6 +205,7 @@ export default function PublicBoardView() {
                         delete nextQuery.view;
                         delete nextQuery.vista;
                         delete nextQuery.subtask;
+                        delete nextQuery.recurso;
                         return (
                           <Link
                             key={card.publicId}
@@ -229,7 +230,7 @@ export default function PublicBoardView() {
                               members={[]}
                               description={card.description}
                               comments={card.comments}
-                              attachments={card.attachments}
+                              resourceSummary={card.resourceSummary}
                               dueDate={card.dueDate}
                               subtaskSummary={card.subtaskSummary}
                             />

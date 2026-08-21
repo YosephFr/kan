@@ -226,10 +226,14 @@ export function NewCardForm({
                 blocked: 0,
                 progressPercent: 0,
               },
+              resourceSummary: {
+                total: 0,
+                uploads: 0,
+                driveLinks: 0,
+              },
               cardNumber: null,
               comments: [],
               checklists: [],
-              attachments: [],
               labels: oldBoard.labels.filter((label) =>
                 args.labelPublicIds.includes(label.publicId),
               ),

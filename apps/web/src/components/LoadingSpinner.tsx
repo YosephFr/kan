@@ -10,10 +10,12 @@ const LoadingSpinner = ({ size = "md" }: { size?: "sm" | "md" | "lg" }) => {
         size === "lg" && "h-5 w-5",
       )}
       viewBox="0 0 100 100"
+      aria-hidden="true"
+      focusable="false"
     >
       <circle
         fill="none"
-        stroke-width="10"
+        strokeWidth="10"
         className="stroke-current opacity-40"
         cx="50"
         cy="50"
@@ -21,10 +23,10 @@ const LoadingSpinner = ({ size = "md" }: { size?: "sm" | "md" | "lg" }) => {
       />
       <circle
         fill="none"
-        stroke-width="10"
+        strokeWidth="10"
         className="stroke-current"
-        stroke-dasharray="280"
-        stroke-dashoffset="210"
+        strokeDasharray="280"
+        strokeDashoffset="210"
         cx="50"
         cy="50"
         r="40"

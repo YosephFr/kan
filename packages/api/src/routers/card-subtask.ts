@@ -12,8 +12,8 @@ import { stripHtml } from "@kan/shared/utils";
 import {
   cardPipelineSchema,
   cardSubtaskChecklistItemSchema,
-  cardSubtaskResourceSchema,
   cardSubtaskSchema,
+  legacyCardSubtaskAttachmentResourceSchema,
 } from "../schemas";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import {
@@ -27,6 +27,7 @@ import {
   createSubtaskWebhookPayload,
   sendWebhooksForWorkspace,
 } from "../utils/webhook";
+import { cardSubtaskResourceProcedures } from "./card-subtask-resource";
 
 const publicId = z.string().length(12);
 const logger = createLogger("card-subtask-router");
@@ -668,7 +669,7 @@ export const cardSubtaskRouter = createTRPCRouter({
         attachmentPublicId: publicId,
       }),
     )
-    .output(cardSubtaskResourceSchema)
+    .output(legacyCardSubtaskAttachmentResourceSchema)
     .mutation(async ({ ctx, input }) => {
       const userId = userIdOrThrow(ctx.user);
       const context = await getEditableSubtaskContext(
@@ -696,10 +697,22 @@ export const cardSubtaskRouter = createTRPCRouter({
       const loaded = await loadSubtask(ctx, context, input.subtaskPublicId);
       const resource = loaded.subtask.resources.find(
         (candidate) =>
-          candidate.attachmentPublicId === input.attachmentPublicId,
+          candidate.publicId === input.attachmentPublicId &&
+          candidate.kind === "upload",
       );
-      if (!resource) throw new TRPCError({ code: "NOT_FOUND" });
-      return resource;
+      if (!resource || resource.kind !== "upload") {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+      return {
+        publicId: result.relation.publicId,
+        attachmentPublicId: resource.publicId,
+        filename: resource.originalFilename,
+        originalFilename: resource.originalFilename,
+        contentType: resource.contentType,
+        size: resource.size,
+        viewUrl: resource.viewUrl,
+        downloadUrl: resource.downloadUrl,
+      };
     }),
 
   unlinkAttachment: protectedProcedure
@@ -735,4 +748,6 @@ export const cardSubtaskRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND" });
       return { success: true };
     }),
+
+  ...cardSubtaskResourceProcedures,
 });

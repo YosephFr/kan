@@ -1,3 +1,4 @@
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { t } from "@lingui/core/macro";
@@ -30,12 +31,11 @@ import { invalidateCard } from "~/utils/cardInvalidation";
 import { formatMemberDisplayName, getAvatarUrl } from "~/utils/helpers";
 import { DeleteLabelConfirmation } from "../../components/DeleteLabelConfirmation";
 import ActivityList from "./components/ActivityList";
-import { AttachmentThumbnails } from "./components/AttachmentThumbnails";
-import { AttachmentUpload } from "./components/AttachmentUpload";
 import {
   CardColourSelector,
   CardPrioritySelector,
 } from "./components/CardFieldSelectors";
+import { CardResourceSummary } from "./components/CardResourceSummary";
 import { CardSubtasksView } from "./components/CardSubtasksView";
 import { CardWorkspaceComingSoon } from "./components/CardWorkspaceComingSoon";
 import { CardWorkspaceTabs } from "./components/CardWorkspaceTabs";
@@ -51,6 +51,24 @@ import ListSelector from "./components/ListSelector";
 import MemberSelector from "./components/MemberSelector";
 import { NewChecklistForm } from "./components/NewChecklistForm";
 import NewCommentForm from "./components/NewCommentForm";
+
+const CardFilesView = dynamic(
+  () =>
+    import("./components/CardFilesView").then((module) => module.CardFilesView),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-3 p-4 sm:grid-cols-2 md:p-6 lg:grid-cols-3 lg:p-8">
+        {[0, 1, 2].map((item) => (
+          <div
+            key={item}
+            className="h-56 animate-pulse rounded-lg bg-light-200 dark:bg-dark-200"
+          />
+        ))}
+      </div>
+    ),
+  },
+);
 
 interface FormValues {
   cardId: string;
@@ -472,7 +490,9 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
                     }
                     listPublicId={card.list.publicId}
                     cardIndex={card.index}
-                    hasFiles={card.attachments.length > 0}
+                    uploadCount={card.resourceSummary.uploads}
+                    driveLinkCount={card.resourceSummary.driveLinks}
+                    isPublicBoard={board?.visibility === "public"}
                   />
                   <Link
                     href={`/${isTemplate ? "templates" : "boards"}/${boardId}`}
@@ -495,6 +515,7 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
               <CardWorkspaceTabs
                 activeView={activeView}
                 developmentCount={card.subtaskSummary.total}
+                resourceCount={card.resourceSummary.total}
               />
             </div>
           )}
@@ -572,6 +593,9 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
                     <div className="mb-8">
                       <DevelopmentProgress summary={card.subtaskSummary} />
                     </div>
+                    <div className="mb-8">
+                      <CardResourceSummary {...card.resourceSummary} />
+                    </div>
                     <Checklists
                       checklists={card.checklists}
                       cardPublicId={cardId}
@@ -579,24 +603,6 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
                       setActiveChecklistForm={setActiveChecklistForm}
                       viewOnly={!canEdit}
                     />
-                    {!isTemplate && (
-                      <>
-                        {card.attachments.length > 0 && (
-                          <div className="mt-6">
-                            <AttachmentThumbnails
-                              attachments={card.attachments}
-                              cardPublicId={cardId}
-                              isReadOnly={!canEdit}
-                            />
-                          </div>
-                        )}
-                        {canEdit && (
-                          <div className="mt-6">
-                            <AttachmentUpload cardPublicId={cardId} />
-                          </div>
-                        )}
-                      </>
-                    )}
                     <div className="border-t-[1px] border-light-300 pt-12 dark:border-dark-300">
                       <h2 className="text-md pb-4 font-medium text-light-1000 dark:text-dark-1000">
                         {t`Activity`}
@@ -653,13 +659,17 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
 
         {activeView === "whiteboard" && (
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <CardWorkspaceComingSoon view="whiteboard" />
+            <CardWorkspaceComingSoon />
           </div>
         )}
 
         {activeView === "files" && (
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <CardWorkspaceComingSoon view="files" />
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <CardFilesView
+              cardPublicId={cardId}
+              canEdit={canEdit}
+              isPublicBoard={board?.visibility === "public"}
+            />
           </div>
         )}
 

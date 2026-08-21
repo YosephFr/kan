@@ -4,6 +4,7 @@ import { z } from "zod";
 import * as boardRepo from "@kan/db/repository/board.repo";
 import * as boardCreateRepo from "@kan/db/repository/boardCreate.repo";
 import * as boardReadRepo from "@kan/db/repository/boardRead.repo";
+import { PublicVisibilityAcknowledgementError } from "@kan/db/repository/cardResourceVisibility.repo";
 import { WorkspaceChangedError } from "@kan/db/repository/workspace-boundary";
 import * as workspaceRepo from "@kan/db/repository/workspace.repo";
 import { cardPriorities } from "@kan/db/schema";
@@ -30,6 +31,12 @@ import {
 } from "../utils/permissions";
 
 function rethrowWorkspaceChanged(error: unknown): never {
+  if (error instanceof PublicVisibilityAcknowledgementError) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: error.message,
+    });
+  }
   if (error instanceof WorkspaceChangedError) {
     throw new TRPCError({ code: "NOT_FOUND", message: "Resource not found" });
   }
@@ -151,7 +158,11 @@ export const boardRouter = createTRPCRouter({
         ? convertDueDateFiltersToRanges(input.dueDateFilters)
         : [];
 
-      const { board: result, summaries } = await boardReadRepo
+      const {
+        board: result,
+        summaries,
+        resourceSummaries,
+      } = await boardReadRepo
         .getByPublicIdGuarded(ctx.db, {
           boardPublicId: input.boardPublicId,
           userId,
@@ -221,6 +232,11 @@ export const boardRouter = createTRPCRouter({
               completed: 0,
               blocked: 0,
               progressPercent: 0,
+            },
+            resourceSummary: resourceSummaries.get(card.publicId) ?? {
+              total: 0,
+              uploads: 0,
+              driveLinks: 0,
             },
           })),
         })),
@@ -305,7 +321,7 @@ export const boardRouter = createTRPCRouter({
         });
 
       if (!snapshot) return null;
-      const { board: result, summaries } = snapshot;
+      const { board: result, summaries, resourceSummaries } = snapshot;
 
       return {
         ...result,
@@ -318,6 +334,11 @@ export const boardRouter = createTRPCRouter({
               completed: 0,
               blocked: 0,
               progressPercent: 0,
+            },
+            resourceSummary: resourceSummaries.get(card.publicId) ?? {
+              total: 0,
+              uploads: 0,
+              driveLinks: 0,
             },
           })),
         })),
@@ -445,7 +466,7 @@ export const boardRouter = createTRPCRouter({
         })
         .catch(rethrowWorkspaceChanged);
 
-      return result;
+      return { ...result, skippedResourceCount: 0 };
     }),
   update: protectedProcedure
     .meta({
@@ -469,6 +490,7 @@ export const boardRouter = createTRPCRouter({
           .regex(/^(?![-]+$)[a-zA-Z0-9-]+$/)
           .optional(),
         visibility: z.enum(["public", "private"]).optional(),
+        publicVisibilityAcknowledged: z.boolean().optional().default(false),
         favorite: z.boolean().optional(),
         isArchived: z.boolean().optional(),
       }),
@@ -545,6 +567,7 @@ export const boardRouter = createTRPCRouter({
           boardPublicId: input.boardPublicId,
           expectedWorkspaceId: board.workspaceId,
           visibility: input.visibility,
+          publicVisibilityAcknowledged: input.publicVisibilityAcknowledged,
           isArchived: input.isArchived,
         })
         .catch(rethrowWorkspaceChanged);

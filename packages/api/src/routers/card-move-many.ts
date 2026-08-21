@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import * as cardMoveRepo from "@kan/db/repository/card-move.repo";
 import * as cardRepo from "@kan/db/repository/card.repo";
+import { PublicVisibilityAcknowledgementError } from "@kan/db/repository/cardResourceVisibility.repo";
 import * as listRepo from "@kan/db/repository/list.repo";
 import { WorkspaceChangedError } from "@kan/db/repository/workspace-boundary";
 
@@ -30,6 +31,7 @@ export const cardMoveManyProcedure = protectedProcedure
       cardPublicIds: z.array(z.string().min(12)).min(1),
       listPublicId: z.string().min(12),
       confirmOpenSubtasks: z.boolean().optional(),
+      publicVisibilityAcknowledged: z.boolean().optional().default(false),
     }),
   )
   .output(z.array(cardUpdateResponseSchema))
@@ -138,12 +140,19 @@ export const cardMoveManyProcedure = protectedProcedure
         expectedWorkspaceId: workspaceId,
         createdBy: userId,
         confirmOpenSubtasks: input.confirmOpenSubtasks,
+        publicVisibilityAcknowledged: input.publicVisibilityAcknowledged,
       });
     } catch (error) {
       if (error instanceof WorkspaceChangedError) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "One or more cards were not found",
+        });
+      }
+      if (error instanceof PublicVisibilityAcknowledgementError) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: error.message,
         });
       }
       if (

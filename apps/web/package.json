@@ -16,7 +16,10 @@
     "with-env": "dotenv -e ../../.env --",
     "lingui:extract": "lingui extract",
     "lingui:compile": "lingui compile --typescript",
-    "lingui:extract:watch": "lingui extract --watch"
+    "lingui:extract:watch": "lingui extract --watch",
+    "prepare:vendor-assets": "node scripts/prepare-vendor-assets.mjs",
+    "prebuild": "pnpm prepare:vendor-assets",
+    "predev": "pnpm prepare:vendor-assets"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.802.0",
@@ -57,6 +60,7 @@
     "next-runtime-env": "^1.7.2",
     "next-themes": "^0.4.6",
     "nextjs-cors": "^2.2.0",
+    "pdfjs-dist": "5.4.624",
     "posthog-js": "^1.254.0",
     "react": "catalog:react18",
     "react-beautiful-dnd": "^13.1.1",

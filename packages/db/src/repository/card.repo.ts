@@ -13,7 +13,7 @@ import {
 import type { dbClient } from "@kan/db/client";
 import type { CardPriority, ListStatus } from "@kan/db/schema";
 import {
-  cardAttachments,
+  boards,
   cardPipelineStages,
   cards,
   cardsToLabels,
@@ -31,6 +31,7 @@ import type { CardMutationActivityInput } from "./cardMutationActivity";
 import type { WorkspaceBoundaryTransaction } from "./workspace-boundary";
 import { deriveCardLifecycle } from "./cardLifecycle";
 import { insertCardMutationActivitiesTx } from "./cardMutationActivity";
+import { assertActiveResourcesAcknowledged } from "./cardResourceVisibility.repo";
 import {
   invalidateCardAlerts,
   invalidateDueAlertsForCard,
@@ -587,16 +588,6 @@ export const getWithListAndMembersByPublicId = async (
           },
         },
       },
-      attachments: {
-        columns: {
-          publicId: true,
-          contentType: true,
-          originalFilename: true,
-          size: true,
-        },
-        where: isNull(cardAttachments.deletedAt),
-        orderBy: asc(cardAttachments.createdAt),
-      },
       checklists: {
         columns: {
           publicId: true,
@@ -630,6 +621,7 @@ export const getWithListAndMembersByPublicId = async (
             columns: {
               publicId: true,
               name: true,
+              visibility: true,
             },
             with: {
               labels: {
@@ -806,6 +798,7 @@ export const reorder = async (
     expectedWorkspaceId: number;
     clearLabels?: boolean;
     confirmOpenSubtasks?: boolean;
+    publicVisibilityAcknowledged?: boolean;
     updates?: {
       title?: string;
       description?: string;
@@ -868,12 +861,6 @@ export const reorder = async (
       args.expectedWorkspaceId,
     );
 
-    if (args.clearLabels) {
-      await tx
-        .delete(cardsToLabels)
-        .where(eq(cardsToLabels.cardId, args.cardId));
-    }
-
     const currentList = lockedLists.find((list) => list.id === card.listId);
 
     if (!currentList)
@@ -887,6 +874,38 @@ export const reorder = async (
 
     if (!destinationList)
       throw new Error(`List not found for public ID ${destinationListId}`);
+
+    if (currentList.boardId !== destinationList.boardId) {
+      const boardRows = await tx
+        .select({ id: boards.id, visibility: boards.visibility })
+        .from(boards)
+        .where(
+          and(
+            inArray(boards.id, [currentList.boardId, destinationList.boardId]),
+            eq(boards.workspaceId, args.expectedWorkspaceId),
+            isNull(boards.deletedAt),
+          ),
+        );
+      const visibilityByBoardId = new Map(
+        boardRows.map((board) => [board.id, board.visibility]),
+      );
+      if (
+        visibilityByBoardId.get(currentList.boardId) === "private" &&
+        visibilityByBoardId.get(destinationList.boardId) === "public"
+      ) {
+        await assertActiveResourcesAcknowledged(
+          tx,
+          [card.id],
+          args.publicVisibilityAcknowledged ?? false,
+        );
+      }
+    }
+
+    if (args.clearLabels) {
+      await tx
+        .delete(cardsToLabels)
+        .where(eq(cardsToLabels.cardId, args.cardId));
+    }
 
     if (destinationList.status === "done" && currentList.status !== "done") {
       const [openSubtasks] = await tx

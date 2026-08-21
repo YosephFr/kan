@@ -49,6 +49,7 @@ export function registerAttachmentTools(server: McpServer): void {
         contentType: z.string().min(1),
         size: z.number().int().positive().max(MAX_ATTACHMENT_SIZE),
         sha256: z.string().regex(/^[a-f0-9]{64}$/i),
+        publicVisibilityAcknowledged: z.boolean().optional(),
       },
       annotations: {
         readOnlyHint: false,
@@ -57,12 +58,27 @@ export function registerAttachmentTools(server: McpServer): void {
         openWorldHint: true,
       },
     },
-    async ({ cardPublicId, filename, contentType, size, sha256 }) =>
+    async ({
+      cardPublicId,
+      filename,
+      contentType,
+      size,
+      sha256,
+      publicVisibilityAcknowledged,
+    }) =>
       jsonResult(
         await kanRequest(
           "POST",
           `/cards/${cardPublicId}/attachments/upload-url`,
-          { filename, contentType, size, sha256 },
+          {
+            filename,
+            contentType,
+            size,
+            sha256,
+            ...(publicVisibilityAcknowledged !== undefined
+              ? { publicVisibilityAcknowledged }
+              : {}),
+          },
         ),
       ),
   );
@@ -75,6 +91,7 @@ export function registerAttachmentTools(server: McpServer): void {
       inputSchema: {
         cardPublicId: z.string().length(12),
         uploadSessionPublicId: z.string().length(12),
+        publicVisibilityAcknowledged: z.boolean().optional(),
       },
       annotations: {
         readOnlyHint: false,
@@ -83,10 +100,17 @@ export function registerAttachmentTools(server: McpServer): void {
         openWorldHint: false,
       },
     },
-    async ({ cardPublicId, uploadSessionPublicId }) =>
+    async ({
+      cardPublicId,
+      uploadSessionPublicId,
+      publicVisibilityAcknowledged,
+    }) =>
       jsonResult(
         await kanRequest("POST", `/cards/${cardPublicId}/attachments/confirm`, {
           uploadSessionPublicId,
+          ...(publicVisibilityAcknowledged !== undefined
+            ? { publicVisibilityAcknowledged }
+            : {}),
         }),
       ),
   );
@@ -101,6 +125,7 @@ export function registerAttachmentTools(server: McpServer): void {
         filePath: z.string().min(1),
         filename: z.string().min(1).max(255).optional(),
         contentType: z.string().min(1).optional(),
+        publicVisibilityAcknowledged: z.boolean().optional(),
       },
       annotations: {
         readOnlyHint: false,
@@ -109,7 +134,13 @@ export function registerAttachmentTools(server: McpServer): void {
         openWorldHint: true,
       },
     },
-    async ({ cardPublicId, filePath, filename, contentType }) => {
+    async ({
+      cardPublicId,
+      filePath,
+      filename,
+      contentType,
+      publicVisibilityAcknowledged,
+    }) => {
       const fileStat = await stat(filePath);
       if (!fileStat.isFile()) {
         throw new Error(`Attachment path is not a regular file: ${filePath}`);
@@ -141,6 +172,9 @@ export function registerAttachmentTools(server: McpServer): void {
         contentType: resolvedContentType,
         size: fileStat.size,
         sha256,
+        ...(publicVisibilityAcknowledged !== undefined
+          ? { publicVisibilityAcknowledged }
+          : {}),
       });
 
       await putBinary(upload.url, data, resolvedContentType);
@@ -148,6 +182,9 @@ export function registerAttachmentTools(server: McpServer): void {
       return jsonResult(
         await kanRequest("POST", `/cards/${cardPublicId}/attachments/confirm`, {
           uploadSessionPublicId: upload.uploadSessionPublicId,
+          ...(publicVisibilityAcknowledged !== undefined
+            ? { publicVisibilityAcknowledged }
+            : {}),
         }),
       );
     },

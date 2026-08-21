@@ -1,8 +1,13 @@
 import { z } from "zod";
 
-import { cardPriorities, listStatuses } from "@kan/db/schema";
+import {
+  boardVisibilityStatuses,
+  cardPriorities,
+  listStatuses,
+} from "@kan/db/schema";
 
 import { subtaskSummarySchema } from "./card-pipeline";
+import { resourceSummarySchema } from "./card-resource";
 import {
   checklistResponseSchema,
   labelSchema,
@@ -67,16 +72,6 @@ export const cardDetailSchema = z.object({
   completedAt: z.date().nullable(),
   createdBy: z.string().nullable(),
   labels: z.array(labelSchema),
-  attachments: z.array(
-    z.object({
-      publicId: z.string(),
-      contentType: z.string(),
-      originalFilename: z.string().nullable(),
-      size: z.number().nullable(),
-      viewUrl: z.string().nullable(),
-      downloadUrl: z.string(),
-    }),
-  ),
   checklists: z.array(checklistResponseSchema),
   list: z.object({
     publicId: z.string(),
@@ -86,6 +81,7 @@ export const cardDetailSchema = z.object({
     board: z.object({
       publicId: z.string(),
       name: z.string(),
+      visibility: z.enum(boardVisibilityStatuses),
       labels: z.array(labelSchema),
       lists: z.array(
         z.object({
@@ -105,6 +101,7 @@ export const cardDetailSchema = z.object({
   }),
   members: z.array(cardMemberSchema),
   subtaskSummary: subtaskSummarySchema,
+  resourceSummary: resourceSummarySchema,
   activities: z.array(
     z.object({
       publicId: z.string(),

@@ -242,7 +242,11 @@ describe("workspace transaction boundaries", () => {
       copyMembers: true,
       copyChecklists: true,
       copyPipeline: true,
+      publicVisibilityAcknowledged: true,
     });
+    if (duplicated.status !== "duplicated") {
+      throw new Error("Duplicate unexpectedly required acknowledgement");
+    }
     const ordered = await db
       .select({ publicId: cards.publicId, index: cards.index })
       .from(cards)
@@ -363,6 +367,7 @@ describe("workspace transaction boundaries", () => {
         copyMembers: false,
         copyChecklists: false,
         copyPipeline: false,
+        publicVisibilityAcknowledged: false,
       }),
     ).rejects.toBeInstanceOf(WorkspaceChangedError);
     const [cardCount] = await db
@@ -410,6 +415,7 @@ describe("workspace transaction boundaries", () => {
         copyMembers: false,
         copyChecklists: false,
         copyPipeline: false,
+        publicVisibilityAcknowledged: false,
       }),
     ).rejects.toBeInstanceOf(WorkspaceChangedError);
     expect(

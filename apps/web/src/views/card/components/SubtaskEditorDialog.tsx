@@ -22,8 +22,10 @@ import {
   toLocalDateTimeInput,
 } from "~/utils/card-workspace";
 import { formatMemberDisplayName, getAvatarUrl } from "~/utils/helpers";
+import { SubtaskResourceSection } from "./SubtaskResourceSection";
 
 interface SubtaskEditorDialogProps {
+  cardPublicId: string;
   subtask: CardSubtask | null;
   stages: CardPipelineStage[];
   members: WorkspaceMemberOption[];
@@ -46,6 +48,7 @@ interface SubtaskEditorDialogProps {
     input: { title?: string; completed?: boolean },
   ) => void;
   onDeleteChecklistItem: (checklistItemPublicId: string) => void;
+  onOpenResource: (resourcePublicId: string) => void;
   onDelete: () => void;
 }
 
@@ -98,6 +101,7 @@ function ChecklistItemTitleInput({
 }
 
 export function SubtaskEditorDialog({
+  cardPublicId,
   subtask,
   stages,
   members,
@@ -113,6 +117,7 @@ export function SubtaskEditorDialog({
   onCreateChecklistItem,
   onUpdateChecklistItem,
   onDeleteChecklistItem,
+  onOpenResource,
   onDelete,
 }: SubtaskEditorDialogProps) {
   const [title, setTitle] = useState(subtask?.title ?? "");
@@ -507,6 +512,14 @@ export function SubtaskEditorDialog({
                           </div>
                         )}
                       </div>
+
+                      <SubtaskResourceSection
+                        cardPublicId={cardPublicId}
+                        subtaskPublicId={subtask.publicId}
+                        resources={subtask.resources}
+                        canEdit={canEdit}
+                        onOpenResource={onOpenResource}
+                      />
 
                       {canEdit && (
                         <div className="mt-8 border-t border-light-300 pt-5 dark:border-dark-400">

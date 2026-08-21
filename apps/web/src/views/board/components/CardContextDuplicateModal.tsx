@@ -13,9 +13,11 @@ import { twMerge } from "tailwind-merge";
 import Button from "~/components/Button";
 import { DuplicateResourcesNotice } from "~/components/DuplicateResourcesNotice";
 import Input from "~/components/Input";
+import { PublicResourceVisibilityNotice } from "~/components/PublicResourceVisibilityNotice";
 import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
+import { isPublicVisibilityAcknowledgementError } from "~/utils/card-workspace";
 
 interface CardContextDuplicateModalProps {
   boardPublicId?: string;
@@ -42,6 +44,10 @@ export function CardContextDuplicateModal({
   const [copyChecklists, setCopyChecklists] = useState(true);
   const [position, setPosition] = useState<string>("");
   const [title, setTitle] = useState("");
+  const [
+    serverRequiresPublicAcknowledgement,
+    setServerRequiresPublicAcknowledgement,
+  ] = useState(false);
 
   const { data: card, isLoading: isCardLoading } = api.card.byId.useQuery(
     { cardPublicId },
@@ -62,7 +68,11 @@ export function CardContextDuplicateModal({
   const hasLabels = (card?.labels.length ?? 0) > 0;
   const hasMembers = (card?.members.length ?? 0) > 0;
   const hasChecklists = (card?.checklists.length ?? 0) > 0;
-  const hasFiles = (card?.attachments.length ?? 0) > 0;
+  const uploadCount = card?.resourceSummary.uploads ?? 0;
+  const driveLinkCount = card?.resourceSummary.driveLinks ?? 0;
+  const requiresPublicAcknowledgement =
+    serverRequiresPublicAcknowledgement ||
+    (board?.visibility === "public" && driveLinkCount > 0);
   const hasAnyCopyOption = hasLabels || hasMembers || hasChecklists;
 
   const duplicateCard = api.card.duplicate.useMutation({
@@ -72,12 +82,16 @@ export function CardContextDuplicateModal({
         icon: "success",
         message:
           result.skippedResourceCount > 0
-            ? t`The card was duplicated, but ${result.skippedResourceCount} linked resources were not copied.`
+            ? t`The card was duplicated, but ${result.skippedResourceCount} uploaded files were not copied.`
             : t`The card has been duplicated.`,
       });
       closeModal();
     },
-    onError: () => {
+    onError: (error) => {
+      if (isPublicVisibilityAcknowledgementError(error)) {
+        setServerRequiresPublicAcknowledgement(true);
+        return;
+      }
       showPopup({
         header: t`Unable to duplicate card`,
         message: t`Please try again.`,
@@ -105,6 +119,7 @@ export function CardContextDuplicateModal({
       copyMembers,
       copyChecklists,
       copyPipeline: true,
+      publicVisibilityAcknowledged: requiresPublicAcknowledgement,
       ...(typeof indexNum === "number" && { index: indexNum }),
       title: title.trim() || undefined,
     });
@@ -267,7 +282,15 @@ export function CardContextDuplicateModal({
           </div>
         )}
 
-        {hasFiles && <DuplicateResourcesNotice />}
+        {uploadCount > 0 && (
+          <DuplicateResourcesNotice uploadCount={uploadCount} />
+        )}
+        {requiresPublicAcknowledgement && (
+          <PublicResourceVisibilityNotice
+            resourceCount={driveLinkCount || undefined}
+            driveOnly
+          />
+        )}
       </div>
 
       <div className="mt-6 flex justify-end gap-2">
@@ -284,7 +307,11 @@ export function CardContextDuplicateModal({
             lists.length === 0
           }
         >
-          {duplicateCard.isPending ? t`Duplicating…` : t`Duplicate`}
+          {duplicateCard.isPending
+            ? t`Duplicating…`
+            : requiresPublicAcknowledgement
+              ? t`Confirm and duplicate`
+              : t`Duplicate`}
         </Button>
       </div>
     </form>

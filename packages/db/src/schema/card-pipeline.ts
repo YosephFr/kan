@@ -16,6 +16,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
+import { cardResources } from "./card-resources";
 import { cardAttachments, cardPriorityEnum, cards } from "./cards";
 import { users } from "./users";
 import { workspaceMembers } from "./workspaces";
@@ -161,9 +162,14 @@ export const cardSubtaskResources = pgTable(
     subtaskId: bigint("subtaskId", { mode: "number" })
       .notNull()
       .references(() => cardSubtasks.id, { onDelete: "cascade" }),
-    attachmentId: bigint("attachmentId", { mode: "number" })
-      .notNull()
-      .references(() => cardAttachments.id, { onDelete: "cascade" }),
+    resourceId: bigint("resourceId", { mode: "number" }).references(
+      () => cardResources.id,
+      { onDelete: "cascade" },
+    ),
+    attachmentId: bigint("attachmentId", { mode: "number" }).references(
+      () => cardAttachments.id,
+      { onDelete: "cascade" },
+    ),
     createdBy: uuid("createdBy").references(() => users.id, {
       onDelete: "set null",
     }),
@@ -177,6 +183,9 @@ export const cardSubtaskResources = pgTable(
   },
   (table) => [
     uniqueIndex("card_subtask_resource_active_unique")
+      .on(table.subtaskId, table.resourceId)
+      .where(sql`${table.deletedAt} is null`),
+    uniqueIndex("card_subtask_resource_attachment_active_unique")
       .on(table.subtaskId, table.attachmentId)
       .where(sql`${table.deletedAt} is null`),
     index("card_subtask_resource_subtask_deleted_idx").on(
@@ -264,6 +273,11 @@ export const cardSubtaskResourcesRelations = relations(
       fields: [cardSubtaskResources.attachmentId],
       references: [cardAttachments.id],
       relationName: "cardSubtaskResourcesAttachment",
+    }),
+    resource: one(cardResources, {
+      fields: [cardSubtaskResources.resourceId],
+      references: [cardResources.id],
+      relationName: "cardSubtaskResourcesResource",
     }),
     createdBy: one(users, {
       fields: [cardSubtaskResources.createdBy],

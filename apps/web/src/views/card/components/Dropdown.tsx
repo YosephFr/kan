@@ -13,6 +13,7 @@ import Dropdown from "~/components/Dropdown";
 import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
+import { isPublicVisibilityAcknowledgementError } from "~/utils/card-workspace";
 import { DuplicateCardConfirmationDialog } from "./DuplicateCardConfirmationDialog";
 
 export default function CardDropdown({
@@ -24,7 +25,9 @@ export default function CardDropdown({
   ticketNumber,
   listPublicId,
   cardIndex,
-  hasFiles = false,
+  uploadCount = 0,
+  driveLinkCount = 0,
+  isPublicBoard = false,
 }: {
   cardPublicId: string;
   isTemplate?: boolean;
@@ -34,26 +37,42 @@ export default function CardDropdown({
   ticketNumber?: string | null;
   listPublicId?: string;
   cardIndex?: number;
-  hasFiles?: boolean;
+  uploadCount?: number;
+  driveLinkCount?: number;
+  isPublicBoard?: boolean;
 }) {
   const { openModal } = useModal();
   const { showPopup } = usePopup();
   const utils = api.useUtils();
   const [isDuplicateWarningOpen, setIsDuplicateWarningOpen] = useState(false);
+  const [requiresPublicAcknowledgement, setRequiresPublicAcknowledgement] =
+    useState(false);
+
+  const requiresPublicVisibilityAcknowledgement =
+    requiresPublicAcknowledgement || (isPublicBoard && driveLinkCount > 0);
+  const publicDriveLinkCount = requiresPublicVisibilityAcknowledgement
+    ? driveLinkCount || undefined
+    : undefined;
 
   const duplicateCard = api.card.duplicate.useMutation({
     onSuccess: (result) => {
       setIsDuplicateWarningOpen(false);
+      setRequiresPublicAcknowledgement(false);
       showPopup({
         header: t`Card duplicated`,
         icon: "success",
         message:
           result.skippedResourceCount > 0
-            ? t`Card duplicated. ${result.skippedResourceCount} linked resources were not copied.`
+            ? t`Card duplicated. ${result.skippedResourceCount} uploaded files were not copied.`
             : t`Card duplicated successfully.`,
       });
     },
-    onError: () => {
+    onError: (error) => {
+      if (isPublicVisibilityAcknowledgementError(error)) {
+        setRequiresPublicAcknowledgement(true);
+        setIsDuplicateWarningOpen(true);
+        return;
+      }
       showPopup({
         header: t`Unable to duplicate card`,
         icon: "error",
@@ -65,7 +84,7 @@ export default function CardDropdown({
     },
   });
 
-  const handleDuplicate = () => {
+  const handleDuplicate = (publicVisibilityAcknowledged = false) => {
     if (!listPublicId || cardIndex === undefined) return;
     duplicateCard.mutate({
       cardPublicId,
@@ -75,6 +94,7 @@ export default function CardDropdown({
       copyMembers: true,
       copyChecklists: true,
       copyPipeline: true,
+      publicVisibilityAcknowledged,
     });
   };
 
@@ -148,7 +168,7 @@ export default function CardDropdown({
             label: t`Duplicate card`,
             action: () => {
               if (!listPublicId || cardIndex === undefined) return;
-              if (hasFiles) {
+              if (uploadCount > 0 || requiresPublicVisibilityAcknowledgement) {
                 setIsDuplicateWarningOpen(true);
                 return;
               }
@@ -186,8 +206,18 @@ export default function CardDropdown({
       <DuplicateCardConfirmationDialog
         isOpen={isDuplicateWarningOpen}
         isLoading={duplicateCard.isPending}
-        onCancel={() => setIsDuplicateWarningOpen(false)}
-        onConfirm={handleDuplicate}
+        uploadCount={uploadCount}
+        publicDriveLinkCount={publicDriveLinkCount}
+        requiresPublicVisibilityAcknowledgement={
+          requiresPublicVisibilityAcknowledgement
+        }
+        onCancel={() => {
+          setIsDuplicateWarningOpen(false);
+          setRequiresPublicAcknowledgement(false);
+        }}
+        onConfirm={() =>
+          handleDuplicate(requiresPublicVisibilityAcknowledgement)
+        }
       />
     </>
   );

@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
 import {
+  boards,
   cardActivities,
   cardPipelineStages,
   cards,
@@ -15,6 +16,7 @@ import {
   deriveCardLifecycle,
   OPEN_SUBTASKS_CONFIRMATION_REQUIRED,
 } from "./card.repo";
+import { assertActiveResourcesAcknowledged } from "./cardResourceVisibility.repo";
 import { invalidateCardAlerts } from "./notification-alert.repo";
 import { assertBoardsInWorkspace } from "./workspace-boundary";
 
@@ -73,6 +75,7 @@ export const moveMany = async (
     expectedWorkspaceId: number;
     createdBy: string;
     confirmOpenSubtasks?: boolean;
+    publicVisibilityAcknowledged?: boolean;
   },
 ) => {
   if (args.cardIds.length === 0) return [];
@@ -155,6 +158,38 @@ export const moveMany = async (
     );
 
     if (!destinationList) throw new Error("Destination list not found");
+
+    const boardRows = await tx
+      .select({ id: boards.id, visibility: boards.visibility })
+      .from(boards)
+      .where(
+        and(
+          inArray(
+            boards.id,
+            lockedLists.map((list) => list.boardId),
+          ),
+          eq(boards.workspaceId, args.expectedWorkspaceId),
+          isNull(boards.deletedAt),
+        ),
+      );
+    const visibilityByBoardId = new Map(
+      boardRows.map((board) => [board.id, board.visibility]),
+    );
+    if (visibilityByBoardId.get(destinationList.boardId) === "public") {
+      const listById = new Map(lockedLists.map((list) => [list.id, list]));
+      const privateSourceCardIds = selectedCards.flatMap((card) => {
+        const sourceList = listById.get(card.listId);
+        return sourceList &&
+          visibilityByBoardId.get(sourceList.boardId) === "private"
+          ? [card.id]
+          : [];
+      });
+      await assertActiveResourcesAcknowledged(
+        tx,
+        privateSourceCardIds,
+        args.publicVisibilityAcknowledged ?? false,
+      );
+    }
 
     if (destinationList.status === "done") {
       const cardIdsEnteringDone = orderedCards

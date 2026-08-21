@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { format, isSameYear } from "date-fns";
 import { HiOutlinePaperClip } from "react-icons/hi";
 import {
@@ -26,7 +27,7 @@ const Card = ({
   checklists,
   description,
   comments,
-  attachments,
+  resourceSummary,
   dueDate,
   startedAt,
   completedAt,
@@ -56,7 +57,11 @@ const Card = ({
   }[];
   description: string | null;
   comments: { publicId: string }[];
-  attachments?: { publicId: string }[];
+  resourceSummary?: {
+    total: number;
+    uploads: number;
+    driveLinks: number;
+  };
   dueDate?: Date | null;
   startedAt?: Date | null;
   completedAt?: Date | null;
@@ -81,7 +86,7 @@ const Card = ({
 
   const hasDescription =
     description && description.replace(/<[^>]*>/g, "").trim().length > 0;
-  const hasAttachments = attachments && attachments.length > 0;
+  const hasResources = (resourceSummary?.total ?? 0) > 0;
   const hasDueDate = !!dueDate;
 
   return (
@@ -130,7 +135,7 @@ const Card = ({
       hasDescription ||
       comments.length > 0 ||
       hasDueDate ||
-      hasAttachments ||
+      hasResources ||
       (subtaskSummary?.total ?? 0) > 0 ? (
         <div className="mt-2 flex flex-col justify-end">
           <div className="space-x-0.5">
@@ -185,9 +190,15 @@ const Card = ({
                   <HiChatBubbleLeft className="h-4 w-4" />
                 </div>
               )}
-              {hasAttachments && (
+              {hasResources && (
                 <div className="flex items-center gap-1 text-light-700 dark:text-dark-800">
-                  <HiOutlinePaperClip className="h-4 w-4" />
+                  <span className="sr-only">
+                    {t`${resourceSummary?.total ?? 0} resources`}
+                  </span>
+                  <HiOutlinePaperClip className="h-4 w-4" aria-hidden="true" />
+                  <span className="text-[11px] tabular-nums" aria-hidden="true">
+                    {resourceSummary?.total}
+                  </span>
                 </div>
               )}
             </div>

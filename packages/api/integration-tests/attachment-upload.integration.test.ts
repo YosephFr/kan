@@ -8,6 +8,7 @@ import {
   cardActivities,
   cardAttachments,
   cardAttachmentUploadSessions,
+  cardResources,
   cards,
   lists,
   users,
@@ -143,6 +144,7 @@ function sessionInput(
     size: 5,
     sha256: "a".repeat(64),
     expiresAt: new Date(Date.now() + 60_000),
+    publicVisibilityAcknowledged: false,
   };
 }
 
@@ -191,6 +193,7 @@ describe("attachment upload session repository", () => {
         userId: ownerId,
         claimToken: "claimtoken01",
         finalS3Key: ".objects/objectkey001",
+        publicVisibilityAcknowledged: false,
       });
     expect(consumed.status).toBe("created");
     await expect(
@@ -201,6 +204,7 @@ describe("attachment upload session repository", () => {
         userId: ownerId,
         claimToken: "claimtoken01",
         finalS3Key: ".objects/objectkey002",
+        publicVisibilityAcknowledged: false,
       }),
     ).resolves.toMatchObject({ status: "unavailable" });
 
@@ -209,6 +213,163 @@ describe("attachment upload session repository", () => {
       .from(cardAttachments)
       .where(eq(cardAttachments.cardId, fixture.card.id));
     expect(persisted).toHaveLength(1);
+  });
+
+  it("returns the existing upload only for an exact session, card, and user retry", async () => {
+    const fixture = await seedAttachmentFixture(db);
+    await cardAttachmentRepo.createUploadSession(
+      db,
+      sessionInput(fixture, "uploadidem01"),
+    );
+    await cardAttachmentRepo.claimUploadSessionForConfirmation(db, {
+      publicId: "uploadidem01",
+      cardId: fixture.card.id,
+      workspaceId: fixture.workspace.id,
+      userId: ownerId,
+      claimToken: "claimtoken01",
+      claimExpiresAt: new Date(Date.now() + 60_000),
+    });
+    const created =
+      await cardAttachmentRepo.consumeClaimedUploadSessionAndCreate(db, {
+        sessionPublicId: "uploadidem01",
+        cardId: fixture.card.id,
+        workspaceId: fixture.workspace.id,
+        userId: ownerId,
+        claimToken: "claimtoken01",
+        finalS3Key: ".objects/objectkey001",
+        publicVisibilityAcknowledged: false,
+      });
+    if (created.status !== "created") throw new Error("Upload was not created");
+
+    const replay = await cardAttachmentRepo.claimUploadSessionForConfirmation(
+      db,
+      {
+        publicId: "uploadidem01",
+        cardId: fixture.card.id,
+        workspaceId: fixture.workspace.id,
+        userId: ownerId,
+        claimToken: "claimtoken02",
+        claimExpiresAt: new Date(Date.now() + 60_000),
+      },
+    );
+    expect(replay).toEqual({
+      status: "already_created",
+      attachment: {
+        publicId: created.attachment.publicId,
+        filename: created.attachment.filename,
+        originalFilename: created.attachment.originalFilename,
+        contentType: created.attachment.contentType,
+        size: created.attachment.size,
+        createdAt: created.attachment.createdAt,
+      },
+    });
+    await expect(
+      cardAttachmentRepo.claimUploadSessionForConfirmation(db, {
+        publicId: "uploadidem01",
+        cardId: fixture.otherCard.id,
+        workspaceId: fixture.workspace.id,
+        userId: ownerId,
+        claimToken: "claimtoken03",
+        claimExpiresAt: new Date(Date.now() + 60_000),
+      }),
+    ).resolves.toEqual({ status: "unavailable" });
+    await expect(
+      cardAttachmentRepo.claimUploadSessionForConfirmation(db, {
+        publicId: "uploadidem01",
+        cardId: fixture.card.id,
+        workspaceId: fixture.workspace.id,
+        userId: "5b78bf04-ad4e-44fe-88f7-50634350dfeb",
+        claimToken: "claimtoken04",
+        claimExpiresAt: new Date(Date.now() + 60_000),
+      }),
+    ).resolves.toEqual({ status: "unavailable" });
+
+    const persistedAttachments = await db
+      .select({ publicId: cardAttachments.publicId })
+      .from(cardAttachments)
+      .where(eq(cardAttachments.uploadSessionId, created.attachment.id));
+    const persistedResources = await db
+      .select({ publicId: cardResources.publicId })
+      .from(cardResources)
+      .where(eq(cardResources.publicId, created.attachment.publicId));
+    const persistedActivities = await db
+      .select({ publicId: cardActivities.publicId })
+      .from(cardActivities)
+      .where(
+        and(
+          eq(cardActivities.cardId, fixture.card.id),
+          eq(cardActivities.type, "card.updated.attachment.added"),
+        ),
+      );
+    const persistedSessions = await db
+      .select({ publicId: cardAttachmentUploadSessions.publicId })
+      .from(cardAttachmentUploadSessions)
+      .where(eq(cardAttachmentUploadSessions.publicId, "uploadidem01"));
+
+    expect(persistedAttachments).toHaveLength(1);
+    expect(persistedResources).toHaveLength(1);
+    expect(persistedActivities).toHaveLength(1);
+    expect(persistedSessions).toHaveLength(1);
+  });
+
+  it("rechecks visibility at confirmation and creates the upload resource once", async () => {
+    const fixture = await seedAttachmentFixture(db);
+    await expect(
+      cardAttachmentRepo.createUploadSession(
+        db,
+        sessionInput(fixture, "uploadack001"),
+      ),
+    ).resolves.toMatchObject({ status: "created" });
+    await cardAttachmentRepo.claimUploadSessionForConfirmation(db, {
+      publicId: "uploadack001",
+      cardId: fixture.card.id,
+      workspaceId: fixture.workspace.id,
+      userId: ownerId,
+      claimToken: "claimtoken01",
+      claimExpiresAt: new Date(Date.now() + 60_000),
+    });
+    await db
+      .update(boards)
+      .set({ visibility: "public" })
+      .where(eq(boards.id, fixture.board.id));
+
+    await expect(
+      cardAttachmentRepo.consumeClaimedUploadSessionAndCreate(db, {
+        sessionPublicId: "uploadack001",
+        cardId: fixture.card.id,
+        workspaceId: fixture.workspace.id,
+        userId: ownerId,
+        claimToken: "claimtoken01",
+        finalS3Key: ".objects/objectkey001",
+        publicVisibilityAcknowledged: false,
+      }),
+    ).resolves.toEqual({ status: "public_ack_required" });
+
+    await cardAttachmentRepo.claimUploadSessionForConfirmation(db, {
+      publicId: "uploadack001",
+      cardId: fixture.card.id,
+      workspaceId: fixture.workspace.id,
+      userId: ownerId,
+      claimToken: "claimtoken02",
+      claimExpiresAt: new Date(Date.now() + 60_000),
+    });
+    const created =
+      await cardAttachmentRepo.consumeClaimedUploadSessionAndCreate(db, {
+        sessionPublicId: "uploadack001",
+        cardId: fixture.card.id,
+        workspaceId: fixture.workspace.id,
+        userId: ownerId,
+        claimToken: "claimtoken02",
+        finalS3Key: ".objects/objectkey001",
+        publicVisibilityAcknowledged: true,
+      });
+    if (created.status !== "created") throw new Error("Upload was not created");
+    expect(
+      await db
+        .select({ publicId: cardResources.publicId })
+        .from(cardResources)
+        .where(eq(cardResources.publicId, created.attachment.publicId)),
+    ).toEqual([{ publicId: created.attachment.publicId }]);
   });
 
   it("rechecks the board workspace immediately before persistence", async () => {
@@ -238,6 +399,7 @@ describe("attachment upload session repository", () => {
         userId: ownerId,
         claimToken: "claimtoken01",
         finalS3Key: ".objects/objectkey001",
+        publicVisibilityAcknowledged: false,
       }),
     ).resolves.toMatchObject({ status: "workspace_mismatch" });
     const [persisted] = await db
@@ -273,6 +435,7 @@ describe("attachment upload session repository", () => {
         userId: ownerId,
         claimToken: "claimtoken01",
         finalS3Key: ".objects/objectkey001",
+        publicVisibilityAcknowledged: false,
       }),
     ).resolves.toMatchObject({ status: "created" });
   });
@@ -440,6 +603,7 @@ describe("attachment upload session repository", () => {
       userId: ownerId,
       claimToken: "claimtoken02",
       finalS3Key: ".objects/objectkey009",
+      publicVisibilityAcknowledged: false,
     });
     await expect(
       cardAttachmentRepo.deleteUnissuedUploadSession(db, {
@@ -628,6 +792,7 @@ describe("attachment upload session repository", () => {
         userId: ownerId,
         claimToken: "claimtoken01",
         finalS3Key: ".objects/objectkey001",
+        publicVisibilityAcknowledged: false,
       });
     if (created.status !== "created")
       throw new Error("Attachment was not created");

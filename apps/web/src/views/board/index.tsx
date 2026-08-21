@@ -207,6 +207,11 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
           ),
         0,
       ) ?? 0;
+  const selectedResourceCount =
+    boardData?.lists
+      .flatMap((list) => list.cards)
+      .filter((card) => selectedCardPublicIdSet.has(card.publicId))
+      .reduce((total, card) => total + card.resourceSummary.total, 0) ?? 0;
 
   useEffect(() => {
     setIsSelectingCards(false);
@@ -646,6 +651,8 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
             workspacePublicId={workspace.publicId}
             hasLabels={selectedCardsHaveLabels}
             openSubtaskCount={selectedOpenSubtaskCount}
+            resourceCount={selectedResourceCount}
+            currentBoardIsPublic={boardData?.visibility === "public"}
             onMoved={cancelCardSelection}
           />
         </Modal>

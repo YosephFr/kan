@@ -7,10 +7,14 @@ import {
 } from "react-icons/hi2";
 
 import Button from "~/components/Button";
+import { PublicResourceVisibilityNotice } from "~/components/PublicResourceVisibilityNotice";
 import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
-import { isOpenSubtasksConfirmationError } from "~/utils/card-workspace";
+import {
+  isOpenSubtasksConfirmationError,
+  isPublicVisibilityAcknowledgementError,
+} from "~/utils/card-workspace";
 import { OpenSubtasksConfirmationDialog } from "~/views/card/components/OpenSubtasksConfirmationDialog";
 
 const selectClassName =
@@ -22,6 +26,8 @@ interface CardContextMoveManyBoardModalProps {
   workspacePublicId: string;
   hasLabels: boolean;
   openSubtaskCount: number;
+  resourceCount: number;
+  currentBoardIsPublic: boolean;
   onMoved: () => void;
 }
 
@@ -31,6 +37,8 @@ export function CardContextMoveManyBoardModal({
   workspacePublicId,
   hasLabels,
   openSubtaskCount,
+  resourceCount,
+  currentBoardIsPublic,
   onMoved,
 }: CardContextMoveManyBoardModalProps) {
   const { closeModal } = useModal();
@@ -40,6 +48,12 @@ export function CardContextMoveManyBoardModal({
   const [listPublicId, setListPublicId] = useState("");
   const [isConfirmingOpenSubtasks, setIsConfirmingOpenSubtasks] =
     useState(false);
+  const [hasConfirmedOpenSubtasks, setHasConfirmedOpenSubtasks] =
+    useState(false);
+  const [
+    serverRequiresPublicAcknowledgement,
+    setServerRequiresPublicAcknowledgement,
+  ] = useState(false);
   const {
     data: workspaceBoards,
     isLoading,
@@ -54,7 +68,16 @@ export function CardContextMoveManyBoardModal({
   const selectedBoard = boards.find(
     (board) => board.publicId === boardPublicId,
   );
+  const { data: selectedBoardDetails } = api.board.byId.useQuery(
+    { boardPublicId, type: "regular" },
+    { enabled: boardPublicId.length >= 12 },
+  );
   const lists = selectedBoard?.lists ?? [];
+  const requiresPublicAcknowledgement =
+    serverRequiresPublicAcknowledgement ||
+    (!currentBoardIsPublic &&
+      selectedBoardDetails?.visibility === "public" &&
+      resourceCount > 0);
   const moveCards = api.card.moveMany.useMutation({
     onSuccess: () => {
       showPopup({
@@ -68,6 +91,10 @@ export function CardContextMoveManyBoardModal({
     onError: (error) => {
       if (isOpenSubtasksConfirmationError(error)) {
         setIsConfirmingOpenSubtasks(true);
+        return;
+      }
+      if (isPublicVisibilityAcknowledgementError(error)) {
+        setServerRequiresPublicAcknowledgement(true);
         return;
       }
       showPopup({
@@ -88,9 +115,11 @@ export function CardContextMoveManyBoardModal({
   const handleBoardChange = (nextBoardPublicId: string) => {
     setBoardPublicId(nextBoardPublicId);
     setListPublicId("");
+    setHasConfirmedOpenSubtasks(false);
+    setServerRequiresPublicAcknowledgement(false);
   };
 
-  const performMove = (confirmed = false) => {
+  const performMove = (confirmed = hasConfirmedOpenSubtasks) => {
     if (!boardPublicId || !listPublicId || cardPublicIds.length === 0) {
       return;
     }
@@ -99,13 +128,18 @@ export function CardContextMoveManyBoardModal({
       cardPublicIds,
       listPublicId,
       ...(confirmed ? { confirmOpenSubtasks: true } : {}),
+      publicVisibilityAcknowledged: requiresPublicAcknowledgement,
     });
   };
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     const selectedList = lists.find((list) => list.publicId === listPublicId);
-    if (selectedList?.status === "done" && openSubtaskCount > 0) {
+    if (
+      selectedList?.status === "done" &&
+      openSubtaskCount > 0 &&
+      !hasConfirmedOpenSubtasks
+    ) {
       setIsConfirmingOpenSubtasks(true);
       return;
     }
@@ -215,6 +249,12 @@ export function CardContextMoveManyBoardModal({
                   </p>
                 </div>
               )}
+
+              {requiresPublicAcknowledgement && (
+                <PublicResourceVisibilityNotice
+                  resourceCount={resourceCount || undefined}
+                />
+              )}
             </div>
           )}
         </div>
@@ -235,7 +275,9 @@ export function CardContextMoveManyBoardModal({
               moveCards.isPending
             }
           >
-            {t`Move cards`}
+            {requiresPublicAcknowledgement
+              ? t`Confirm and move cards`
+              : t`Move cards`}
           </Button>
         </div>
       </form>
@@ -246,6 +288,7 @@ export function CardContextMoveManyBoardModal({
         onCancel={() => setIsConfirmingOpenSubtasks(false)}
         onConfirm={() => {
           setIsConfirmingOpenSubtasks(false);
+          setHasConfirmedOpenSubtasks(true);
           performMove(true);
         }}
       />

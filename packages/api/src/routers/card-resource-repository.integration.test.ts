@@ -1,0 +1,565 @@
+import { eq, isNull } from "drizzle-orm";
+import { beforeEach, describe, expect, it } from "vitest";
+
+import * as boardRepo from "@kan/db/repository/board.repo";
+import * as cardMoveRepo from "@kan/db/repository/card-move.repo";
+import * as cardRepo from "@kan/db/repository/card.repo";
+import * as cardDuplicateRepo from "@kan/db/repository/cardDuplicate.repo";
+import * as pipelineRepo from "@kan/db/repository/cardPipeline.repo";
+import * as cardResourceRepo from "@kan/db/repository/cardResource.repo";
+import { PublicVisibilityAcknowledgementError } from "@kan/db/repository/cardResourceVisibility.repo";
+import * as subtaskRepo from "@kan/db/repository/cardSubtask.repo";
+import * as subtaskResourceRepo from "@kan/db/repository/cardSubtaskResource.repo";
+import {
+  boards,
+  cardAttachments,
+  cardResources,
+  cards,
+  cardSubtaskResources,
+  cardSubtasks,
+  lists,
+} from "@kan/db/schema";
+
+import type { PipelineTestDbClient } from "./card-pipeline-repository.test-utils";
+import {
+  createPipelineTestDb,
+  seedPipelineData,
+} from "./card-pipeline-repository.test-utils";
+
+describe("card resource repository", () => {
+  let db: PipelineTestDbClient;
+  let seeded: Awaited<ReturnType<typeof seedPipelineData>>;
+
+  beforeEach(async () => {
+    db = await createPipelineTestDb();
+    seeded = await seedPipelineData(db);
+  });
+
+  async function createSourceSubtask() {
+    const initialized = await pipelineRepo.initialize(db, {
+      cardPublicId: seeded.card.publicId,
+      expectedWorkspaceId: seeded.workspace.id,
+      createdBy: seeded.user.id,
+    });
+    if (initialized.status !== "initialized") {
+      throw new Error("Pipeline missing");
+    }
+    const planned = initialized.stages.find(
+      (stage) => stage.status === "planned",
+    );
+    if (!planned) throw new Error("Planned stage missing");
+    const created = await subtaskRepo.createSubtask(db, {
+      stagePublicId: planned.publicId,
+      expectedWorkspaceId: seeded.workspace.id,
+      title: "Resource task",
+      createdBy: seeded.user.id,
+    });
+    if (created.status !== "created" || !created.subtask) {
+      throw new Error("Subtask missing");
+    }
+    return created.subtask;
+  }
+
+  async function createDrive() {
+    const created = await cardResourceRepo.createDrive(db, {
+      cardId: seeded.card.id,
+      expectedWorkspaceId: seeded.workspace.id,
+      title: "Launch brief",
+      driveType: "document",
+      driveFileId: "DriveFileId12345",
+      resourceKey: "secureResourceKey",
+      createdBy: seeded.user.id,
+      publicVisibilityAcknowledged: true,
+    });
+    if (created.status !== "created") throw new Error("Drive resource missing");
+    return created.publicId;
+  }
+
+  async function makeSourcePrivateAndCreatePublicTarget() {
+    await db
+      .update(boards)
+      .set({ visibility: "private" })
+      .where(eq(boards.id, seeded.board.id));
+    const [targetBoard] = await db
+      .insert(boards)
+      .values({
+        publicId: "boardpub0001",
+        name: "Public target",
+        slug: "public-target",
+        workspaceId: seeded.workspace.id,
+        createdBy: seeded.user.id,
+        visibility: "public",
+      })
+      .returning();
+    if (!targetBoard) throw new Error("Target board missing");
+    const [targetList] = await db
+      .insert(lists)
+      .values({
+        publicId: "listpub00001",
+        name: "Public list",
+        index: 0,
+        boardId: targetBoard.id,
+        createdBy: seeded.user.id,
+      })
+      .returning();
+    if (!targetList) throw new Error("Target list missing");
+    return { targetBoard, targetList };
+  }
+
+  it("enforces card scope, in-use confirmation and concurrent deletion", async () => {
+    const subtask = await createSourceSubtask();
+    const resourcePublicId = await createDrive();
+    expect(
+      await subtaskResourceRepo.linkResource(db, {
+        subtaskPublicId: subtask.publicId,
+        resourcePublicId,
+        expectedWorkspaceId: seeded.workspace.id,
+        createdBy: seeded.user.id,
+      }),
+    ).toMatchObject({ status: "linked" });
+    expect(
+      await subtaskResourceRepo.linkResource(db, {
+        subtaskPublicId: subtask.publicId,
+        resourcePublicId: "missingres01",
+        expectedWorkspaceId: seeded.workspace.id,
+        createdBy: seeded.user.id,
+      }),
+    ).toEqual({ status: "resource_invalid" });
+    expect(
+      await cardResourceRepo.softDeleteWithWorkspaceGuard(db, {
+        resourcePublicId,
+        expectedWorkspaceId: seeded.workspace.id,
+        deletedBy: seeded.user.id,
+        removeReferences: false,
+      }),
+    ).toEqual({ status: "in_use", referenceCount: 1 });
+
+    const results = await Promise.all([
+      cardResourceRepo.softDeleteWithWorkspaceGuard(db, {
+        resourcePublicId,
+        expectedWorkspaceId: seeded.workspace.id,
+        deletedBy: seeded.user.id,
+        removeReferences: true,
+      }),
+      cardResourceRepo.softDeleteWithWorkspaceGuard(db, {
+        resourcePublicId,
+        expectedWorkspaceId: seeded.workspace.id,
+        deletedBy: seeded.user.id,
+        removeReferences: true,
+      }),
+    ]);
+    expect(results.map((result) => result.status).sort()).toEqual([
+      "deleted",
+      "not_found",
+    ]);
+    expect(
+      await db
+        .select()
+        .from(cardSubtaskResources)
+        .where(isNull(cardSubtaskResources.deletedAt)),
+    ).toHaveLength(0);
+  });
+
+  it("rejects resources from another card or workspace", async () => {
+    const subtask = await createSourceSubtask();
+    const sameWorkspaceResource = await cardResourceRepo.createDrive(db, {
+      cardId: seeded.emptyCard.id,
+      expectedWorkspaceId: seeded.workspace.id,
+      title: "Other card",
+      driveType: "file",
+      driveFileId: "OtherCardDrive123",
+      resourceKey: null,
+      createdBy: seeded.user.id,
+      publicVisibilityAcknowledged: true,
+    });
+    if (sameWorkspaceResource.status !== "created") {
+      throw new Error("Same-workspace resource missing");
+    }
+    await expect(
+      subtaskResourceRepo.linkResource(db, {
+        subtaskPublicId: subtask.publicId,
+        resourcePublicId: sameWorkspaceResource.publicId,
+        expectedWorkspaceId: seeded.workspace.id,
+        createdBy: seeded.user.id,
+      }),
+    ).resolves.toEqual({ status: "resource_invalid" });
+
+    const [otherBoard] = await db
+      .insert(boards)
+      .values({
+        publicId: "boardother01",
+        name: "Other board",
+        slug: "other-board-resource",
+        workspaceId: seeded.otherWorkspace.id,
+        createdBy: seeded.user.id,
+      })
+      .returning();
+    if (!otherBoard) throw new Error("Other board missing");
+    const [otherList] = await db
+      .insert(lists)
+      .values({
+        publicId: "listother001",
+        name: "Other list",
+        index: 0,
+        boardId: otherBoard.id,
+        createdBy: seeded.user.id,
+      })
+      .returning();
+    if (!otherList) throw new Error("Other list missing");
+    const [otherCard] = await db
+      .insert(cards)
+      .values({
+        publicId: "cardother001",
+        title: "Other card",
+        index: 0,
+        listId: otherList.id,
+        createdBy: seeded.user.id,
+      })
+      .returning();
+    if (!otherCard) throw new Error("Other card missing");
+    const otherWorkspaceResource = await cardResourceRepo.createDrive(db, {
+      cardId: otherCard.id,
+      expectedWorkspaceId: seeded.otherWorkspace.id,
+      title: "Other workspace",
+      driveType: "file",
+      driveFileId: "OtherWorkspaceDrive123",
+      resourceKey: null,
+      createdBy: seeded.user.id,
+      publicVisibilityAcknowledged: false,
+    });
+    if (otherWorkspaceResource.status !== "created") {
+      throw new Error("Other-workspace resource missing");
+    }
+    await expect(
+      subtaskResourceRepo.linkResource(db, {
+        subtaskPublicId: subtask.publicId,
+        resourcePublicId: otherWorkspaceResource.publicId,
+        expectedWorkspaceId: seeded.workspace.id,
+        createdBy: seeded.user.id,
+      }),
+    ).resolves.toEqual({ status: "resource_invalid" });
+  });
+
+  it("upgrades a deduplicated Drive link with a validated resource key", async () => {
+    const first = await cardResourceRepo.createDrive(db, {
+      cardId: seeded.card.id,
+      expectedWorkspaceId: seeded.workspace.id,
+      title: "Original title",
+      driveType: "document",
+      driveFileId: "StableDriveFile123",
+      resourceKey: null,
+      createdBy: seeded.user.id,
+      publicVisibilityAcknowledged: true,
+    });
+    const upgraded = await cardResourceRepo.createDrive(db, {
+      cardId: seeded.card.id,
+      expectedWorkspaceId: seeded.workspace.id,
+      title: "Updated title",
+      driveType: "document",
+      driveFileId: "StableDriveFile123",
+      resourceKey: "New_Resource_Key",
+      createdBy: seeded.user.id,
+      publicVisibilityAcknowledged: true,
+    });
+
+    expect(first.status).toBe("created");
+    expect(upgraded).toEqual({
+      status: "existing",
+      publicId: first.status === "created" ? first.publicId : "",
+    });
+    expect(await cardResourceRepo.listByCardId(db, seeded.card.id)).toEqual([
+      expect.objectContaining({
+        title: "Updated title",
+        resourceKey: "New_Resource_Key",
+      }),
+    ]);
+  });
+
+  it("requires acknowledgement before publishing a board with resources", async () => {
+    await db
+      .update(boards)
+      .set({ visibility: "private" })
+      .where(eq(boards.id, seeded.board.id));
+    await createDrive();
+
+    await expect(
+      boardRepo.update(db, {
+        boardPublicId: seeded.board.publicId,
+        expectedWorkspaceId: seeded.workspace.id,
+        name: undefined,
+        slug: undefined,
+        visibility: "public",
+        publicVisibilityAcknowledged: false,
+      }),
+    ).rejects.toBeInstanceOf(PublicVisibilityAcknowledgementError);
+    expect(
+      (
+        await db
+          .select({ visibility: boards.visibility })
+          .from(boards)
+          .where(eq(boards.id, seeded.board.id))
+      )[0]?.visibility,
+    ).toBe("private");
+
+    await expect(
+      boardRepo.update(db, {
+        boardPublicId: seeded.board.publicId,
+        expectedWorkspaceId: seeded.workspace.id,
+        name: undefined,
+        slug: undefined,
+        visibility: "public",
+        publicVisibilityAcknowledged: true,
+      }),
+    ).resolves.toMatchObject({ publicId: seeded.board.publicId });
+  });
+
+  it("requires acknowledgement before moving one resource card into public", async () => {
+    const { targetList } = await makeSourcePrivateAndCreatePublicTarget();
+    await createDrive();
+
+    await expect(
+      cardRepo.reorder(db, {
+        cardId: seeded.card.id,
+        newListId: targetList.id,
+        newIndex: 0,
+        expectedWorkspaceId: seeded.workspace.id,
+        publicVisibilityAcknowledged: false,
+      }),
+    ).rejects.toBeInstanceOf(PublicVisibilityAcknowledgementError);
+    expect(
+      (
+        await db
+          .select({ listId: cards.listId })
+          .from(cards)
+          .where(eq(cards.id, seeded.card.id))
+      )[0]?.listId,
+    ).toBe(seeded.list.id);
+
+    await expect(
+      cardRepo.reorder(db, {
+        cardId: seeded.card.id,
+        newListId: targetList.id,
+        newIndex: 0,
+        expectedWorkspaceId: seeded.workspace.id,
+        publicVisibilityAcknowledged: true,
+      }),
+    ).resolves.toMatchObject({ publicId: seeded.card.publicId });
+  });
+
+  it("requires acknowledgement before moving resource cards in bulk", async () => {
+    const { targetList } = await makeSourcePrivateAndCreatePublicTarget();
+    await createDrive();
+
+    await expect(
+      cardMoveRepo.moveMany(db, {
+        cardIds: [seeded.card.id],
+        destinationListId: targetList.id,
+        expectedWorkspaceId: seeded.workspace.id,
+        createdBy: seeded.user.id,
+        publicVisibilityAcknowledged: false,
+      }),
+    ).rejects.toBeInstanceOf(PublicVisibilityAcknowledgementError);
+    await expect(
+      cardMoveRepo.moveMany(db, {
+        cardIds: [seeded.card.id],
+        destinationListId: targetList.id,
+        expectedWorkspaceId: seeded.workspace.id,
+        createdBy: seeded.user.id,
+        publicVisibilityAcknowledged: true,
+      }),
+    ).resolves.toHaveLength(1);
+  });
+
+  it("requires acknowledgement before duplicating Drive into public", async () => {
+    const { targetList } = await makeSourcePrivateAndCreatePublicTarget();
+    await createDrive();
+    const duplicateInput = {
+      sourceCardPublicId: seeded.card.publicId,
+      targetListPublicId: targetList.publicId,
+      expectedWorkspaceId: seeded.workspace.id,
+      createdBy: seeded.user.id,
+      copyLabels: false,
+      copyMembers: false,
+      copyChecklists: false,
+      copyPipeline: false,
+    };
+
+    await expect(
+      cardDuplicateRepo.duplicateCard(db, {
+        ...duplicateInput,
+        publicVisibilityAcknowledged: false,
+      }),
+    ).resolves.toEqual({ status: "public_ack_required" });
+    expect(
+      await db.select().from(cards).where(eq(cards.listId, targetList.id)),
+    ).toHaveLength(0);
+    await expect(
+      cardDuplicateRepo.duplicateCard(db, {
+        ...duplicateInput,
+        publicVisibilityAcknowledged: true,
+      }),
+    ).resolves.toMatchObject({ status: "duplicated" });
+  });
+
+  it("dual-reads a legacy attachment relation during the rollout window", async () => {
+    const subtask = await createSourceSubtask();
+    const [attachment] = await db
+      .insert(cardAttachments)
+      .values({
+        publicId: "legacyup0001",
+        cardId: seeded.card.id,
+        filename: "legacy.png",
+        originalFilename: "legacy.png",
+        contentType: "image/png",
+        size: 20,
+        s3Key: `${seeded.workspace.publicId}/${seeded.card.publicId}/legacy.png`,
+        createdBy: seeded.user.id,
+      })
+      .returning({ id: cardAttachments.id });
+    if (!attachment) throw new Error("Legacy attachment missing");
+    const [resource] = await db
+      .select({ id: cardResources.id })
+      .from(cardResources)
+      .where(eq(cardResources.publicId, "legacyup0001"));
+    if (!resource) throw new Error("Transitional trigger did not run");
+    const [storedSubtask] = await db
+      .select({ id: cardSubtasks.id })
+      .from(cardSubtasks)
+      .where(eq(cardSubtasks.publicId, subtask.publicId));
+    if (!storedSubtask) throw new Error("Stored subtask missing");
+    await db.insert(cardSubtaskResources).values({
+      publicId: "legacyrel001",
+      subtaskId: storedSubtask.id,
+      resourceId: null,
+      attachmentId: attachment.id,
+      createdBy: seeded.user.id,
+    });
+
+    await expect(
+      subtaskResourceRepo.linkResource(db, {
+        subtaskPublicId: subtask.publicId,
+        resourcePublicId: "legacyup0001",
+        expectedWorkspaceId: seeded.workspace.id,
+        createdBy: seeded.user.id,
+      }),
+    ).resolves.toMatchObject({ status: "existing" });
+    const pipeline = await pipelineRepo.getByCardPublicId(
+      db,
+      seeded.card.publicId,
+    );
+    expect(
+      pipeline?.status === "ready"
+        ? pipeline.stages.flatMap((stage) => stage.subtasks)[0]?.resources
+        : [],
+    ).toEqual([
+      expect.objectContaining({ publicId: "legacyup0001", kind: "upload" }),
+    ]);
+    await expect(
+      cardResourceRepo.softDeleteWithWorkspaceGuard(db, {
+        resourcePublicId: "legacyup0001",
+        expectedWorkspaceId: seeded.workspace.id,
+        deletedBy: seeded.user.id,
+        removeReferences: false,
+      }),
+    ).resolves.toEqual({ status: "in_use", referenceCount: 1 });
+    await expect(
+      cardResourceRepo.softDeleteWithWorkspaceGuard(db, {
+        resourcePublicId: "legacyup0001",
+        expectedWorkspaceId: seeded.workspace.id,
+        deletedBy: seeded.user.id,
+        removeReferences: true,
+      }),
+    ).resolves.toMatchObject({ status: "deleted" });
+    const [deletedResource] = await db
+      .select({
+        deletedAt: cardResources.deletedAt,
+        deletedBy: cardResources.deletedBy,
+      })
+      .from(cardResources)
+      .where(eq(cardResources.id, resource.id));
+    expect(deletedResource?.deletedAt).toBeInstanceOf(Date);
+    expect(deletedResource?.deletedBy).toBe(seeded.user.id);
+    expect(
+      (
+        await db
+          .select({ deletedAt: cardAttachments.deletedAt })
+          .from(cardAttachments)
+          .where(eq(cardAttachments.id, attachment.id))
+      )[0]?.deletedAt,
+    ).toBeInstanceOf(Date);
+  });
+
+  it("clones Drive links and subtask relations while omitting each upload once", async () => {
+    const subtask = await createSourceSubtask();
+    const drivePublicId = await createDrive();
+    await subtaskResourceRepo.linkResource(db, {
+      subtaskPublicId: subtask.publicId,
+      resourcePublicId: drivePublicId,
+      expectedWorkspaceId: seeded.workspace.id,
+      createdBy: seeded.user.id,
+    });
+    const [attachment] = await db
+      .insert(cardAttachments)
+      .values({
+        publicId: "uploadres001",
+        cardId: seeded.card.id,
+        filename: "brief.pdf",
+        originalFilename: "brief.pdf",
+        contentType: "application/pdf",
+        size: 100,
+        s3Key: ".objects/uploadres001",
+        createdBy: seeded.user.id,
+      })
+      .returning({ id: cardAttachments.id });
+    if (!attachment) throw new Error("Upload missing");
+    expect(
+      await db
+        .select({ publicId: cardResources.publicId })
+        .from(cardResources)
+        .where(eq(cardResources.attachmentId, attachment.id)),
+    ).toEqual([{ publicId: "uploadres001" }]);
+    await subtaskResourceRepo.linkResource(db, {
+      subtaskPublicId: subtask.publicId,
+      resourcePublicId: "uploadres001",
+      expectedWorkspaceId: seeded.workspace.id,
+      createdBy: seeded.user.id,
+    });
+
+    const duplicated = await cardDuplicateRepo.duplicateCard(db, {
+      sourceCardPublicId: seeded.card.publicId,
+      targetListPublicId: seeded.list.publicId,
+      expectedWorkspaceId: seeded.workspace.id,
+      createdBy: seeded.user.id,
+      copyLabels: false,
+      copyMembers: false,
+      copyChecklists: false,
+      copyPipeline: true,
+      publicVisibilityAcknowledged: true,
+    });
+    if (duplicated.status !== "duplicated") {
+      throw new Error("Duplicate unexpectedly required acknowledgement");
+    }
+    expect(duplicated.skippedResourceCount).toBe(1);
+    const [copy] = await db
+      .select({ id: cards.id })
+      .from(cards)
+      .where(eq(cards.publicId, duplicated.publicId));
+    if (!copy) throw new Error("Duplicate missing");
+    const copiedResources = await cardResourceRepo.listByCardId(db, copy.id);
+    expect(copiedResources).toEqual([
+      expect.objectContaining({ kind: "drive", title: "Launch brief" }),
+    ]);
+    const pipeline = await pipelineRepo.getByCardPublicId(
+      db,
+      duplicated.publicId,
+    );
+    if (!pipeline || pipeline.status !== "ready") {
+      throw new Error("Cloned pipeline missing");
+    }
+    expect(
+      pipeline.stages.flatMap((stage) => stage.subtasks)[0]?.resources,
+    ).toEqual([
+      expect.objectContaining({ kind: "drive", title: "Launch brief" }),
+    ]);
+  });
+});

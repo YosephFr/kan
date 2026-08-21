@@ -7,10 +7,12 @@ import { HiXMark } from "react-icons/hi2";
 import { z } from "zod";
 
 import Button from "~/components/Button";
+import { DuplicateResourcesNotice } from "~/components/DuplicateResourcesNotice";
 import Input from "~/components/Input";
 import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
+import { getBoardUploadCount } from "~/utils/resource-summary";
 
 const schema = z.object({
   name: z
@@ -39,6 +41,13 @@ export function NewTemplateForm({
   const router = useRouter();
   const { closeModal } = useModal();
   const { showPopup } = usePopup();
+  const sourceBoardQuery = api.board.byId.useQuery(
+    { boardPublicId: sourceBoardPublicId, type: "regular" },
+    { enabled: sourceBoardPublicId.length >= 12 },
+  );
+  const sourceUploadCount = getBoardUploadCount(
+    sourceBoardQuery.data?.lists ?? [],
+  );
 
   const {
     register,
@@ -55,20 +64,12 @@ export function NewTemplateForm({
 
   const createBoard = api.board.create.useMutation({
     onSuccess: (newTemplate) => {
-      if (!newTemplate) {
-        showPopup({
-          header: t`Unable to create template`,
-          message: t`Please try again later, or contact customer support.`,
-          icon: "error",
-        });
-      } else {
-        router.push(`/templates/${newTemplate.publicId}`);
-        showPopup({
-          header: t`Template created`,
-          message: t`Template created successfully`,
-          icon: "success",
-        });
-      }
+      router.push(`/templates/${newTemplate.publicId}`);
+      showPopup({
+        header: t`Template created`,
+        message: t`Template created successfully`,
+        icon: "success",
+      });
       closeModal();
     },
     onError: () => {
@@ -81,6 +82,7 @@ export function NewTemplateForm({
   });
 
   const onSubmit = (data: NewBoardInputWithTemplate) => {
+    if (!sourceBoardQuery.data || sourceBoardQuery.isError) return;
     createBoard.mutate({
       name: data.name,
       workspacePublicId: data.workspacePublicId,
@@ -104,7 +106,8 @@ export function NewTemplateForm({
           <h2 className="text-sm font-bold">{t`New template`}</h2>
           <button
             type="button"
-            className="hover:bg-li ght-300 rounded p-1 focus:outline-none dark:hover:bg-dark-300"
+            className="rounded p-1 hover:bg-light-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:hover:bg-dark-300 dark:focus-visible:ring-dark-800"
+            aria-label={t`Close`}
             onClick={(e) => {
               e.preventDefault();
               closeModal();
@@ -126,9 +129,26 @@ export function NewTemplateForm({
           }}
         />
       </div>
+      {sourceUploadCount > 0 && (
+        <div className="px-5 pt-4">
+          <DuplicateResourcesNotice uploadCount={sourceUploadCount} />
+        </div>
+      )}
+      {sourceBoardQuery.isError && (
+        <p
+          role="alert"
+          className="px-5 pt-4 text-xs text-red-600 dark:text-red-400"
+        >
+          {t`Uploaded files could not be checked. Reopen this form and try again.`}
+        </p>
+      )}
       <div className="mt-12 flex items-center justify-end border-t border-light-600 px-5 pb-5 pt-5 dark:border-dark-600">
         <div>
-          <Button type="submit" isLoading={createBoard.isPending}>
+          <Button
+            type="submit"
+            isLoading={createBoard.isPending || sourceBoardQuery.isLoading}
+            disabled={sourceBoardQuery.isError}
+          >
             {t`Create template`}
           </Button>
         </div>

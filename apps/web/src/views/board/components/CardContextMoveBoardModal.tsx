@@ -3,10 +3,14 @@ import { useState } from "react";
 import { HiChevronDown, HiOutlineExclamationTriangle } from "react-icons/hi2";
 
 import Button from "~/components/Button";
+import { PublicResourceVisibilityNotice } from "~/components/PublicResourceVisibilityNotice";
 import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
-import { isOpenSubtasksConfirmationError } from "~/utils/card-workspace";
+import {
+  isOpenSubtasksConfirmationError,
+  isPublicVisibilityAcknowledgementError,
+} from "~/utils/card-workspace";
 import { invalidateCard } from "~/utils/cardInvalidation";
 import { OpenSubtasksConfirmationDialog } from "~/views/card/components/OpenSubtasksConfirmationDialog";
 
@@ -21,6 +25,12 @@ export function CardContextMoveBoardModal() {
   const [listPublicId, setListPublicId] = useState("");
   const [isConfirmingOpenSubtasks, setIsConfirmingOpenSubtasks] =
     useState(false);
+  const [hasConfirmedOpenSubtasks, setHasConfirmedOpenSubtasks] =
+    useState(false);
+  const [
+    serverRequiresPublicAcknowledgement,
+    setServerRequiresPublicAcknowledgement,
+  ] = useState(false);
 
   const {
     data: card,
@@ -48,10 +58,20 @@ export function CardContextMoveBoardModal() {
   const selectedBoard = boards.find(
     (board) => board.publicId === boardPublicId,
   );
+  const { data: selectedBoardDetails } = api.board.byId.useQuery(
+    { boardPublicId, type: "regular" },
+    { enabled: boardPublicId.length >= 12 },
+  );
   const lists = selectedBoard?.lists ?? [];
   const isLoading = isCardLoading || areBoardsLoading;
   const didLoadFail = didCardFail || didBoardsFail;
   const hasLabels = (card?.labels.length ?? 0) > 0;
+  const resourceCount = card?.resourceSummary.total ?? 0;
+  const requiresPublicAcknowledgement =
+    serverRequiresPublicAcknowledgement ||
+    (card?.list.board.visibility !== "public" &&
+      selectedBoardDetails?.visibility === "public" &&
+      resourceCount > 0);
 
   const moveCard = api.card.update.useMutation({
     onSuccess: () => {
@@ -65,6 +85,10 @@ export function CardContextMoveBoardModal() {
     onError: (error) => {
       if (isOpenSubtasksConfirmationError(error)) {
         setIsConfirmingOpenSubtasks(true);
+        return;
+      }
+      if (isPublicVisibilityAcknowledgementError(error)) {
+        setServerRequiresPublicAcknowledgement(true);
         return;
       }
       showPopup({
@@ -85,6 +109,8 @@ export function CardContextMoveBoardModal() {
   const handleBoardChange = (nextBoardPublicId: string) => {
     setBoardPublicId(nextBoardPublicId);
     setListPublicId("");
+    setHasConfirmedOpenSubtasks(false);
+    setServerRequiresPublicAcknowledgement(false);
   };
 
   const openSubtaskCount = Math.max(
@@ -92,13 +118,14 @@ export function CardContextMoveBoardModal() {
     (card?.subtaskSummary.total ?? 0) - (card?.subtaskSummary.completed ?? 0),
   );
 
-  const performMove = (confirmed = false) => {
+  const performMove = (confirmed = hasConfirmedOpenSubtasks) => {
     if (!cardPublicId || !boardPublicId || !listPublicId) return;
     moveCard.mutate({
       cardPublicId,
       listPublicId,
       index: 0,
       ...(confirmed ? { confirmOpenSubtasks: true } : {}),
+      publicVisibilityAcknowledged: requiresPublicAcknowledgement,
     });
   };
 
@@ -108,7 +135,8 @@ export function CardContextMoveBoardModal() {
     if (
       card?.list.status !== "done" &&
       selectedList?.status === "done" &&
-      openSubtaskCount > 0
+      openSubtaskCount > 0 &&
+      !hasConfirmedOpenSubtasks
     ) {
       setIsConfirmingOpenSubtasks(true);
       return;
@@ -216,6 +244,12 @@ export function CardContextMoveBoardModal() {
                   </p>
                 </div>
               )}
+
+              {requiresPublicAcknowledgement && (
+                <PublicResourceVisibilityNotice
+                  resourceCount={resourceCount || undefined}
+                />
+              )}
             </div>
           )}
         </div>
@@ -236,7 +270,9 @@ export function CardContextMoveBoardModal() {
               moveCard.isPending
             }
           >
-            {t`Move card`}
+            {requiresPublicAcknowledgement
+              ? t`Confirm and move card`
+              : t`Move card`}
           </Button>
         </div>
       </form>
@@ -247,6 +283,7 @@ export function CardContextMoveBoardModal() {
         onCancel={() => setIsConfirmingOpenSubtasks(false)}
         onConfirm={() => {
           setIsConfirmingOpenSubtasks(false);
+          setHasConfirmedOpenSubtasks(true);
           performMove(true);
         }}
       />

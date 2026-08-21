@@ -4,9 +4,13 @@ import type { dbClient } from "@kan/db/client";
 import * as cardRepo from "@kan/db/repository/card.repo";
 import * as cardPipelineRepo from "@kan/db/repository/cardPipeline.repo";
 import { WorkspaceChangedError } from "@kan/db/repository/workspace-boundary";
-import { generateAvatarUrl } from "@kan/shared/utils";
+import {
+  generateAvatarUrl,
+  isInlineAttachmentContentType,
+} from "@kan/shared/utils";
 
 import type { User } from "../trpc";
+import { buildDriveUrls } from "./card-resource-drive";
 import { assertPermission } from "./permissions";
 
 interface CardAccessContext {
@@ -120,20 +124,45 @@ export async function loadCardPipeline(
           completed: item.completed,
           index: item.index,
         })),
-        resources: subtask.resources.map((resource) => ({
-          publicId: resource.publicId,
-          attachmentPublicId: resource.attachmentPublicId,
-          filename: resource.filename,
-          originalFilename: resource.originalFilename,
-          contentType: resource.contentType,
-          size: resource.size,
-          viewUrl:
-            resource.contentType.startsWith("image/") ||
-            resource.contentType === "application/pdf"
+        resources: subtask.resources.map((resource) => {
+          if (resource.kind === "drive") {
+            if (!resource.driveType || !resource.driveFileId) {
+              throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+            }
+            const urls = buildDriveUrls({
+              driveType: resource.driveType,
+              driveFileId: resource.driveFileId,
+              resourceKey: resource.resourceKey,
+            });
+            return {
+              publicId: resource.publicId,
+              kind: "drive" as const,
+              title: resource.title,
+              driveType: resource.driveType,
+              ...urls,
+            };
+          }
+          if (
+            !resource.attachmentPublicId ||
+            !resource.originalFilename ||
+            !resource.contentType ||
+            resource.size === null
+          ) {
+            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+          }
+          return {
+            publicId: resource.publicId,
+            kind: "upload" as const,
+            title: resource.title,
+            originalFilename: resource.originalFilename,
+            contentType: resource.contentType,
+            size: resource.size,
+            viewUrl: isInlineAttachmentContentType(resource.contentType)
               ? `/api/attachments/${resource.attachmentPublicId}/view`
               : null,
-          downloadUrl: `/api/attachments/${resource.attachmentPublicId}/download`,
-        })),
+            downloadUrl: `/api/attachments/${resource.attachmentPublicId}/download`,
+          };
+        }),
       })),
     })),
     summary,

@@ -2,11 +2,13 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
+import { mcpVersion } from "./constants.js";
 import { registerPrompts } from "./prompts.js";
 import { registerAttachmentTools } from "./tools/attachment.js";
 import { registerAutomationTools } from "./tools/automation.js";
 import { registerBoardTools } from "./tools/board.js";
 import { registerCardPipelineTools } from "./tools/card-pipeline.js";
+import { registerCardResourceTools } from "./tools/card-resource.js";
 import { registerCardTools } from "./tools/card.js";
 import { registerChecklistTools } from "./tools/checklist.js";
 import { registerIntegrationTools } from "./tools/integration.js";
@@ -21,11 +23,11 @@ import { registerWorkspaceTools } from "./tools/workspace.js";
 const server = new McpServer(
   {
     name: "kan",
-    version: "0.3.0",
+    version: mcpVersion,
   },
   {
     instructions:
-      "Inspect workspaces, boards, members, and current cards before writing. Never guess a target workspace, board, assignee, due date, or destructive action. For meeting imports, resolve ambiguities with the user, run ensure_workspace_board and sync_board_cards in plan mode, present the plan, then apply only after confirmation. These batch tools are idempotent by name/title and do not delete unspecified content. Upload only file paths the user explicitly supplied. Prefer public IDs returned by read tools.",
+      "Inspect workspaces, boards, members, current cards, and card resources before writing. Never guess a target workspace, board, assignee, due date, or destructive action. For meeting imports, resolve ambiguities with the user, run ensure_workspace_board and sync_board_cards in plan mode, present the plan, then apply only after confirmation. These batch tools are idempotent by name/title and do not delete unspecified content. Upload only file paths the user explicitly supplied. Confirm removal of in-use resources only after reviewing their references. Prefer public IDs returned by read tools.",
   },
 );
 
@@ -34,6 +36,7 @@ registerBoardTools(server);
 registerListTools(server);
 registerCardTools(server);
 registerCardPipelineTools(server);
+registerCardResourceTools(server);
 registerChecklistTools(server);
 registerLabelTools(server);
 registerMemberTools(server);

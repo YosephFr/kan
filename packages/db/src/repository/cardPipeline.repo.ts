@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
 import type { CardPipelineStageStatus } from "@kan/db/schema";
@@ -8,6 +8,7 @@ import {
   cardAttachments,
   cardPipelineStages,
   cardPipelineStageStatuses,
+  cardResources,
   cards,
   cardSubtaskChecklistItems,
   cardSubtaskResources,
@@ -205,7 +206,13 @@ const queryByCardPublicId = async (
       : await db
           .select({
             subtaskId: cardSubtaskResources.subtaskId,
-            publicId: cardSubtaskResources.publicId,
+            relationPublicId: cardSubtaskResources.publicId,
+            publicId: cardResources.publicId,
+            kind: cardResources.kind,
+            title: cardResources.title,
+            driveType: cardResources.driveType,
+            driveFileId: cardResources.driveFileId,
+            resourceKey: cardResources.resourceKey,
             attachmentPublicId: cardAttachments.publicId,
             filename: cardAttachments.filename,
             originalFilename: cardAttachments.originalFilename,
@@ -215,15 +222,34 @@ const queryByCardPublicId = async (
           })
           .from(cardSubtaskResources)
           .innerJoin(
+            cardResources,
+            or(
+              eq(cardSubtaskResources.resourceId, cardResources.id),
+              and(
+                isNull(cardSubtaskResources.resourceId),
+                eq(
+                  cardSubtaskResources.attachmentId,
+                  cardResources.attachmentId,
+                ),
+              ),
+            ),
+          )
+          .leftJoin(
             cardAttachments,
-            eq(cardSubtaskResources.attachmentId, cardAttachments.id),
+            eq(cardResources.attachmentId, cardAttachments.id),
           )
           .where(
             and(
               inArray(cardSubtaskResources.subtaskId, subtaskIds),
               isNull(cardSubtaskResources.deletedAt),
-              isNull(cardAttachments.deletedAt),
-              isNull(cardAttachments.storageQuarantinedAt),
+              isNull(cardResources.deletedAt),
+              or(
+                eq(cardResources.kind, "drive"),
+                and(
+                  isNull(cardAttachments.deletedAt),
+                  isNull(cardAttachments.storageQuarantinedAt),
+                ),
+              ),
             ),
           )
           .orderBy(

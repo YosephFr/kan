@@ -22,7 +22,7 @@ export const cardSubtaskChecklistItemSchema = z.object({
   index: z.number().int().min(0),
 });
 
-export const cardSubtaskResourceSchema = z.object({
+export const legacyCardSubtaskAttachmentResourceSchema = z.object({
   publicId: z.string().length(12),
   attachmentPublicId: z.string().length(12),
   filename: z.string(),
@@ -32,6 +32,28 @@ export const cardSubtaskResourceSchema = z.object({
   viewUrl: z.string().nullable(),
   downloadUrl: z.string(),
 });
+
+const cardSubtaskResourceBaseSchema = z.object({
+  publicId: z.string().length(12),
+  title: z.string(),
+});
+
+export const cardSubtaskResourceSchema = z.discriminatedUnion("kind", [
+  cardSubtaskResourceBaseSchema.extend({
+    kind: z.literal("upload"),
+    contentType: z.string(),
+    originalFilename: z.string(),
+    size: z.number().int().nonnegative(),
+    viewUrl: z.string().nullable(),
+    downloadUrl: z.string(),
+  }),
+  cardSubtaskResourceBaseSchema.extend({
+    kind: z.literal("drive"),
+    driveType: z.enum(["file", "document", "spreadsheet", "presentation"]),
+    openUrl: z.string().url(),
+    previewUrl: z.string().url(),
+  }),
+]);
 
 export const cardSubtaskSchema = z.object({
   publicId: z.string().length(12),

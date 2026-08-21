@@ -57,6 +57,7 @@ describe("card.duplicate authorization and transaction boundary", () => {
       workspaceId,
     } as never);
     vi.mocked(cardDuplicateRepo.duplicateCard).mockResolvedValue({
+      status: "duplicated",
       id: 2,
       publicId: "card-copy001",
       priority: "high",
@@ -77,6 +78,7 @@ describe("card.duplicate authorization and transaction boundary", () => {
       copyMembers: true,
       copyChecklists: true,
       copyPipeline: true,
+      publicVisibilityAcknowledged: false,
     });
 
     expect(assertPermission).toHaveBeenNthCalledWith(
@@ -104,6 +106,7 @@ describe("card.duplicate authorization and transaction boundary", () => {
       copyMembers: true,
       copyChecklists: true,
       copyPipeline: true,
+      publicVisibilityAcknowledged: false,
     });
     expect(result).toEqual({
       publicId: "card-copy001",
@@ -134,6 +137,7 @@ describe("card.duplicate authorization and transaction boundary", () => {
 
   it("returns the number of binary resources intentionally skipped", async () => {
     vi.mocked(cardDuplicateRepo.duplicateCard).mockResolvedValueOnce({
+      status: "duplicated",
       id: 2,
       publicId: "card-copy001",
       priority: "none",
@@ -152,9 +156,30 @@ describe("card.duplicate authorization and transaction boundary", () => {
     expect(result.skippedResourceCount).toBe(4);
   });
 
+  it("requires explicit acknowledgement when Drive would become public", async () => {
+    vi.mocked(cardDuplicateRepo.duplicateCard).mockResolvedValueOnce({
+      status: "public_ack_required",
+    });
+    const { cardRouter } = await import("./card");
+
+    await expect(
+      cardRouter.createCaller(context).duplicate({
+        cardPublicId: sourceCardPublicId,
+        listPublicId: targetListPublicId,
+        copyLabels: false,
+        copyMembers: false,
+        copyChecklists: false,
+      }),
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: "PUBLIC_VISIBILITY_ACKNOWLEDGEMENT_REQUIRED",
+    });
+  });
+
   it("keeps an urgent duplicate successful when its alert fails", async () => {
     const alertError = new Error("notification unavailable");
     vi.mocked(cardDuplicateRepo.duplicateCard).mockResolvedValueOnce({
+      status: "duplicated",
       id: 2,
       publicId: "card-copy001",
       priority: "urgent",

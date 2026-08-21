@@ -86,3 +86,17 @@ export const isOpenSubtasksConfirmationError = (error: unknown) => {
     candidate.message === "OPEN_SUBTASKS_CONFIRMATION_REQUIRED"
   );
 };
+
+export const isPublicVisibilityAcknowledgementError = (error: unknown) => {
+  if (typeof error !== "object" || error === null) return false;
+
+  const candidate = error as {
+    message?: unknown;
+    data?: { code?: unknown } | null;
+  };
+
+  return (
+    candidate.data?.code === "PRECONDITION_FAILED" &&
+    candidate.message === "PUBLIC_VISIBILITY_ACKNOWLEDGEMENT_REQUIRED"
+  );
+};

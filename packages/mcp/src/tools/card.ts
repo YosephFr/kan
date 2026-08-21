@@ -103,6 +103,12 @@ export function registerCardTools(server: McpServer): void {
         .string()
         .optional()
         .describe("Move card to this list (public ID)"),
+      publicVisibilityAcknowledged: z
+        .boolean()
+        .optional()
+        .describe(
+          "Confirm that linked resources may become anonymously visible when moving the card to a public board",
+        ),
     },
     async ({
       cardPublicId,
@@ -112,6 +118,7 @@ export function registerCardTools(server: McpServer): void {
       priority,
       colourCode,
       listPublicId,
+      publicVisibilityAcknowledged,
     }) => {
       const data = await kanRequest("PUT", `/cards/${cardPublicId}`, {
         title,
@@ -120,6 +127,9 @@ export function registerCardTools(server: McpServer): void {
         priority,
         colourCode,
         listPublicId,
+        ...(publicVisibilityAcknowledged !== undefined
+          ? { publicVisibilityAcknowledged }
+          : {}),
       });
       return {
         content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
@@ -170,6 +180,12 @@ export function registerCardTools(server: McpServer): void {
         .describe(
           "Copy stages, subtasks and their checklist text while resetting owners, dates, execution and completion",
         ),
+      publicVisibilityAcknowledged: z
+        .boolean()
+        .optional()
+        .describe(
+          "Confirm that copied Drive resources may be anonymously visible when the target list belongs to a public board",
+        ),
     },
     async ({
       cardPublicId,
@@ -180,6 +196,7 @@ export function registerCardTools(server: McpServer): void {
       copyMembers,
       copyChecklists,
       copyPipeline,
+      publicVisibilityAcknowledged,
     }) => {
       const data = await kanRequest(
         "POST",
@@ -192,6 +209,9 @@ export function registerCardTools(server: McpServer): void {
           copyMembers,
           copyChecklists,
           copyPipeline,
+          ...(publicVisibilityAcknowledged !== undefined
+            ? { publicVisibilityAcknowledged }
+            : {}),
         },
       );
       return {

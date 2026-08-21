@@ -6,6 +6,7 @@ import { boards } from "@kan/db/schema";
 import type { BoardReadFilters, BoardSlugReadFilters } from "./board.repo";
 import { queryByPublicId, queryBySlug } from "./board.repo";
 import { getSummariesByCardPublicIds } from "./cardPipeline.repo";
+import { getSummariesByCardPublicIds as getResourceSummariesByCardPublicIds } from "./cardResource.repo";
 import {
   lockBoardTreeInWorkspace,
   WorkspaceChangedError,
@@ -43,10 +44,11 @@ export const getByPublicIdGuarded = async (
     const cardPublicIds = board.lists.flatMap((list) =>
       list.cards.map((card) => card.publicId),
     );
-    return {
-      board,
-      summaries: await getSummariesByCardPublicIds(tx, cardPublicIds),
-    };
+    const [summaries, resourceSummaries] = await Promise.all([
+      getSummariesByCardPublicIds(tx, cardPublicIds),
+      getResourceSummariesByCardPublicIds(tx, cardPublicIds),
+    ]);
+    return { board, summaries, resourceSummaries };
   });
 
 export const getBySlugGuarded = async (
@@ -83,8 +85,9 @@ export const getBySlugGuarded = async (
     const cardPublicIds = board.lists.flatMap((list) =>
       list.cards.map((card) => card.publicId),
     );
-    return {
-      board,
-      summaries: await getSummariesByCardPublicIds(tx, cardPublicIds),
-    };
+    const [summaries, resourceSummaries] = await Promise.all([
+      getSummariesByCardPublicIds(tx, cardPublicIds),
+      getResourceSummariesByCardPublicIds(tx, cardPublicIds),
+    ]);
+    return { board, summaries, resourceSummaries };
   });

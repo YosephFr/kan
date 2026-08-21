@@ -2,6 +2,7 @@ export * from "./auth";
 export * from "./boards";
 export * from "./auth";
 export * from "./cards";
+export * from "./card-resources";
 export * from "./card-pipeline";
 export * from "./checklists";
 export * from "./feedback";

@@ -16,6 +16,7 @@ import { generateUID } from "@kan/shared/utils";
 
 import type { WorkspaceBoundaryTransaction } from "./workspace-boundary";
 import { clonePipelineForCardTx } from "./cardPipeline.repo";
+import { cloneCardResourcesTx } from "./cardResourceClone.repo";
 import {
   lockBoardTreeInWorkspace,
   WorkspaceChangedError,
@@ -332,6 +333,7 @@ export const createFromSnapshot = async (
       listIndexToId.set(list.sourceIndex, createdId);
     }
 
+    let skippedResourceCount = 0;
     for (const list of srcLists) {
       const newListId = listIndexToId.get(list.index);
       if (!newListId) throw new Error("Failed to map list");
@@ -368,6 +370,16 @@ export const createFromSnapshot = async (
           ) {
             throw new Error("Failed to clone card pipeline");
           }
+          const clonedResources = await cloneCardResourcesTx(tx, {
+            sourceCardId,
+            destinationCardId: createdCard.id,
+            createdBy: args.createdBy,
+            subtaskBySourceId:
+              cloneResult.status === "cloned"
+                ? cloneResult.subtaskBySourceId
+                : undefined,
+          });
+          skippedResourceCount += clonedResources.skippedUploadCount;
         }
 
         await tx.insert(cardActivities).values({
@@ -444,5 +456,5 @@ export const createFromSnapshot = async (
       }
     }
 
-    return newBoard;
+    return { ...newBoard, skippedResourceCount };
   });

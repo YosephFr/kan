@@ -5,6 +5,7 @@ import { cards } from "@kan/db/schema";
 
 import { getWithListAndMembersByPublicId } from "./card.repo";
 import { getSummaryByCardId } from "./cardPipeline.repo";
+import { getSummaryByCardId as getResourceSummaryByCardId } from "./cardResource.repo";
 import {
   lockCardsInWorkspace,
   WorkspaceChangedError,
@@ -39,8 +40,9 @@ export const getDetailSnapshot = async (
 
     const card = await getWithListAndMembersByPublicId(tx, args.cardPublicId);
     if (!card) throw new WorkspaceChangedError();
-    return {
-      card,
-      subtaskSummary: await getSummaryByCardId(tx, lockedCard.id),
-    };
+    const [subtaskSummary, resourceSummary] = await Promise.all([
+      getSummaryByCardId(tx, lockedCard.id),
+      getResourceSummaryByCardId(tx, lockedCard.id),
+    ]);
+    return { card, subtaskSummary, resourceSummary };
   });

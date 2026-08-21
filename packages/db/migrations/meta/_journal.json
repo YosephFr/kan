@@ -302,6 +302,13 @@
       "when": 1787325089837,
       "tag": "20260821151129_CardExecutionPipeline",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1787341954105,
+      "tag": "20260821195234_CardResources",
+      "breakpoints": true
     }
   ]
 }
