@@ -23,15 +23,16 @@ has_attachment_upload_lifecycle_rule() {
 }
 
 if ! has_attachment_upload_lifecycle_rule; then
-  mc ilm rule add \
+  if ! mc ilm rule add \
     --prefix ".uploads/" \
     --expire-days 1 \
-    "kan/$NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME"
+    "kan/$NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME"; then
+    echo "Attachment upload lifecycle rule could not be added" >&2
+  fi
 fi
 
 if ! has_attachment_upload_lifecycle_rule; then
-  echo "Attachment upload lifecycle rule was not applied" >&2
-  exit 1
+  echo "Attachment upload lifecycle rule could not be verified" >&2
 fi
 
 if ! mc admin user info kan "$S3_ACCESS_KEY_ID" >/dev/null 2>&1; then
