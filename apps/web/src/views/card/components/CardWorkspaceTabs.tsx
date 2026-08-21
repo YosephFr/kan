@@ -102,8 +102,8 @@ export function CardWorkspaceTabs({
       role="tablist"
       aria-label={t`Card workspace views`}
       className={twMerge(
-        "grid min-w-0 grid-cols-4 items-center gap-1 sm:flex",
-        compact && "w-full",
+        "grid min-w-0 grid-cols-4 items-center gap-1",
+        compact ? "w-full sm:flex" : "xl:flex",
       )}
     >
       {tabs.map((tab, index) => {
@@ -122,13 +122,19 @@ export function CardWorkspaceTabs({
             onClick={() => void changeView(tab.view)}
             onKeyDown={(event) => handleKeyDown(event, index)}
             className={twMerge(
-              "relative inline-flex h-9 min-w-0 items-center justify-center gap-1 rounded-md px-1 text-[10px] font-medium text-light-800 transition-colors hover:bg-light-200 hover:text-light-1000 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:text-dark-800 dark:hover:bg-dark-200 dark:hover:text-dark-1000 dark:focus-visible:ring-dark-800 sm:shrink-0 sm:justify-start sm:gap-1.5 sm:px-2.5 sm:text-xs",
+              "relative inline-flex h-9 min-w-0 items-center justify-center gap-1 rounded-md px-1 text-[10px] font-medium text-light-800 transition-colors hover:bg-light-200 hover:text-light-1000 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:text-dark-800 dark:hover:bg-dark-200 dark:hover:text-dark-1000 dark:focus-visible:ring-dark-800",
+              compact
+                ? "sm:shrink-0 sm:justify-start sm:gap-1.5 sm:px-2.5 sm:text-xs"
+                : "xl:shrink-0 xl:justify-start xl:gap-1.5 xl:px-2.5 xl:text-xs",
               isActive &&
                 "bg-light-200 text-light-1000 dark:bg-dark-200 dark:text-dark-1000",
             )}
           >
             <Icon
-              className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4"
+              className={twMerge(
+                "h-3.5 w-3.5 shrink-0",
+                compact ? "sm:h-4 sm:w-4" : "xl:h-4 xl:w-4",
+              )}
               aria-hidden="true"
             />
             <span className="truncate">{tab.label}</span>
