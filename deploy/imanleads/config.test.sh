@@ -74,6 +74,10 @@ if command -v nginx >/dev/null 2>&1; then
   sed \
     -e '/include snippets\/ssl-params.conf;/d' \
     -e '/include snippets\/cloudflare-allow.conf;/d' \
+    -e 's/listen 80;/listen 18080;/' \
+    -e 's/listen \[::\]:80;/listen [::]:18080;/' \
+    -e 's/listen 443 ssl http2;/listen 18443 ssl http2;/' \
+    -e 's/listen \[::\]:443 ssl http2;/listen [::]:18443 ssl http2;/' \
     -e "s|/etc/nginx/ssl/work.imanleads.com/work.imanleads.com.crt|$test_dir/test.crt|" \
     -e "s|/etc/nginx/ssl/work.imanleads.com/work.imanleads.com.key|$test_dir/test.key|" \
     "$script_dir/nginx.conf" > "$test_dir/site.conf"
