@@ -81,7 +81,7 @@ if command -v nginx >/dev/null 2>&1; then
     printf 'pid %s;\n' "$test_dir/nginx.pid"
     printf 'error_log stderr;\n'
     printf 'events {}\n'
-    printf 'http { include "%s"; }\n' "$test_dir/site.conf"
+    printf 'http { access_log off; include "%s"; }\n' "$test_dir/site.conf"
   } > "$test_dir/nginx.conf"
   nginx -t -p "$test_dir/" -c nginx.conf
 fi
