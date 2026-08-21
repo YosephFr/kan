@@ -2,8 +2,8 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import * as boardRepo from "@kan/db/repository/board.repo";
-import * as cardRepo from "@kan/db/repository/card.repo";
 import * as labelRepo from "@kan/db/repository/label.repo";
+import { WorkspaceChangedError } from "@kan/db/repository/workspace-boundary";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { assertPermission } from "../utils/permissions";
@@ -13,6 +13,13 @@ const labelSchema = z.object({
   name: z.string(),
   colourCode: z.string().nullable(),
 });
+
+function rethrowWorkspaceChanged(error: unknown): never {
+  if (error instanceof WorkspaceChangedError) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Label not found" });
+  }
+  throw error;
+}
 
 export const labelRouter = createTRPCRouter({
   byPublicId: protectedProcedure
@@ -49,13 +56,12 @@ export const labelRouter = createTRPCRouter({
         });
       await assertPermission(ctx.db, userId, label.workspaceId, "board:view");
 
-      const result = await labelRepo.getByPublicId(ctx.db, input.labelPublicId);
-
-      if (!result)
-        throw new TRPCError({
-          message: `Label with public ID ${input.labelPublicId} not found`,
-          code: "NOT_FOUND",
-        });
+      const result = await labelRepo
+        .getByPublicIdGuarded(ctx.db, {
+          labelPublicId: input.labelPublicId,
+          expectedWorkspaceId: label.workspaceId,
+        })
+        .catch(rethrowWorkspaceChanged);
 
       return {
         publicId: result.publicId,
@@ -103,12 +109,15 @@ export const labelRouter = createTRPCRouter({
         });
       await assertPermission(ctx.db, userId, board.workspaceId, "board:edit");
 
-      const result = await labelRepo.create(ctx.db, {
-        name: input.name,
-        colourCode: input.colourCode,
-        createdBy: userId,
-        boardId: board.id,
-      });
+      const result = await labelRepo
+        .create(ctx.db, {
+          name: input.name,
+          colourCode: input.colourCode,
+          createdBy: userId,
+          boardId: board.id,
+          expectedWorkspaceId: board.workspaceId,
+        })
+        .catch(rethrowWorkspaceChanged);
 
       if (!result)
         throw new TRPCError({
@@ -162,7 +171,12 @@ export const labelRouter = createTRPCRouter({
         });
       await assertPermission(ctx.db, userId, label.workspaceId, "board:edit");
 
-      const result = await labelRepo.update(ctx.db, input);
+      const result = await labelRepo
+        .update(ctx.db, {
+          ...input,
+          expectedWorkspaceId: label.workspaceId,
+        })
+        .catch(rethrowWorkspaceChanged);
 
       if (!result)
         throw new TRPCError({
@@ -210,13 +224,14 @@ export const labelRouter = createTRPCRouter({
         });
       await assertPermission(ctx.db, userId, label.workspaceId, "board:edit");
 
-      await cardRepo.hardDeleteAllCardLabelRelationships(ctx.db, label.id);
-
-      await labelRepo.softDelete(ctx.db, {
-        labelId: label.id,
-        deletedAt: new Date(),
-        deletedBy: userId,
-      });
+      await labelRepo
+        .softDelete(ctx.db, {
+          labelId: label.id,
+          expectedWorkspaceId: label.workspaceId,
+          deletedAt: new Date(),
+          deletedBy: userId,
+        })
+        .catch(rethrowWorkspaceChanged);
 
       return { success: true };
     }),

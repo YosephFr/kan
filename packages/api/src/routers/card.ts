@@ -1,15 +1,20 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
+import type { CardMutationActivityInput } from "@kan/db/repository/cardMutationActivity";
 import * as cardRepo from "@kan/db/repository/card.repo";
 import * as cardActivityRepo from "@kan/db/repository/cardActivity.repo";
+import * as cardAssociationsRepo from "@kan/db/repository/cardAssociations.repo";
 import * as cardCommentRepo from "@kan/db/repository/cardComment.repo";
-import * as checklistRepo from "@kan/db/repository/checklist.repo";
+import * as cardDuplicateRepo from "@kan/db/repository/cardDuplicate.repo";
+import * as cardReadRepo from "@kan/db/repository/cardRead.repo";
 import * as labelRepo from "@kan/db/repository/label.repo";
 import * as listRepo from "@kan/db/repository/list.repo";
 import * as notificationRepo from "@kan/db/repository/notification.repo";
+import { WorkspaceChangedError } from "@kan/db/repository/workspace-boundary";
 import * as workspaceRepo from "@kan/db/repository/workspace.repo";
 import { cardPriorities } from "@kan/db/schema";
+import { createLogger } from "@kan/logger";
 import { colours } from "@kan/shared/constants";
 import {
   generateAvatarUrl,
@@ -41,6 +46,7 @@ import { cardMoveManyProcedure } from "./card-move-many";
 const paletteColourCodes = new Set<string>(
   colours.map((colour) => colour.code),
 );
+const logger = createLogger("card-router");
 const colourCodeSchema = z
   .string()
   .transform((colourCode) => colourCode.toLowerCase())
@@ -48,6 +54,41 @@ const colourCodeSchema = z
     message: "Colour must use the Kan palette",
   })
   .nullable();
+
+function rethrowWorkspaceChanged(error: unknown): never {
+  if (error instanceof WorkspaceChangedError) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Resource not found" });
+  }
+  throw error;
+}
+
+function rethrowCardMutationError(error: unknown): never {
+  if (
+    error instanceof Error &&
+    error.message === cardRepo.OPEN_SUBTASKS_CONFIRMATION_REQUIRED
+  ) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: cardRepo.OPEN_SUBTASKS_CONFIRMATION_REQUIRED,
+    });
+  }
+
+  rethrowWorkspaceChanged(error);
+}
+
+async function runUrgentAlertBestEffort(
+  operation: () => Promise<unknown>,
+  context: {
+    cardPublicId: string;
+    trigger: "create" | "priority" | "assignment" | "duplicate";
+  },
+) {
+  try {
+    await operation();
+  } catch (error) {
+    logger.error({ error, ...context }, "Urgent card alert delivery failed");
+  }
+}
 
 export const cardRouter = createTRPCRouter({
   moveMany: cardMoveManyProcedure,
@@ -128,17 +169,21 @@ export const cardRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      const newCard = await cardRepo.create(ctx.db, {
-        title: input.title,
-        description: input.description,
-        createdBy: userId,
-        listId: list.id,
-        workspaceId: list.workspaceId,
-        position: input.position,
-        dueDate: input.dueDate ?? null,
-        priority: input.priority,
-        colourCode: input.colourCode,
-      });
+      const newCard = await cardRepo
+        .create(ctx.db, {
+          title: input.title,
+          description: input.description,
+          createdBy: userId,
+          listId: list.id,
+          workspaceId: list.workspaceId,
+          position: input.position,
+          dueDate: input.dueDate ?? null,
+          priority: input.priority,
+          colourCode: input.colourCode,
+          labelIds: labels.map((label) => label.id),
+          workspaceMemberIds: members.map((member) => member.id),
+        })
+        .catch(rethrowWorkspaceChanged);
 
       const newCardId = newCard.id;
 
@@ -147,61 +192,6 @@ export const cardRouter = createTRPCRouter({
           message: `Failed to create card`,
           code: "INTERNAL_SERVER_ERROR",
         });
-
-      if (newCardId && labels.length) {
-        const labelsInsert = labels.map((label) => ({
-          cardId: newCardId,
-          labelId: label.id,
-        }));
-
-        const cardLabels = await cardRepo.bulkCreateCardLabelRelationships(
-          ctx.db,
-          labelsInsert,
-        );
-
-        if (!cardLabels.length)
-          throw new TRPCError({
-            message: `Failed to create card label relationships`,
-            code: "INTERNAL_SERVER_ERROR",
-          });
-
-        const cardActivitesInsert = cardLabels.map((cardLabel) => ({
-          type: "card.updated.label.added" as const,
-          cardId: cardLabel.cardId,
-          labelId: cardLabel.labelId,
-          createdBy: userId,
-        }));
-
-        await cardActivityRepo.bulkCreate(ctx.db, cardActivitesInsert);
-      }
-
-      if (newCardId && members.length) {
-        const membersInsert = members.map((member) => ({
-          cardId: newCardId,
-          workspaceMemberId: member.id,
-        }));
-
-        const cardMembers =
-          await cardRepo.bulkCreateCardWorkspaceMemberRelationships(
-            ctx.db,
-            membersInsert,
-          );
-
-        if (!cardMembers.length)
-          throw new TRPCError({
-            message: `Failed to create card member relationships`,
-            code: "INTERNAL_SERVER_ERROR",
-          });
-
-        const cardActivitesInsert = cardMembers.map((cardMember) => ({
-          type: "card.updated.member.added" as const,
-          cardId: cardMember.cardId,
-          workspaceMemberId: cardMember.workspaceMemberId,
-          createdBy: userId,
-        }));
-
-        await cardActivityRepo.bulkCreate(ctx.db, cardActivitesInsert);
-      }
 
       if (input.description) {
         sendMentionEmails({
@@ -215,10 +205,14 @@ export const cardRouter = createTRPCRouter({
       }
 
       if (input.priority === "urgent") {
-        await notificationRepo.createUrgentAlertsForAssignees(ctx.db, {
-          cardId: newCard.id,
-          actorUserId: userId,
-        });
+        await runUrgentAlertBestEffort(
+          () =>
+            notificationRepo.createUrgentAlertsForAssignees(ctx.db, {
+              cardId: newCard.id,
+              actorUserId: userId,
+            }),
+          { cardPublicId: newCard.publicId, trigger: "create" },
+        );
       }
 
       // Fire webhooks (non-blocking)
@@ -298,25 +292,20 @@ export const cardRouter = createTRPCRouter({
         "comment:create",
       );
 
-      const newComment = await cardCommentRepo.create(ctx.db, {
-        comment: input.comment,
-        createdBy: userId,
-        cardId: card.id,
-      });
+      const newComment = await cardCommentRepo
+        .create(ctx.db, {
+          comment: input.comment,
+          createdBy: userId,
+          cardId: card.id,
+          expectedWorkspaceId: card.workspaceId,
+        })
+        .catch(rethrowWorkspaceChanged);
 
       if (!newComment?.id)
         throw new TRPCError({
           message: `Failed to create comment`,
           code: "INTERNAL_SERVER_ERROR",
         });
-
-      await cardActivityRepo.create(ctx.db, {
-        type: "card.updated.comment.added" as const,
-        cardId: card.id,
-        commentId: newComment.id,
-        toComment: newComment.comment,
-        createdBy: userId,
-      });
 
       sendMentionEmails({
         db: ctx.db,
@@ -388,25 +377,15 @@ export const cardRouter = createTRPCRouter({
         existingComment.createdBy,
       );
 
-      const updatedComment = await cardCommentRepo.update(ctx.db, {
-        id: existingComment.id,
-        comment: input.comment,
-      });
-
-      if (!updatedComment?.id)
-        throw new TRPCError({
-          message: `Failed to update comment`,
-          code: "INTERNAL_SERVER_ERROR",
-        });
-
-      await cardActivityRepo.create(ctx.db, {
-        type: "card.updated.comment.updated" as const,
-        cardId: card.id,
-        commentId: updatedComment.id,
-        fromComment: existingComment.comment,
-        toComment: updatedComment.comment,
-        createdBy: userId,
-      });
+      const updatedComment = await cardCommentRepo
+        .update(ctx.db, {
+          id: existingComment.id,
+          cardId: card.id,
+          expectedWorkspaceId: card.workspaceId,
+          comment: input.comment,
+          updatedBy: userId,
+        })
+        .catch(rethrowWorkspaceChanged);
 
       sendMentionEmails({
         db: ctx.db,
@@ -476,24 +455,15 @@ export const cardRouter = createTRPCRouter({
         existingComment.createdBy,
       );
 
-      const deletedComment = await cardCommentRepo.softDelete(ctx.db, {
-        commentId: existingComment.id,
-        deletedAt: new Date(),
-        deletedBy: userId,
-      });
-
-      if (!deletedComment)
-        throw new TRPCError({
-          message: `Failed to delete comment`,
-          code: "INTERNAL_SERVER_ERROR",
-        });
-
-      await cardActivityRepo.create(ctx.db, {
-        type: "card.updated.comment.deleted" as const,
-        cardId: card.id,
-        commentId: existingComment.id,
-        createdBy: userId,
-      });
+      await cardCommentRepo
+        .softDelete(ctx.db, {
+          commentId: existingComment.id,
+          cardId: card.id,
+          expectedWorkspaceId: card.workspaceId,
+          deletedAt: new Date(),
+          deletedBy: userId,
+        })
+        .catch(rethrowWorkspaceChanged);
 
       return { publicId: input.commentPublicId };
     }),
@@ -549,50 +519,14 @@ export const cardRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      const cardLabelIds = { cardId: card.id, labelId: label.id };
-
-      const existingLabel = await cardRepo.getCardLabelRelationship(
-        ctx.db,
-        cardLabelIds,
-      );
-
-      if (existingLabel) {
-        const deletedCardLabelRelationship =
-          await cardRepo.hardDeleteCardLabelRelationship(ctx.db, cardLabelIds);
-
-        if (!deletedCardLabelRelationship)
-          throw new TRPCError({
-            message: `Failed to remove label from card`,
-            code: "INTERNAL_SERVER_ERROR",
-          });
-
-        await cardActivityRepo.create(ctx.db, {
-          type: "card.updated.label.removed" as const,
+      return cardAssociationsRepo
+        .toggleCardLabel(ctx.db, {
           cardId: card.id,
           labelId: label.id,
-          createdBy: userId,
-        });
-
-        return { newLabel: false };
-      }
-
-      const newCardLabelRelationship =
-        await cardRepo.createCardLabelRelationship(ctx.db, cardLabelIds);
-
-      if (!newCardLabelRelationship)
-        throw new TRPCError({
-          message: `Failed to add label to card`,
-          code: "INTERNAL_SERVER_ERROR",
-        });
-
-      await cardActivityRepo.create(ctx.db, {
-        type: "card.updated.label.added" as const,
-        cardId: card.id,
-        labelId: label.id,
-        createdBy: userId,
-      });
-
-      return { newLabel: true };
+          expectedWorkspaceId: card.workspaceId,
+          updatedBy: userId,
+        })
+        .catch(rethrowWorkspaceChanged);
     }),
   addOrRemoveMember: protectedProcedure
     .meta({
@@ -645,63 +579,27 @@ export const cardRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      const cardMemberIds = { cardId: card.id, memberId: member.id };
-
-      const existingMember = await cardRepo.getCardMemberRelationship(
-        ctx.db,
-        cardMemberIds,
-      );
-
-      if (existingMember) {
-        const deletedCardMemberRelationship =
-          await cardRepo.hardDeleteCardMemberRelationship(
-            ctx.db,
-            cardMemberIds,
-          );
-
-        if (!deletedCardMemberRelationship.success)
-          throw new TRPCError({
-            message: `Failed to remove member from card`,
-            code: "INTERNAL_SERVER_ERROR",
-          });
-
-        await cardActivityRepo.create(ctx.db, {
-          type: "card.updated.member.removed" as const,
+      const result = await cardAssociationsRepo
+        .toggleCardMember(ctx.db, {
           cardId: card.id,
           workspaceMemberId: member.id,
-          createdBy: userId,
-        });
+          expectedWorkspaceId: card.workspaceId,
+          updatedBy: userId,
+        })
+        .catch(rethrowWorkspaceChanged);
 
-        await notificationRepo.invalidateCardAlertsForWorkspaceMember(ctx.db, {
-          cardId: card.id,
-          workspaceMemberId: member.id,
-        });
-
-        return { newMember: false };
+      if (result.newMember) {
+        await runUrgentAlertBestEffort(
+          () =>
+            notificationRepo.createUrgentAlertForAssignedMember(ctx.db, {
+              cardId: card.id,
+              workspaceMemberId: member.id,
+            }),
+          { cardPublicId: input.cardPublicId, trigger: "assignment" },
+        );
       }
 
-      const newCardMemberRelationship =
-        await cardRepo.createCardMemberRelationship(ctx.db, cardMemberIds);
-
-      if (!newCardMemberRelationship.success)
-        throw new TRPCError({
-          message: `Failed to add member to card`,
-          code: "INTERNAL_SERVER_ERROR",
-        });
-
-      await cardActivityRepo.create(ctx.db, {
-        type: "card.updated.member.added" as const,
-        cardId: card.id,
-        workspaceMemberId: member.id,
-        createdBy: userId,
-      });
-
-      await notificationRepo.createUrgentAlertForAssignedMember(ctx.db, {
-        cardId: card.id,
-        workspaceMemberId: member.id,
-      });
-
-      return { newMember: true };
+      return result;
     }),
   byId: publicProcedure
     .meta({
@@ -727,7 +625,9 @@ export const cardRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      if (card.workspaceVisibility === "private") {
+      const requirePublic = card.workspaceVisibility === "public";
+
+      if (!requirePublic) {
         const userId = ctx.user?.id;
 
         if (!userId)
@@ -739,16 +639,13 @@ export const cardRouter = createTRPCRouter({
         await assertPermission(ctx.db, userId, card.workspaceId, "card:view");
       }
 
-      const result = await cardRepo.getWithListAndMembersByPublicId(
-        ctx.db,
-        input.cardPublicId,
-      );
-
-      if (!result)
-        throw new TRPCError({
-          message: `Card with public ID ${input.cardPublicId} not found`,
-          code: "NOT_FOUND",
-        });
+      const { card: result, subtaskSummary } = await cardReadRepo
+        .getDetailSnapshot(ctx.db, {
+          cardPublicId: input.cardPublicId,
+          expectedWorkspaceId: card.workspaceId,
+          requirePublic,
+        })
+        .catch(rethrowWorkspaceChanged);
 
       const attachmentsWithUrls = result.attachments.map((attachment) => ({
         publicId: attachment.publicId,
@@ -760,7 +657,6 @@ export const cardRouter = createTRPCRouter({
           : null,
         downloadUrl: `/api/attachments/${attachment.publicId}/download`,
       }));
-
       // Generate presigned URLs for workspace member avatars
       const workspaceWithAvatarUrls = {
         ...result.list.board.workspace,
@@ -785,6 +681,7 @@ export const cardRouter = createTRPCRouter({
       return {
         ...result,
         attachments: attachmentsWithUrls,
+        subtaskSummary,
         list: {
           ...result.list,
           board: {
@@ -831,7 +728,9 @@ export const cardRouter = createTRPCRouter({
           code: "NOT_FOUND",
         });
 
-      if (card.workspaceVisibility === "private") {
+      const requirePublic = card.workspaceVisibility === "public";
+
+      if (!requirePublic) {
         const userId = ctx.user?.id;
 
         if (!userId)
@@ -844,14 +743,15 @@ export const cardRouter = createTRPCRouter({
       }
 
       const cursor = input.cursor ? new Date(input.cursor) : undefined;
-      const result = await cardActivityRepo.getPaginatedActivities(
-        ctx.db,
-        card.id,
-        {
+      const result = await cardActivityRepo
+        .getPaginatedActivitiesGuarded(ctx.db, {
+          cardId: card.id,
+          expectedWorkspaceId: card.workspaceId,
+          requirePublic,
           limit: input.limit,
           cursor,
-        },
-      );
+        })
+        .catch(rethrowWorkspaceChanged);
 
       // Generate presigned URLs for user avatars in activities
       const activitiesWithAvatarUrls = await Promise.all(
@@ -914,6 +814,7 @@ export const cardRouter = createTRPCRouter({
         dueDate: z.date().nullable().optional(),
         priority: z.enum(cardPriorities).optional(),
         colourCode: colourCodeSchema.optional(),
+        confirmOpenSubtasks: z.boolean().optional(),
       }),
     )
     .output(cardUpdateResponseSchema)
@@ -1007,136 +908,89 @@ export const cardRouter = createTRPCRouter({
       const movedToNewBoard = Boolean(
         newList && newList.boardPublicId !== card.boardPublicId,
       );
+      const scalarUpdates = {
+        ...(input.title !== undefined && { title: input.title }),
+        ...(input.description !== undefined && {
+          description: input.description,
+        }),
+        ...(input.dueDate !== undefined && { dueDate: input.dueDate }),
+        ...(input.priority !== undefined && { priority: input.priority }),
+        ...(input.colourCode !== undefined && {
+          colourCode: input.colourCode,
+        }),
+      };
+      const hasScalarUpdates = Object.keys(scalarUpdates).length > 0;
+      const titleChanged =
+        input.title !== undefined && existingCard.title !== input.title;
+      const descriptionChanged =
+        input.description !== undefined &&
+        existingCard.description !== input.description;
+      const priorityChanged =
+        input.priority !== undefined &&
+        existingCard.priority !== input.priority;
+      const colourChanged =
+        input.colourCode !== undefined &&
+        existingCard.colourCode !== input.colourCode;
+      const dueDateChanged =
+        input.dueDate !== undefined &&
+        previousDueDate?.getTime() !== input.dueDate?.getTime();
+      const movedToNewList =
+        newListId !== undefined && existingCard.listId !== newListId;
+      const activities: CardMutationActivityInput[] = [];
 
-      if (
-        input.title !== undefined ||
-        input.description !== undefined ||
-        input.dueDate !== undefined ||
-        input.priority !== undefined ||
-        input.colourCode !== undefined
-      ) {
-        result = await cardRepo.update(
-          ctx.db,
-          {
-            ...(input.title && { title: input.title }),
-            ...(input.description !== undefined && {
-              description: input.description,
-            }),
-            ...(input.dueDate !== undefined && { dueDate: input.dueDate }),
-            ...(input.priority !== undefined && { priority: input.priority }),
-            ...(input.colourCode !== undefined && {
-              colourCode: input.colourCode,
-            }),
-          },
-          { cardPublicId: input.cardPublicId },
-        );
-      }
-
-      if (input.index !== undefined || newListId !== undefined) {
-        result = await cardRepo.reorder(ctx.db, {
-          cardId: existingCard.id,
-          newIndex: input.index,
-          newListId: newListId,
-          clearLabels: movedToNewBoard,
-        });
-      }
-
-      if (!result)
-        throw new TRPCError({
-          message: `Failed to update card`,
-          code: "INTERNAL_SERVER_ERROR",
-        });
-
-      const activities = [];
-
-      if (input.title && existingCard.title !== input.title) {
+      if (titleChanged) {
         activities.push({
-          type: "card.updated.title" as const,
-          cardId: result.id,
+          type: "card.updated.title",
           createdBy: userId,
           fromTitle: existingCard.title,
           toTitle: input.title,
         });
       }
 
-      if (
-        input.description !== undefined &&
-        existingCard.description !== input.description
-      ) {
+      if (descriptionChanged && input.description !== undefined) {
         activities.push({
-          type: "card.updated.description" as const,
-          cardId: result.id,
+          type: "card.updated.description",
           createdBy: userId,
           fromDescription: existingCard.description ?? undefined,
           toDescription: input.description,
         });
-
-        sendMentionEmails({
-          db: ctx.db,
-          cardPublicId: input.cardPublicId,
-          commentHtml: input.description,
-          commenterUserId: userId,
-        }).catch((error) => {
-          console.error("Failed to send mention emails:", error);
-        });
       }
 
-      if (
-        input.priority !== undefined &&
-        existingCard.priority !== input.priority
-      ) {
+      if (priorityChanged) {
         activities.push({
-          type: "card.updated.priority" as const,
-          cardId: result.id,
+          type: "card.updated.priority",
           createdBy: userId,
           fromPriority: existingCard.priority,
           toPriority: input.priority,
         });
       }
 
-      if (
-        input.colourCode !== undefined &&
-        existingCard.colourCode !== input.colourCode
-      ) {
+      if (colourChanged) {
         activities.push({
-          type: "card.updated.colourCode" as const,
-          cardId: result.id,
+          type: "card.updated.colourCode",
           createdBy: userId,
           fromColourCode: existingCard.colourCode ?? undefined,
           toColourCode: input.colourCode ?? undefined,
         });
       }
 
-      if (
-        input.dueDate !== undefined &&
-        previousDueDate?.getTime() !== input.dueDate?.getTime()
-      ) {
-        let activityType:
-          | "card.updated.dueDate.added"
-          | "card.updated.dueDate.updated"
-          | "card.updated.dueDate.removed";
-
-        if (!previousDueDate) {
-          activityType = "card.updated.dueDate.added";
-        } else if (!input.dueDate) {
-          activityType = "card.updated.dueDate.removed";
-        } else {
-          activityType = "card.updated.dueDate.updated";
-        }
-
+      if (dueDateChanged) {
+        const activityType = !previousDueDate
+          ? "card.updated.dueDate.added"
+          : !input.dueDate
+            ? "card.updated.dueDate.removed"
+            : "card.updated.dueDate.updated";
         activities.push({
           type: activityType,
-          cardId: result.id,
           createdBy: userId,
           fromDueDate: previousDueDate ?? undefined,
           toDueDate: input.dueDate ?? undefined,
         });
       }
 
-      if (newListId && existingCard.listId !== newListId) {
+      if (movedToNewList) {
         activities.push({
-          type: "card.updated.list" as const,
-          cardId: result.id,
+          type: "card.updated.list",
           createdBy: userId,
           fromListId: existingCard.listId,
           toListId: newListId,
@@ -1147,46 +1001,65 @@ export const cardRouter = createTRPCRouter({
         activities.push(
           ...existingCard.labels.map(({ labelId }) => ({
             type: "card.updated.label.removed" as const,
-            cardId: result.id,
             createdBy: userId,
             labelId,
           })),
         );
       }
 
-      if (activities.length > 0) {
-        await cardActivityRepo.bulkCreate(ctx.db, activities);
-      }
-
-      if (
-        input.dueDate !== undefined &&
-        previousDueDate?.getTime() !== input.dueDate?.getTime()
-      ) {
-        await notificationRepo.invalidateDueAlertsForCard(ctx.db, {
-          cardId: result.id,
-        });
-      }
-
-      if (
-        input.priority !== undefined &&
-        existingCard.priority !== input.priority
-      ) {
-        if (input.priority === "urgent") {
-          await notificationRepo.createUrgentAlertsForAssignees(ctx.db, {
-            cardId: result.id,
-            actorUserId: userId,
+      if (input.index !== undefined || newListId !== undefined) {
+        try {
+          result = await cardRepo.reorder(ctx.db, {
+            cardId: existingCard.id,
+            newIndex: input.index,
+            newListId,
+            expectedWorkspaceId: card.workspaceId,
+            clearLabels: movedToNewBoard,
+            confirmOpenSubtasks: input.confirmOpenSubtasks,
+            ...(hasScalarUpdates && { updates: scalarUpdates }),
+            activities,
           });
-        } else {
-          await notificationRepo.invalidateUrgentAlertsForCard(ctx.db, {
-            cardId: result.id,
-          });
+        } catch (error) {
+          rethrowCardMutationError(error);
         }
+      } else if (hasScalarUpdates) {
+        result = await cardRepo
+          .update(ctx.db, scalarUpdates, {
+            cardPublicId: input.cardPublicId,
+            expectedWorkspaceId: card.workspaceId,
+            activities,
+          })
+          .catch(rethrowWorkspaceChanged);
       }
 
-      if (result.completedAt) {
-        await notificationRepo.invalidateCardAlerts(ctx.db, {
-          cardId: result.id,
+      if (!result)
+        throw new TRPCError({
+          message: `Failed to update card`,
+          code: "INTERNAL_SERVER_ERROR",
         });
+
+      if (descriptionChanged && input.description !== undefined) {
+        sendMentionEmails({
+          db: ctx.db,
+          cardPublicId: input.cardPublicId,
+          commentHtml: input.description,
+          commenterUserId: userId,
+        }).catch((error) => {
+          console.error("Failed to send mention emails:", error);
+        });
+      }
+
+      if (priorityChanged) {
+        if (input.priority === "urgent") {
+          await runUrgentAlertBestEffort(
+            () =>
+              notificationRepo.createUrgentAlertsForAssignees(ctx.db, {
+                cardId: result.id,
+                actorUserId: userId,
+              }),
+            { cardPublicId: input.cardPublicId, trigger: "priority" },
+          );
+        }
       }
 
       // Build changes object for webhook
@@ -1227,9 +1100,6 @@ export const cardRouter = createTRPCRouter({
       ) {
         webhookChanges.dueDate = { from: previousDueDate, to: input.dueDate };
       }
-      const movedToNewList = Boolean(
-        newList && existingCard.listId !== newList.id,
-      );
       const currentWebhookListPublicId =
         newList?.publicId ?? existingCard.list.publicId;
       const currentWebhookListName = newList?.name ?? existingCard.list.name;
@@ -1331,22 +1201,14 @@ export const cardRouter = createTRPCRouter({
 
       const deletedAt = new Date();
 
-      await cardRepo.softDelete(ctx.db, {
-        cardId: card.id,
-        deletedAt,
-        deletedBy: userId,
-      });
-
-      await cardActivityRepo.create(ctx.db, {
-        type: "card.archived",
-        cardId: card.id,
-        createdBy: userId,
-      });
-
-      await notificationRepo.invalidateCardAlerts(ctx.db, {
-        cardId: card.id,
-        invalidatedAt: deletedAt,
-      });
+      await cardRepo
+        .softDelete(ctx.db, {
+          cardId: card.id,
+          expectedWorkspaceId: card.workspaceId,
+          deletedAt,
+          deletedBy: userId,
+        })
+        .catch(rethrowWorkspaceChanged);
 
       // Fire webhooks (non-blocking)
       if (fullCard) {
@@ -1402,11 +1264,13 @@ export const cardRouter = createTRPCRouter({
         copyLabels: z.boolean(),
         copyMembers: z.boolean(),
         copyChecklists: z.boolean(),
+        copyPipeline: z.boolean().optional().default(true),
       }),
     )
     .output(
       z.object({
         publicId: z.string(),
+        skippedResourceCount: z.number().int().nonnegative(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -1435,139 +1299,50 @@ export const cardRouter = createTRPCRouter({
         sourceCardMeta.workspaceId,
         "card:create",
       );
-
-      const targetList = await listRepo.getWorkspaceAndListIdByListPublicId(
+      await assertPermission(
         ctx.db,
-        input.listPublicId,
+        userId,
+        sourceCardMeta.workspaceId,
+        "card:view",
       );
 
-      if (!targetList)
-        throw new TRPCError({
-          message: `List with public ID ${input.listPublicId} not found`,
-          code: "NOT_FOUND",
-        });
-
-      if (targetList.workspaceId !== sourceCardMeta.workspaceId)
-        throw new TRPCError({
-          message: `Target list must be in the same workspace`,
-          code: "BAD_REQUEST",
-        });
-
-      const sourceCard = await cardRepo.getWithListAndMembersByPublicId(
-        ctx.db,
-        input.cardPublicId,
-      );
-
-      if (!sourceCard)
-        throw new TRPCError({
-          message: `Card with public ID ${input.cardPublicId} not found`,
-          code: "NOT_FOUND",
-        });
-
-      const newCard = await cardRepo.create(ctx.db, {
-        title: input.title ?? sourceCard.title,
-        description: sourceCard.description ?? "",
-        createdBy: userId,
-        listId: targetList.id,
-        workspaceId: targetList.workspaceId,
-        position: "end",
-        dueDate: sourceCard.dueDate ?? null,
-        priority: sourceCard.priority,
-        colourCode: sourceCard.colourCode,
-        initializeLifecycle: false,
-      });
-
-      if (input.index !== undefined && input.index >= 0) {
-        await cardRepo.reorder(ctx.db, {
-          cardId: newCard.id,
-          newIndex: input.index,
-          newListId: targetList.id,
-        });
-      }
-
-      if (input.copyLabels && sourceCard.labels.length) {
-        const labelPublicIds = sourceCard.labels.map((l) => l.publicId);
-        const labels = await labelRepo.getAllByPublicIdsForBoard(
-          ctx.db,
-          labelPublicIds,
-          targetList.boardId,
-        );
-        if (labels.length) {
-          const labelsInsert = labels.map((label) => ({
-            cardId: newCard.id,
-            labelId: label.id,
-          }));
-          await cardRepo.bulkCreateCardLabelRelationships(ctx.db, labelsInsert);
-          const cardActivitesInsert = labels.map((cardLabel) => ({
-            type: "card.updated.label.added" as const,
-            cardId: newCard.id,
-            labelId: cardLabel.id,
-            createdBy: userId,
-          }));
-          await cardActivityRepo.bulkCreate(ctx.db, cardActivitesInsert);
-        }
-      }
-
-      if (input.copyMembers && sourceCard.members.length) {
-        const memberPublicIds = sourceCard.members.map((m) => m.publicId);
-        const members = await workspaceRepo.getAllMembersByPublicIds(
-          ctx.db,
-          memberPublicIds,
-          targetList.workspaceId,
-        );
-        if (members.length) {
-          const membersInsert = members.map((member) => ({
-            cardId: newCard.id,
-            workspaceMemberId: member.id,
-          }));
-          await cardRepo.bulkCreateCardWorkspaceMemberRelationships(
-            ctx.db,
-            membersInsert,
-          );
-          const cardActivitesInsert = members.map((member) => ({
-            type: "card.updated.member.added" as const,
-            cardId: newCard.id,
-            workspaceMemberId: member.id,
-            createdBy: userId,
-          }));
-          await cardActivityRepo.bulkCreate(ctx.db, cardActivitesInsert);
-        }
-      }
-
-      if (input.copyChecklists && sourceCard.checklists.length) {
-        for (const checklist of sourceCard.checklists) {
-          const newChecklist = await checklistRepo.create(ctx.db, {
-            cardId: newCard.id,
-            name: checklist.name,
-            createdBy: userId,
-          });
-          if (!newChecklist?.id) continue;
-          if (checklist.items.length) {
-            for (const item of checklist.items) {
-              await checklistRepo.createItem(ctx.db, {
-                checklistId: newChecklist.id,
-                title: item.title,
-                createdBy: userId,
-                completed: false,
-              });
-            }
+      const newCard = await cardDuplicateRepo
+        .duplicateCard(ctx.db, {
+          sourceCardPublicId: input.cardPublicId,
+          targetListPublicId: input.listPublicId,
+          expectedWorkspaceId: sourceCardMeta.workspaceId,
+          createdBy: userId,
+          title: input.title,
+          index: input.index,
+          copyLabels: input.copyLabels,
+          copyMembers: input.copyMembers,
+          copyChecklists: input.copyChecklists,
+          copyPipeline: input.copyPipeline,
+        })
+        .catch((error: unknown) => {
+          if (error instanceof cardDuplicateRepo.CardPipelineCloneError) {
+            throw new TRPCError({
+              message: "CARD_PIPELINE_CLONE_FAILED",
+              code: "CONFLICT",
+            });
           }
-          await cardActivityRepo.create(ctx.db, {
-            type: "card.updated.checklist.added",
-            cardId: newCard.id,
-            toTitle: newChecklist.name,
-            createdBy: userId,
-          });
-        }
-      }
-
-      if (sourceCard.priority === "urgent") {
-        await notificationRepo.createUrgentAlertsForAssignees(ctx.db, {
-          cardId: newCard.id,
-          actorUserId: userId,
+          return rethrowWorkspaceChanged(error);
         });
+
+      if (newCard.priority === "urgent") {
+        await runUrgentAlertBestEffort(
+          () =>
+            notificationRepo.createUrgentAlertsForAssignees(ctx.db, {
+              cardId: newCard.id,
+              actorUserId: userId,
+            }),
+          { cardPublicId: newCard.publicId, trigger: "duplicate" },
+        );
       }
 
-      return { publicId: newCard.publicId };
+      return {
+        publicId: newCard.publicId,
+        skippedResourceCount: newCard.skippedResourceCount,
+      };
     }),
 });

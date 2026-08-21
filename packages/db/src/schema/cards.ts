@@ -50,6 +50,17 @@ export const activityTypes = [
   "card.updated.dueDate.removed",
   "card.updated.priority",
   "card.updated.colourCode",
+  "card.updated.pipeline.initialized",
+  "card.updated.pipeline.stage.updated",
+  "card.updated.subtask.added",
+  "card.updated.subtask.updated",
+  "card.updated.subtask.moved",
+  "card.updated.subtask.deleted",
+  "card.updated.subtask.checklist.item.added",
+  "card.updated.subtask.checklist.item.updated",
+  "card.updated.subtask.checklist.item.completed",
+  "card.updated.subtask.checklist.item.uncompleted",
+  "card.updated.subtask.checklist.item.deleted",
   "card.archived",
 ] as const;
 
@@ -178,6 +189,11 @@ export const cardActivities = pgTable("card_activity", {
   toPriority: cardPriorityEnum("toPriority"),
   fromColourCode: varchar("fromColourCode", { length: 7 }),
   toColourCode: varchar("toColourCode", { length: 7 }),
+  subtaskPublicId: varchar("subtaskPublicId", { length: 12 }),
+  fromPipelineStagePublicId: varchar("fromPipelineStagePublicId", {
+    length: 12,
+  }),
+  toPipelineStagePublicId: varchar("toPipelineStagePublicId", { length: 12 }),
   sourceBoardId: bigint("sourceBoardId", { mode: "number" }).references(
     () => boards.id,
     { onDelete: "set null" },

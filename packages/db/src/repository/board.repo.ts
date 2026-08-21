@@ -13,11 +13,7 @@ import {
 } from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
-import type {
-  BoardVisibilityStatus,
-  CardPriority,
-  ListStatus,
-} from "@kan/db/schema";
+import type { BoardVisibilityStatus, CardPriority } from "@kan/db/schema";
 import {
   boards,
   cardActivities,
@@ -30,10 +26,20 @@ import {
   comments,
   labels,
   lists,
+  notifications,
   userBoardFavorites,
   workspaceMembers,
+  workspaces,
 } from "@kan/db/schema";
 import { generateUID } from "@kan/shared/utils";
+
+import type { WorkspaceBoundaryTransaction } from "./workspace-boundary";
+import { clearInvalidOwnersForCardIdsTx } from "./cardSubtask.repo";
+import { invalidateCardAlertsForBoard } from "./notification-alert.repo";
+import {
+  lockBoardTreeInWorkspace,
+  WorkspaceChangedError,
+} from "./workspace-boundary";
 
 export const getCount = async (db: dbClient) => {
   const result = await db
@@ -113,6 +119,7 @@ export const getIdByPublicId = async (db: dbClient, boardPublicId: string) => {
       id: true,
       type: true,
       isArchived: true,
+      workspaceId: true,
     },
     where: eq(boards.publicId, boardPublicId),
   });
@@ -125,6 +132,17 @@ interface DueDateFilter {
   endDate?: Date;
   hasNoDueDate?: boolean;
 }
+
+export interface BoardReadFilters {
+  members: string[];
+  labels: string[];
+  lists: string[];
+  dueDate: DueDateFilter[];
+  priorities: CardPriority[];
+  type: "regular" | "template" | undefined;
+}
+
+export type BoardSlugReadFilters = Omit<BoardReadFilters, "type">;
 
 const buildDueDateWhere = (filters: DueDateFilter[]) => {
   if (!filters.length) return undefined;
@@ -153,18 +171,11 @@ const buildDueDateWhere = (filters: DueDateFilter[]) => {
   return or(...clauses);
 };
 
-export const getByPublicId = async (
-  db: dbClient,
+export const queryByPublicId = async (
+  db: dbClient | WorkspaceBoundaryTransaction,
   boardPublicId: string,
   userId: string,
-  filters: {
-    members: string[];
-    labels: string[];
-    lists: string[];
-    dueDate: DueDateFilter[];
-    priorities: CardPriority[];
-    type: "regular" | "template" | undefined;
-  },
+  filters: BoardReadFilters,
 ) => {
   let cardIds: string[] = [];
 
@@ -401,17 +412,18 @@ export const getByPublicId = async (
   return formattedResult;
 };
 
-export const getBySlug = async (
+export const getByPublicId = (
   db: dbClient,
+  boardPublicId: string,
+  userId: string,
+  filters: BoardReadFilters,
+) => queryByPublicId(db, boardPublicId, userId, filters);
+
+export const queryBySlug = async (
+  db: dbClient | WorkspaceBoundaryTransaction,
   boardSlug: string,
   workspaceId: number,
-  filters: {
-    members: string[];
-    labels: string[];
-    lists: string[];
-    dueDate: DueDateFilter[];
-    priorities: CardPriority[];
-  },
+  filters: BoardSlugReadFilters,
 ) => {
   let cardIds: string[] = [];
 
@@ -585,6 +597,13 @@ export const getBySlug = async (
   return formattedResult;
 };
 
+export const getBySlug = (
+  db: dbClient,
+  boardSlug: string,
+  workspaceId: number,
+  filters: BoardSlugReadFilters,
+) => queryBySlug(db, boardSlug, workspaceId, filters);
+
 export const getWithListIdsByPublicId = (
   db: dbClient,
   boardPublicId: string,
@@ -670,48 +689,144 @@ export const update = async (
     slug: string | undefined;
     visibility: BoardVisibilityStatus | undefined;
     boardPublicId: string;
+    expectedWorkspaceId: number;
     isArchived?: boolean;
   },
-) => {
-  const [result] = await db
-    .update(boards)
-    .set({
-      name: boardInput.name,
-      slug: boardInput.slug,
-      visibility: boardInput.visibility,
-      updatedAt: new Date(),
-      ...(boardInput.isArchived !== undefined && {
-        isArchived: boardInput.isArchived,
-      }),
-    })
-    .where(eq(boards.publicId, boardInput.boardPublicId))
-    .returning({
-      publicId: boards.publicId,
-      name: boards.name,
-    });
+) =>
+  db.transaction(async (tx) => {
+    const [candidate] = await tx
+      .select({ id: boards.id })
+      .from(boards)
+      .where(
+        and(
+          eq(boards.publicId, boardInput.boardPublicId),
+          isNull(boards.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (!candidate) throw new WorkspaceChangedError();
+    await lockBoardTreeInWorkspace(
+      tx,
+      candidate.id,
+      boardInput.expectedWorkspaceId,
+      { boardLock: "update" },
+    );
 
-  return result;
-};
+    const updatedAt = new Date();
+    const [result] = await tx
+      .update(boards)
+      .set({
+        name: boardInput.name,
+        slug: boardInput.slug,
+        visibility: boardInput.visibility,
+        updatedAt,
+        ...(boardInput.isArchived !== undefined && {
+          isArchived: boardInput.isArchived,
+        }),
+      })
+      .where(
+        and(
+          eq(boards.id, candidate.id),
+          eq(boards.workspaceId, boardInput.expectedWorkspaceId),
+          isNull(boards.deletedAt),
+        ),
+      )
+      .returning({
+        id: boards.id,
+        publicId: boards.publicId,
+        name: boards.name,
+      });
+    if (!result) return undefined;
+    if (boardInput.isArchived === true) {
+      await invalidateCardAlertsForBoard(tx, {
+        boardId: result.id,
+        invalidatedAt: updatedAt,
+      });
+    }
+
+    return { publicId: result.publicId, name: result.name };
+  });
 
 export const softDelete = async (
   db: dbClient,
   args: {
     boardId: number;
+    expectedWorkspaceId: number;
     deletedAt: Date;
     deletedBy: string;
   },
-) => {
-  const [result] = await db
-    .update(boards)
-    .set({ deletedAt: args.deletedAt, deletedBy: args.deletedBy })
-    .where(and(eq(boards.id, args.boardId), isNull(boards.deletedAt)))
-    .returning({
-      publicId: boards.publicId,
-      name: boards.name,
+) =>
+  db.transaction(async (tx) => {
+    const [candidate] = await tx
+      .select({ id: boards.id })
+      .from(boards)
+      .where(and(eq(boards.id, args.boardId), isNull(boards.deletedAt)))
+      .limit(1);
+    if (!candidate) throw new WorkspaceChangedError();
+    const lockedTree = await lockBoardTreeInWorkspace(
+      tx,
+      candidate.id,
+      args.expectedWorkspaceId,
+      {
+        listLock: "update",
+        cardLock: "update",
+        boardLock: "update",
+      },
+    );
+
+    const [result] = await tx
+      .update(boards)
+      .set({ deletedAt: args.deletedAt, deletedBy: args.deletedBy })
+      .where(
+        and(
+          eq(boards.id, candidate.id),
+          eq(boards.workspaceId, args.expectedWorkspaceId),
+          isNull(boards.deletedAt),
+        ),
+      )
+      .returning({
+        publicId: boards.publicId,
+        name: boards.name,
+      });
+    if (!result) return undefined;
+    if (lockedTree.listIds.length > 0) {
+      await tx
+        .update(lists)
+        .set({ deletedAt: args.deletedAt, deletedBy: args.deletedBy })
+        .where(
+          and(inArray(lists.id, lockedTree.listIds), isNull(lists.deletedAt)),
+        );
+    }
+    const deletedCards =
+      lockedTree.cardIds.length === 0
+        ? []
+        : await tx
+            .update(cards)
+            .set({ deletedAt: args.deletedAt, deletedBy: args.deletedBy })
+            .where(
+              and(
+                inArray(cards.id, lockedTree.cardIds),
+                isNull(cards.deletedAt),
+              ),
+            )
+            .returning({ id: cards.id });
+    if (deletedCards.length > 0) {
+      await tx.insert(cardActivities).values(
+        deletedCards.map((card) => ({
+          publicId: generateUID(),
+          type: "card.archived" as const,
+          cardId: card.id,
+          createdBy: args.deletedBy,
+        })),
+      );
+    }
+    await invalidateCardAlertsForBoard(tx, {
+      boardId: candidate.id,
+      invalidatedAt: args.deletedAt,
     });
 
-  return result;
-};
+    return result;
+  });
 
 export const hardDelete = async (db: dbClient, workspaceId: number) => {
   const [result] = await db
@@ -799,248 +914,89 @@ export const isBoardSlugAvailable = async (
   return result === undefined;
 };
 
-// Create a new board (regular/template) from a full board snapshot
-export const createFromSnapshot = async (
-  db: dbClient,
-  args: {
-    source: {
-      name: string;
-      labels: { publicId: string; name: string; colourCode: string | null }[];
-      lists: {
-        name: string;
-        index: number;
-        status: ListStatus | null;
-        colourCode: string | null;
-        cards: {
-          title: string;
-          description: string | null;
-          index: number;
-          priority: CardPriority;
-          colourCode: string | null;
-          labels: {
-            publicId: string;
-            name: string;
-            colourCode: string | null;
-          }[];
-          checklists?: {
-            publicId: string;
-            name: string;
-            index: number;
-            items: {
-              publicId: string;
-              title: string;
-              completed: boolean;
-              index: number;
-            }[];
-          }[];
-        }[];
-      }[];
-    };
-    workspaceId: number;
-    createdBy: string;
-    slug: string;
-    name?: string;
-    type: "regular" | "template";
-    sourceBoardId?: number;
-  },
-) => {
-  return db.transaction(async (tx) => {
-    const [newBoard] = await tx
-      .insert(boards)
-      .values({
-        publicId: generateUID(),
-        name: args.name ?? args.source.name,
-        slug: args.slug,
-        createdBy: args.createdBy,
-        workspaceId: args.workspaceId,
-        type: args.type,
-        sourceBoardId: args.sourceBoardId,
-      })
-      .returning({
-        id: boards.id,
-        publicId: boards.publicId,
-        name: boards.name,
-      });
-
-    if (!newBoard) throw new Error("Failed to create board");
-
-    // Labels
-    const srcLabels = args.source.labels;
-    const labelMap = new Map<string, number>();
-
-    if (srcLabels.length) {
-      const inserted = await tx
-        .insert(labels)
-        .values(
-          srcLabels.map((l) => ({
-            publicId: generateUID(),
-            name: l.name,
-            colourCode: l.colourCode ?? null,
-            createdBy: args.createdBy,
-            boardId: newBoard.id,
-          })),
-        )
-        .returning({ id: labels.id });
-
-      for (let i = 0; i < srcLabels.length; i++) {
-        const src = srcLabels[i];
-
-        if (!src) throw new Error("Source label not found");
-
-        const created = inserted[i];
-        if (created) labelMap.set(src.publicId, created.id);
-      }
-    }
-
-    // Lists
-    const listIndexToId = new Map<number, number>();
-    const srcLists = [...args.source.lists].sort((a, b) => a.index - b.index);
-    if (srcLists.length) {
-      const insertedLists = await tx
-        .insert(lists)
-        .values(
-          srcLists.map((list) => ({
-            publicId: generateUID(),
-            name: list.name,
-            createdBy: args.createdBy,
-            boardId: newBoard.id,
-            index: list.index,
-            status: list.status,
-            colourCode: list.colourCode,
-          })),
-        )
-        .returning({ id: lists.id, index: lists.index });
-
-      for (const list of insertedLists) listIndexToId.set(list.index, list.id);
-    }
-
-    // Cards, card-labels, checklists
-    for (const list of srcLists) {
-      const newListId = listIndexToId.get(list.index);
-      if (!newListId) continue;
-      const sortedCards = [...list.cards].sort((a, b) => a.index - b.index);
-
-      for (const card of sortedCards) {
-        const [createdCard] = await tx
-          .insert(cards)
-          .values({
-            publicId: generateUID(),
-            title: card.title,
-            description: card.description ?? "",
-            createdBy: args.createdBy,
-            listId: newListId,
-            index: card.index,
-            priority: card.priority,
-            colourCode: card.colourCode,
-          })
-          .returning({ id: cards.id });
-
-        if (!createdCard) throw new Error("Failed to create card");
-
-        // Create card.created activity
-        await tx.insert(cardActivities).values({
-          publicId: generateUID(),
-          type: "card.created",
-          cardId: createdCard.id,
-          createdBy: args.createdBy,
-          sourceBoardId: args.sourceBoardId,
-        });
-
-        if (card.labels.length) {
-          const cardLabels: { cardId: number; labelId: number }[] = [];
-          for (const label of card.labels) {
-            const newLabelId = labelMap.get(label.publicId);
-            if (newLabelId)
-              cardLabels.push({ cardId: createdCard.id, labelId: newLabelId });
-          }
-          if (cardLabels.length) {
-            await tx.insert(cardsToLabels).values(cardLabels);
-
-            // Create card.updated.label.added activities for each label
-            const labelActivities = cardLabels.map((cardLabel) => ({
-              publicId: generateUID(),
-              type: "card.updated.label.added" as const,
-              cardId: cardLabel.cardId,
-              labelId: cardLabel.labelId,
-              createdBy: args.createdBy,
-              sourceBoardId: args.sourceBoardId,
-            }));
-            await tx.insert(cardActivities).values(labelActivities);
-          }
-        }
-
-        if (card.checklists?.length) {
-          const sortedChecklists = [...card.checklists].sort(
-            (a, b) => a.index - b.index,
-          );
-          for (const checklist of sortedChecklists) {
-            const [createdChecklist] = await tx
-              .insert(checklists)
-              .values({
-                publicId: generateUID(),
-                name: checklist.name,
-                createdBy: args.createdBy,
-                cardId: createdCard.id,
-                index: checklist.index,
-              })
-              .returning({ id: checklists.id });
-
-            if (!createdChecklist) continue;
-
-            // Create card.updated.checklist.added activity
-            await tx.insert(cardActivities).values({
-              publicId: generateUID(),
-              type: "card.updated.checklist.added",
-              cardId: createdCard.id,
-              toTitle: checklist.name,
-              createdBy: args.createdBy,
-              sourceBoardId: args.sourceBoardId,
-            });
-
-            if (checklist.items.length) {
-              const itemValues = [...checklist.items]
-                .sort((a, b) => a.index - b.index)
-                .map((checklistItem) => ({
-                  publicId: generateUID(),
-                  title: checklistItem.title,
-                  createdBy: args.createdBy,
-                  checklistId: createdChecklist.id,
-                  index: checklistItem.index,
-                  completed: !!checklistItem.completed,
-                }));
-
-              if (itemValues.length) {
-                await tx.insert(checklistItems).values(itemValues);
-
-                // Create card.updated.checklist.item.added activities for each item
-                const itemActivities = itemValues.map((item) => ({
-                  publicId: generateUID(),
-                  type: "card.updated.checklist.item.added" as const,
-                  cardId: createdCard.id,
-                  toTitle: item.title,
-                  createdBy: args.createdBy,
-                  sourceBoardId: args.sourceBoardId,
-                }));
-                await tx.insert(cardActivities).values(itemActivities);
-              }
-            }
-          }
-        }
-      }
-    }
-
-    return newBoard;
-  });
-};
+export { createFromSnapshot } from "./boardClone.repo";
 
 export const moveToWorkspace = async (
   db: dbClient,
   boardId: number,
   targetWorkspaceId: number,
-  newSlug?: string,
+  newSlug: string | undefined,
+  options: { expectedSourceWorkspaceId: number; movedBy: string },
 ) => {
   return db.transaction(async (tx) => {
-    // Update the board's workspace (and slug if provided)
+    const boardLists = await tx
+      .select({ id: lists.id })
+      .from(lists)
+      .where(eq(lists.boardId, boardId))
+      .orderBy(asc(lists.id))
+      .for("update");
+    const listIds = boardLists.map((list) => list.id);
+    if (listIds.length > 0) {
+      await tx
+        .select({ id: cards.id })
+        .from(cards)
+        .where(inArray(cards.listId, listIds))
+        .orderBy(asc(cards.id))
+        .for("update");
+    }
+    const [lockedBoard] = await tx
+      .select({
+        id: boards.id,
+        workspaceId: boards.workspaceId,
+        type: boards.type,
+        isArchived: boards.isArchived,
+        deletedAt: boards.deletedAt,
+      })
+      .from(boards)
+      .where(eq(boards.id, boardId))
+      .limit(1)
+      .for("update");
+    const requestedWorkspaceIds = [
+      ...new Set([options.expectedSourceWorkspaceId, targetWorkspaceId]),
+    ].sort((a, b) => a - b);
+    const lockedWorkspaces = await tx
+      .select({ id: workspaces.id })
+      .from(workspaces)
+      .where(
+        and(
+          inArray(workspaces.id, requestedWorkspaceIds),
+          isNull(workspaces.deletedAt),
+        ),
+      )
+      .orderBy(asc(workspaces.id))
+      .for("update");
+
+    const activeMoverMemberships = await tx
+      .select({ workspaceId: workspaceMembers.workspaceId })
+      .from(workspaceMembers)
+      .where(
+        and(
+          inArray(workspaceMembers.workspaceId, requestedWorkspaceIds),
+          eq(workspaceMembers.userId, options.movedBy),
+          eq(workspaceMembers.status, "active"),
+          isNull(workspaceMembers.deletedAt),
+        ),
+      )
+      .orderBy(asc(workspaceMembers.workspaceId), asc(workspaceMembers.id))
+      .for("share");
+    const activeMoverWorkspaceIds = new Set(
+      activeMoverMemberships.map((member) => member.workspaceId),
+    );
+
+    if (
+      !lockedBoard ||
+      lockedBoard.deletedAt !== null ||
+      lockedBoard.type === "template" ||
+      lockedBoard.isArchived ||
+      lockedWorkspaces.length !== requestedWorkspaceIds.length ||
+      requestedWorkspaceIds.some(
+        (workspaceId) => !activeMoverWorkspaceIds.has(workspaceId),
+      ) ||
+      lockedBoard.workspaceId !== options.expectedSourceWorkspaceId
+    ) {
+      throw new WorkspaceChangedError();
+    }
+
     const [updatedBoard] = await tx
       .update(boards)
       .set({
@@ -1056,32 +1012,49 @@ export const moveToWorkspace = async (
 
     if (!updatedBoard) throw new Error("Failed to move board");
 
-    // Get every card ID ever belonging to this board, including
-    // soft-deleted cards under soft-deleted lists. Member assignments
-    // point at workspace-scoped members that no longer exist after
-    // the move; if we leave assignments on soft-deleted cards, a later
-    // restore would resurrect rogue references to the old workspace.
-    const boardLists = await tx
+    const finalBoardLists = await tx
       .select({ id: lists.id })
       .from(lists)
-      .where(eq(lists.boardId, boardId));
+      .where(eq(lists.boardId, boardId))
+      .orderBy(asc(lists.id));
+    const finalListIds = finalBoardLists.map((list) => list.id);
+    const finalBoardCards =
+      finalListIds.length === 0
+        ? []
+        : await tx
+            .select({ id: cards.id })
+            .from(cards)
+            .where(inArray(cards.listId, finalListIds))
+            .orderBy(asc(cards.id));
+    const finalCardIds = finalBoardCards.map((card) => card.id);
 
-    if (boardLists.length > 0) {
-      const listIds = boardLists.map((l) => l.id);
+    if (finalCardIds.length > 0) {
+      await tx
+        .delete(cardToWorkspaceMembers)
+        .where(inArray(cardToWorkspaceMembers.cardId, finalCardIds));
 
-      const boardCards = await tx
-        .select({ id: cards.id })
-        .from(cards)
-        .where(inArray(cards.listId, listIds));
+      await clearInvalidOwnersForCardIdsTx(tx, {
+        cardIds: finalCardIds,
+        updatedBy: options.movedBy,
+      });
 
-      if (boardCards.length > 0) {
-        const cardIds = boardCards.map((c) => c.id);
-
-        // Clear all card member assignments (they reference workspace-scoped members)
-        await tx
-          .delete(cardToWorkspaceMembers)
-          .where(inArray(cardToWorkspaceMembers.cardId, cardIds));
-      }
+      await tx
+        .update(notifications)
+        .set({ deletedAt: new Date(), dedupeKey: null })
+        .where(
+          and(
+            inArray(notifications.cardId, finalCardIds),
+            inArray(notifications.type, [
+              "card.priority.urgent",
+              "card.due.soon",
+              "card.due.overdue",
+              "subtask.assigned",
+              "subtask.due.soon",
+              "subtask.due.overdue",
+            ]),
+            isNull(notifications.deletedAt),
+          ),
+        );
     }
 
     return updatedBoard;

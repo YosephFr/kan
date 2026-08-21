@@ -2,8 +2,9 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import * as cardMoveRepo from "@kan/db/repository/card-move.repo";
+import * as cardRepo from "@kan/db/repository/card.repo";
 import * as listRepo from "@kan/db/repository/list.repo";
-import * as notificationRepo from "@kan/db/repository/notification.repo";
+import { WorkspaceChangedError } from "@kan/db/repository/workspace-boundary";
 
 import { cardUpdateResponseSchema } from "../schemas";
 import { protectedProcedure } from "../trpc";
@@ -28,6 +29,7 @@ export const cardMoveManyProcedure = protectedProcedure
     z.object({
       cardPublicIds: z.array(z.string().min(12)).min(1),
       listPublicId: z.string().min(12),
+      confirmOpenSubtasks: z.boolean().optional(),
     }),
   )
   .output(z.array(cardUpdateResponseSchema))
@@ -96,6 +98,13 @@ export const cardMoveManyProcedure = protectedProcedure
     const workspaceId = candidates[0]?.list.board.workspaceId;
     const sourceBoardPublicId = candidates[0]?.list.board.publicId;
 
+    if (workspaceId === undefined || sourceBoardPublicId === undefined) {
+      throw new TRPCError({
+        message: "One or more cards were not found",
+        code: "NOT_FOUND",
+      });
+    }
+
     if (workspaceId !== destinationList.workspaceId) {
       throw new TRPCError({
         message: "Cards can only be moved within the same workspace",
@@ -120,11 +129,34 @@ export const cardMoveManyProcedure = protectedProcedure
       );
     }
 
-    const movedCards = await cardMoveRepo.moveMany(ctx.db, {
-      cardIds: candidates.map((card) => card.id),
-      destinationListId: destinationList.id,
-      createdBy: userId,
-    });
+    let movedCards: Awaited<ReturnType<typeof cardMoveRepo.moveMany>>;
+
+    try {
+      movedCards = await cardMoveRepo.moveMany(ctx.db, {
+        cardIds: candidates.map((card) => card.id),
+        destinationListId: destinationList.id,
+        expectedWorkspaceId: workspaceId,
+        createdBy: userId,
+        confirmOpenSubtasks: input.confirmOpenSubtasks,
+      });
+    } catch (error) {
+      if (error instanceof WorkspaceChangedError) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "One or more cards were not found",
+        });
+      }
+      if (
+        error instanceof Error &&
+        error.message === cardRepo.OPEN_SUBTASKS_CONFIRMATION_REQUIRED
+      ) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: cardRepo.OPEN_SUBTASKS_CONFIRMATION_REQUIRED,
+        });
+      }
+      throw error;
+    }
 
     if (movedCards.length !== candidates.length) {
       throw new TRPCError({
@@ -132,16 +164,6 @@ export const cardMoveManyProcedure = protectedProcedure
         code: "INTERNAL_SERVER_ERROR",
       });
     }
-
-    await Promise.all(
-      movedCards
-        .filter((card) => card.completedAt !== null)
-        .map((card) =>
-          notificationRepo.invalidateCardAlerts(ctx.db, {
-            cardId: card.id,
-          }),
-        ),
-    );
 
     const candidatesByPublicId = new Map(
       candidates.map((card) => [card.publicId, card]),

@@ -1,4 +1,6 @@
 import type { Locale as DateFnsLocale } from "date-fns";
+import Link from "next/link";
+import { useRouter } from "next/router";
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { format, formatDistanceToNow, isSameYear } from "date-fns";
@@ -153,6 +155,17 @@ const getActivityText = ({
     "card.updated.dueDate.added": t`set the due date`,
     "card.updated.dueDate.updated": t`updated the due date`,
     "card.updated.dueDate.removed": t`removed the due date`,
+    "card.updated.pipeline.initialized": t`started the subtask pipeline`,
+    "card.updated.pipeline.stage.updated": t`updated a pipeline stage`,
+    "card.updated.subtask.added": t`added a subtask`,
+    "card.updated.subtask.updated": t`updated a subtask`,
+    "card.updated.subtask.moved": t`moved a subtask`,
+    "card.updated.subtask.deleted": t`deleted a subtask`,
+    "card.updated.subtask.checklist.item.added": t`added a subtask checklist item`,
+    "card.updated.subtask.checklist.item.updated": t`updated a subtask checklist item`,
+    "card.updated.subtask.checklist.item.completed": t`completed a subtask checklist item`,
+    "card.updated.subtask.checklist.item.uncompleted": t`reopened a subtask checklist item`,
+    "card.updated.subtask.checklist.item.deleted": t`deleted a subtask checklist item`,
   } as const;
 
   if (!(type in ACTIVITY_TYPE_MAP)) return null;
@@ -364,6 +377,55 @@ const getActivityText = ({
     return <Trans>removed the due date</Trans>;
   }
 
+  if (type === "card.updated.pipeline.stage.updated" && toTitle) {
+    return (
+      <Trans>
+        updated pipeline stage{" "}
+        <TextHighlight>{truncate(toTitle)}</TextHighlight>
+      </Trans>
+    );
+  }
+
+  if (type === "card.updated.subtask.added" && toTitle) {
+    return (
+      <Trans>
+        added subtask <TextHighlight>{truncate(toTitle)}</TextHighlight>
+      </Trans>
+    );
+  }
+
+  if (type === "card.updated.subtask.updated" && toTitle) {
+    return (
+      <Trans>
+        updated subtask <TextHighlight>{truncate(toTitle)}</TextHighlight>
+      </Trans>
+    );
+  }
+
+  if (type === "card.updated.subtask.moved" && toTitle) {
+    return (
+      <Trans>
+        moved subtask <TextHighlight>{truncate(toTitle)}</TextHighlight>
+      </Trans>
+    );
+  }
+
+  if (type === "card.updated.subtask.deleted" && fromTitle) {
+    return (
+      <Trans>
+        deleted subtask <TextHighlight>{truncate(fromTitle)}</TextHighlight>
+      </Trans>
+    );
+  }
+
+  if (type.startsWith("card.updated.subtask.checklist.item.") && toTitle) {
+    return (
+      <Trans>
+        updated subtask step <TextHighlight>{truncate(toTitle)}</TextHighlight>
+      </Trans>
+    );
+  }
+
   return baseText;
 };
 
@@ -391,6 +453,17 @@ const ACTIVITY_ICON_MAP: Partial<Record<ActivityType, React.ReactNode | null>> =
     "card.updated.dueDate.added": <HiOutlineClock />,
     "card.updated.dueDate.updated": <HiOutlineClock />,
     "card.updated.dueDate.removed": <HiOutlineClock />,
+    "card.updated.pipeline.initialized": <HiOutlinePlus />,
+    "card.updated.pipeline.stage.updated": <HiOutlinePencil />,
+    "card.updated.subtask.added": <HiOutlinePlus />,
+    "card.updated.subtask.updated": <HiOutlinePencil />,
+    "card.updated.subtask.moved": <HiOutlineArrowRight />,
+    "card.updated.subtask.deleted": <HiOutlineTrash />,
+    "card.updated.subtask.checklist.item.added": <HiOutlinePlus />,
+    "card.updated.subtask.checklist.item.updated": <HiOutlinePencil />,
+    "card.updated.subtask.checklist.item.completed": <HiOutlineCheckCircle />,
+    "card.updated.subtask.checklist.item.uncompleted": <HiOutlineCheckCircle />,
+    "card.updated.subtask.checklist.item.deleted": <HiOutlineTrash />,
   } as const;
 
 const getActivityIcon = (
@@ -421,6 +494,7 @@ const ActivityList = ({
   isAdmin?: boolean;
   isViewOnly?: boolean;
 }) => {
+  const router = useRouter();
   const { dateLocale } = useLocalisation();
   const { data: sessionData } = authClient.useSession();
   const utils = api.useUtils();
@@ -575,6 +649,33 @@ const ActivityList = ({
 
         if (!activityText) return null;
 
+        const subtaskQuery: Record<string, string | string[] | undefined> = {
+          ...router.query,
+          vista: "subtareas",
+          subtask: activity.subtaskPublicId ?? undefined,
+        };
+        delete subtaskQuery.view;
+        const activityContent =
+          activity.subtaskPublicId &&
+          activity.type !== "card.updated.subtask.deleted" ? (
+            <Link
+              href={
+                isViewOnly
+                  ? {
+                      pathname: router.pathname,
+                      query: subtaskQuery,
+                    }
+                  : `/cards/${cardPublicId}?vista=subtareas&subtask=${activity.subtaskPublicId}`
+              }
+              shallow={!!isViewOnly}
+              className="rounded-sm underline decoration-light-500 underline-offset-2 hover:text-light-1000 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:decoration-dark-500 dark:hover:text-dark-1000 dark:focus-visible:ring-dark-800"
+            >
+              {activityText}
+            </Link>
+          ) : (
+            activityText
+          );
+
         return (
           <div
             key={activity.publicId}
@@ -602,7 +703,7 @@ const ActivityList = ({
             <p className="text-sm">
               <span className="font-medium dark:text-dark-1000">{`${getUserDisplayName(activity.user)} `}</span>
               <span className="space-x-1 text-light-900 dark:text-dark-800">
-                {activityText}
+                {activityContent}
               </span>
               <span className="mx-1 text-light-900 dark:text-dark-800">·</span>
               <span className="space-x-1 text-light-900 dark:text-dark-800">

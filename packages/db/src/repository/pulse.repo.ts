@@ -1,10 +1,12 @@
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
 import {
   boards,
   cardActivities,
+  cardPipelineStages,
   cards,
+  cardSubtasks,
   cardToWorkspaceMembers,
   checklistItems,
   checklists,
@@ -13,6 +15,36 @@ import {
   workspaceMembers,
   workspaces,
 } from "@kan/db/schema";
+
+const getSubtaskSignals = async (db: dbClient, cardIds: number[]) => {
+  if (cardIds.length === 0) return [];
+
+  const rows = await db
+    .select({
+      cardId: cardSubtasks.cardId,
+      dueDate: cardSubtasks.dueDate,
+      status: cardPipelineStages.status,
+    })
+    .from(cardSubtasks)
+    .innerJoin(
+      cardPipelineStages,
+      eq(cardSubtasks.stageId, cardPipelineStages.id),
+    )
+    .where(
+      and(
+        inArray(cardSubtasks.cardId, cardIds),
+        isNull(cardSubtasks.deletedAt),
+        isNull(cardSubtasks.completedAt),
+        ne(cardPipelineStages.status, "done"),
+      ),
+    );
+
+  return rows.map((row) => ({
+    cardId: row.cardId,
+    blocked: row.status === "blocked",
+    dueDate: row.dueDate,
+  }));
+};
 
 export const getSourceByWorkspaceId = async (
   db: dbClient,
@@ -76,6 +108,7 @@ export const getSourceByWorkspaceId = async (
       members: memberRows,
       assignments: [],
       checklistItems: [],
+      subtaskSignals: [],
     };
   }
 
@@ -109,6 +142,7 @@ export const getSourceByWorkspaceId = async (
       members: memberRows,
       assignments: [],
       checklistItems: [],
+      subtaskSignals: [],
     };
   }
 
@@ -146,60 +180,66 @@ export const getSourceByWorkspaceId = async (
       members: memberRows,
       assignments: [],
       checklistItems: [],
+      subtaskSignals: [],
     };
   }
 
   const cardIds = cardRows.map((card) => card.id);
 
-  const [activityRows, assignmentRows, checklistItemRows] = await Promise.all([
-    db
-      .select({
-        cardId: cardActivities.cardId,
-        fromListId: cardActivities.fromListId,
-        toListId: cardActivities.toListId,
-        createdAt: cardActivities.createdAt,
-      })
-      .from(cardActivities)
-      .where(
-        and(
-          inArray(cardActivities.cardId, cardIds),
-          eq(cardActivities.type, "card.updated.list"),
+  const [activityRows, assignmentRows, checklistItemRows, subtaskSignals] =
+    await Promise.all([
+      db
+        .select({
+          cardId: cardActivities.cardId,
+          fromListId: cardActivities.fromListId,
+          toListId: cardActivities.toListId,
+          createdAt: cardActivities.createdAt,
+        })
+        .from(cardActivities)
+        .where(
+          and(
+            inArray(cardActivities.cardId, cardIds),
+            eq(cardActivities.type, "card.updated.list"),
+          ),
+        )
+        .orderBy(asc(cardActivities.createdAt)),
+      db
+        .select({
+          cardId: cardToWorkspaceMembers.cardId,
+          memberId: cardToWorkspaceMembers.workspaceMemberId,
+        })
+        .from(cardToWorkspaceMembers)
+        .innerJoin(
+          workspaceMembers,
+          eq(cardToWorkspaceMembers.workspaceMemberId, workspaceMembers.id),
+        )
+        .where(
+          and(
+            inArray(cardToWorkspaceMembers.cardId, cardIds),
+            eq(workspaceMembers.workspaceId, workspaceId),
+            eq(workspaceMembers.status, "active"),
+            isNull(workspaceMembers.deletedAt),
+          ),
         ),
-      )
-      .orderBy(asc(cardActivities.createdAt)),
-    db
-      .select({
-        cardId: cardToWorkspaceMembers.cardId,
-        memberId: cardToWorkspaceMembers.workspaceMemberId,
-      })
-      .from(cardToWorkspaceMembers)
-      .innerJoin(
-        workspaceMembers,
-        eq(cardToWorkspaceMembers.workspaceMemberId, workspaceMembers.id),
-      )
-      .where(
-        and(
-          inArray(cardToWorkspaceMembers.cardId, cardIds),
-          eq(workspaceMembers.workspaceId, workspaceId),
-          eq(workspaceMembers.status, "active"),
-          isNull(workspaceMembers.deletedAt),
+      db
+        .select({
+          cardId: checklists.cardId,
+          completed: checklistItems.completed,
+        })
+        .from(checklists)
+        .innerJoin(
+          checklistItems,
+          eq(checklistItems.checklistId, checklists.id),
+        )
+        .where(
+          and(
+            inArray(checklists.cardId, cardIds),
+            isNull(checklists.deletedAt),
+            isNull(checklistItems.deletedAt),
+          ),
         ),
-      ),
-    db
-      .select({
-        cardId: checklists.cardId,
-        completed: checklistItems.completed,
-      })
-      .from(checklists)
-      .innerJoin(checklistItems, eq(checklistItems.checklistId, checklists.id))
-      .where(
-        and(
-          inArray(checklists.cardId, cardIds),
-          isNull(checklists.deletedAt),
-          isNull(checklistItems.deletedAt),
-        ),
-      ),
-  ]);
+      getSubtaskSignals(db, cardIds),
+    ]);
 
   return {
     workspace,
@@ -210,6 +250,7 @@ export const getSourceByWorkspaceId = async (
     members: memberRows,
     assignments: assignmentRows,
     checklistItems: checklistItemRows,
+    subtaskSignals,
   };
 };
 
@@ -251,6 +292,7 @@ export const getPortfolioSourceByUserId = async (
       activities: [],
       members: [],
       assignments: [],
+      subtaskSignals: [],
     };
   }
 
@@ -304,6 +346,7 @@ export const getPortfolioSourceByUserId = async (
       activities: [],
       members: memberRows,
       assignments: [],
+      subtaskSignals: [],
     };
   }
 
@@ -336,6 +379,7 @@ export const getPortfolioSourceByUserId = async (
       activities: [],
       members: memberRows,
       assignments: [],
+      subtaskSignals: [],
     };
   }
 
@@ -372,11 +416,12 @@ export const getPortfolioSourceByUserId = async (
       activities: [],
       members: memberRows,
       assignments: [],
+      subtaskSignals: [],
     };
   }
 
   const cardIds = cardRows.map((card) => card.id);
-  const [activityRows, assignmentRows] = await Promise.all([
+  const [activityRows, assignmentRows, subtaskSignals] = await Promise.all([
     db
       .select({
         cardId: cardActivities.cardId,
@@ -411,6 +456,7 @@ export const getPortfolioSourceByUserId = async (
           isNull(workspaceMembers.deletedAt),
         ),
       ),
+    getSubtaskSignals(db, cardIds),
   ]);
 
   return {
@@ -421,5 +467,6 @@ export const getPortfolioSourceByUserId = async (
     activities: activityRows,
     members: memberRows,
     assignments: assignmentRows,
+    subtaskSignals,
   };
 };

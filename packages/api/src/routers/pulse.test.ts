@@ -63,6 +63,7 @@ describe("pulse.summary", () => {
     members: [],
     assignments: [],
     checklistItems: [],
+    subtaskSignals: [],
   };
   const portfolioSource = {
     workspaces: [
@@ -81,6 +82,7 @@ describe("pulse.summary", () => {
     activities: [],
     members: [],
     assignments: [],
+    subtaskSignals: [],
   };
 
   beforeEach(() => {

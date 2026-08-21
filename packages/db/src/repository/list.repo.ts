@@ -1,9 +1,25 @@
-import { and, count, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNull,
+  sql,
+} from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
 import type { ListStatus } from "@kan/db/schema";
-import { cards, lists } from "@kan/db/schema";
+import { cardActivities, cards, lists } from "@kan/db/schema";
 import { generateUID } from "@kan/shared/utils";
+
+import { invalidateCardAlertsForList } from "./notification-alert.repo";
+import {
+  assertBoardsInWorkspace,
+  WorkspaceChangedError,
+} from "./workspace-boundary";
 
 export class ListStatusChangeConfirmationRequiredError extends Error {
   constructor(public readonly cardCount: number) {
@@ -38,21 +54,35 @@ export const create = async (
     name: string;
     createdBy: string;
     boardId: number;
+    expectedWorkspaceId: number;
     importId?: number;
     status?: ListStatus | null;
     colourCode?: string | null;
   },
 ) => {
   return db.transaction(async (tx) => {
-    const list = await tx.query.lists.findFirst({
-      columns: {
-        id: true,
-        boardId: true,
-        index: true,
-      },
-      where: and(eq(lists.boardId, listInput.boardId), isNull(lists.deletedAt)),
-      orderBy: [desc(lists.index)],
-    });
+    const lockedLists = await tx
+      .select({ id: lists.id, index: lists.index })
+      .from(lists)
+      .where(and(eq(lists.boardId, listInput.boardId), isNull(lists.deletedAt)))
+      .orderBy(asc(lists.id))
+      .for("update");
+    await assertBoardsInWorkspace(
+      tx,
+      [listInput.boardId],
+      listInput.expectedWorkspaceId,
+      { boardLock: "update" },
+    );
+    const currentLists = await tx
+      .select({ id: lists.id, index: lists.index })
+      .from(lists)
+      .where(and(eq(lists.boardId, listInput.boardId), isNull(lists.deletedAt)))
+      .orderBy(asc(lists.id));
+    const currentListIds = new Set(currentLists.map((list) => list.id));
+    if (lockedLists.some((list) => !currentListIds.has(list.id))) {
+      throw new WorkspaceChangedError();
+    }
+    const list = [...currentLists].sort((a, b) => b.index - a.index)[0];
 
     const index = list ? list.index + 1 : 0;
 
@@ -140,6 +170,7 @@ export const bulkCreate = async (
     status?: ListStatus | null;
     colourCode?: string | null;
   }[],
+  options: { expectedWorkspaceId: number },
 ) => {
   if (listInput.length === 0) return [];
 
@@ -150,6 +181,26 @@ export const bulkCreate = async (
       const arr = byBoard.get(item.boardId) ?? [];
       arr.push(item);
       byBoard.set(item.boardId, arr);
+    }
+
+    const boardIds = [...byBoard.keys()].sort((a, b) => a - b);
+    const lockedLists = await tx
+      .select({ id: lists.id, boardId: lists.boardId, index: lists.index })
+      .from(lists)
+      .where(and(inArray(lists.boardId, boardIds), isNull(lists.deletedAt)))
+      .orderBy(asc(lists.id))
+      .for("update");
+    await assertBoardsInWorkspace(tx, boardIds, options.expectedWorkspaceId, {
+      boardLock: "update",
+    });
+    const existingLists = await tx
+      .select({ id: lists.id, boardId: lists.boardId, index: lists.index })
+      .from(lists)
+      .where(and(inArray(lists.boardId, boardIds), isNull(lists.deletedAt)))
+      .orderBy(asc(lists.id));
+    const currentListIds = new Set(existingLists.map((list) => list.id));
+    if (lockedLists.some((list) => !currentListIds.has(list.id))) {
+      throw new WorkspaceChangedError();
     }
 
     const allValuesToInsert: {
@@ -166,11 +217,9 @@ export const bulkCreate = async (
     // For each board, append incoming lists after the current max index, preserving their relative order
     for (const [boardId, items] of byBoard.entries()) {
       // Find current max index for non-deleted lists in this board
-      const last = await tx.query.lists.findFirst({
-        columns: { index: true },
-        where: and(eq(lists.boardId, boardId), isNull(lists.deletedAt)),
-        orderBy: [desc(lists.index)],
-      });
+      const last = existingLists
+        .filter((list) => list.boardId === boardId)
+        .sort((a, b) => b.index - a.index)[0];
 
       let nextIndex = last ? last.index + 1 : 0;
 
@@ -283,22 +332,40 @@ export const update = async (
     status?: ListStatus | null;
     colourCode?: string | null;
     confirmCardLifecycleUpdate?: boolean;
+    newIndex?: number;
   },
   args: {
     listPublicId: string;
+    expectedWorkspaceId: number;
   },
 ) =>
   db.transaction(async (tx) => {
-    const [currentList] = await tx
-      .select({ id: lists.id, status: lists.status })
+    const [candidate] = await tx
+      .select({ id: lists.id, boardId: lists.boardId })
       .from(lists)
       .where(
         and(eq(lists.publicId, args.listPublicId), isNull(lists.deletedAt)),
       )
-      .limit(1)
+      .limit(1);
+    if (!candidate) throw new WorkspaceChangedError();
+    const lockedLists = await tx
+      .select({
+        id: lists.id,
+        boardId: lists.boardId,
+        index: lists.index,
+        status: lists.status,
+      })
+      .from(lists)
+      .where(and(eq(lists.boardId, candidate.boardId), isNull(lists.deletedAt)))
+      .orderBy(asc(lists.id))
       .for("update");
-
-    if (!currentList) return undefined;
+    const currentList = lockedLists.find((list) => list.id === candidate.id);
+    if (!currentList) throw new WorkspaceChangedError();
+    await assertBoardsInWorkspace(
+      tx,
+      [currentList.boardId],
+      args.expectedWorkspaceId,
+    );
 
     const statusChanged =
       listInput.status !== undefined && listInput.status !== currentList.status;
@@ -317,6 +384,12 @@ export const update = async (
         throw new ListStatusChangeConfirmationRequiredError(
           cardCount?.count ?? 0,
         );
+      }
+      if (listInput.status === "done") {
+        await invalidateCardAlertsForList(tx, {
+          listId: currentList.id,
+          invalidatedAt: changedAt,
+        });
       }
     }
 
@@ -364,6 +437,59 @@ export const update = async (
       }
     }
 
+    if (listInput.newIndex !== undefined) {
+      await tx.execute(sql`
+        UPDATE list
+        SET index =
+          CASE
+            WHEN index = ${currentList.index} AND id = ${currentList.id} THEN ${listInput.newIndex}
+            WHEN ${currentList.index} < ${listInput.newIndex} AND index > ${currentList.index} AND index <= ${listInput.newIndex} THEN index - 1
+            WHEN ${currentList.index} > ${listInput.newIndex} AND index >= ${listInput.newIndex} AND index < ${currentList.index} THEN index + 1
+            ELSE index
+          END
+        WHERE "boardId" = ${currentList.boardId} AND "deletedAt" IS NULL;
+      `);
+
+      const countExpr = sql<number>`COUNT(*)`.mapWith(Number);
+      const duplicateIndices = await tx
+        .select({ index: lists.index, count: countExpr })
+        .from(lists)
+        .where(
+          and(eq(lists.boardId, currentList.boardId), isNull(lists.deletedAt)),
+        )
+        .groupBy(lists.index)
+        .having(gt(countExpr, 1));
+      if (duplicateIndices.length > 0) {
+        await tx.execute(sql`
+          WITH ordered AS (
+            SELECT id, ROW_NUMBER() OVER (ORDER BY "index", id) - 1 AS new_index
+            FROM "list"
+            WHERE "boardId" = ${currentList.boardId} AND "deletedAt" IS NULL
+          )
+          UPDATE "list" l
+          SET "index" = o.new_index
+          FROM ordered o
+          WHERE l.id = o.id;
+        `);
+        const postFixDupes = await tx
+          .select({ index: lists.index, count: countExpr })
+          .from(lists)
+          .where(
+            and(
+              eq(lists.boardId, currentList.boardId),
+              isNull(lists.deletedAt),
+            ),
+          )
+          .groupBy(lists.index)
+          .having(gt(countExpr, 1));
+        if (postFixDupes.length > 0) {
+          throw new Error(
+            `Invariant violation: duplicate indices remain after compaction in board ${currentList.boardId}`,
+          );
+        }
+      }
+    }
+
     return result;
   });
 
@@ -372,20 +498,33 @@ export const reorder = async (
   args: {
     listPublicId: string;
     newIndex: number;
+    expectedWorkspaceId: number;
   },
 ) => {
   return db.transaction(async (tx) => {
-    const list = await tx.query.lists.findFirst({
-      columns: {
-        id: true,
-        boardId: true,
-        index: true,
-      },
-      where: eq(lists.publicId, args.listPublicId),
-    });
+    const [candidate] = await tx
+      .select({ id: lists.id, boardId: lists.boardId })
+      .from(lists)
+      .where(
+        and(eq(lists.publicId, args.listPublicId), isNull(lists.deletedAt)),
+      )
+      .limit(1);
+    if (!candidate) throw new WorkspaceChangedError();
 
-    if (!list)
-      throw new Error(`List not found for public ID ${args.listPublicId}`);
+    const lockedLists = await tx
+      .select({ id: lists.id, index: lists.index })
+      .from(lists)
+      .where(and(eq(lists.boardId, candidate.boardId), isNull(lists.deletedAt)))
+      .orderBy(lists.id)
+      .for("update");
+    const list = lockedLists.find((entry) => entry.id === candidate.id);
+
+    if (!list) throw new WorkspaceChangedError();
+    await assertBoardsInWorkspace(
+      tx,
+      [candidate.boardId],
+      args.expectedWorkspaceId,
+    );
 
     await tx.execute(sql`
       UPDATE list
@@ -396,7 +535,7 @@ export const reorder = async (
           WHEN ${list.index} > ${args.newIndex} AND index >= ${args.newIndex} AND index < ${list.index} THEN index + 1
           ELSE index
         END
-      WHERE "boardId" = ${list.boardId};
+      WHERE "boardId" = ${candidate.boardId} AND "deletedAt" IS NULL;
     `);
 
     const countExpr = sql<number>`COUNT(*)`.mapWith(Number);
@@ -407,7 +546,7 @@ export const reorder = async (
         count: countExpr,
       })
       .from(lists)
-      .where(and(eq(lists.boardId, list.boardId), isNull(lists.deletedAt)))
+      .where(and(eq(lists.boardId, candidate.boardId), isNull(lists.deletedAt)))
       .groupBy(lists.index)
       .having(gt(countExpr, 1));
 
@@ -417,7 +556,7 @@ export const reorder = async (
         WITH ordered AS (
           SELECT id, ROW_NUMBER() OVER (ORDER BY "index", id) - 1 AS new_index
           FROM "list"
-          WHERE "boardId" = ${list.boardId} AND "deletedAt" IS NULL
+          WHERE "boardId" = ${candidate.boardId} AND "deletedAt" IS NULL
         )
         UPDATE "list" l
         SET "index" = o.new_index
@@ -429,13 +568,15 @@ export const reorder = async (
       const postFixDupes = await tx
         .select({ index: lists.index, count: countExpr })
         .from(lists)
-        .where(and(eq(lists.boardId, list.boardId), isNull(lists.deletedAt)))
+        .where(
+          and(eq(lists.boardId, candidate.boardId), isNull(lists.deletedAt)),
+        )
         .groupBy(lists.index)
         .having(gt(countExpr, 1));
 
       if (postFixDupes.length > 0) {
         throw new Error(
-          `Invariant violation: duplicate indices remain after compaction in board ${list.boardId}`,
+          `Invariant violation: duplicate indices remain after compaction in board ${candidate.boardId}`,
         );
       }
     }
@@ -477,15 +618,35 @@ export const softDeleteById = async (
   db: dbClient,
   args: {
     listId: number;
+    expectedWorkspaceId: number;
     deletedAt: Date;
     deletedBy: string;
   },
 ) => {
   return db.transaction(async (tx) => {
+    const [currentList] = await tx
+      .select({ id: lists.id, boardId: lists.boardId })
+      .from(lists)
+      .where(and(eq(lists.id, args.listId), isNull(lists.deletedAt)))
+      .limit(1)
+      .for("update");
+    if (!currentList) throw new WorkspaceChangedError();
+    const lockedCards = await tx
+      .select({ id: cards.id })
+      .from(cards)
+      .where(and(eq(cards.listId, currentList.id), isNull(cards.deletedAt)))
+      .orderBy(asc(cards.id))
+      .for("update");
+    await assertBoardsInWorkspace(
+      tx,
+      [currentList.boardId],
+      args.expectedWorkspaceId,
+    );
+
     const [result] = await tx
       .update(lists)
       .set({ deletedAt: args.deletedAt, deletedBy: args.deletedBy })
-      .where(and(eq(lists.id, args.listId), isNull(lists.deletedAt)))
+      .where(and(eq(lists.id, currentList.id), isNull(lists.deletedAt)))
       .returning({
         id: lists.id,
         index: lists.index,
@@ -494,6 +655,34 @@ export const softDeleteById = async (
 
     if (!result)
       throw new Error(`Unable to soft delete list ID ${args.listId}`);
+
+    if (lockedCards.length > 0) {
+      await tx
+        .update(cards)
+        .set({ deletedAt: args.deletedAt, deletedBy: args.deletedBy })
+        .where(
+          and(
+            inArray(
+              cards.id,
+              lockedCards.map((card) => card.id),
+            ),
+            isNull(cards.deletedAt),
+          ),
+        );
+      await tx.insert(cardActivities).values(
+        lockedCards.map((card) => ({
+          publicId: generateUID(),
+          type: "card.archived" as const,
+          cardId: card.id,
+          createdBy: args.deletedBy,
+        })),
+      );
+    }
+
+    await invalidateCardAlertsForList(tx, {
+      listId: result.id,
+      invalidatedAt: args.deletedAt,
+    });
 
     await tx.execute(sql`
       UPDATE list

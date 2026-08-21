@@ -1,9 +1,9 @@
 import { TRPCError } from "@trpc/server";
 
 import type { dbClient } from "@kan/db/client";
+import type { Permission, Role } from "@kan/shared";
 import * as memberRepo from "@kan/db/repository/member.repo";
 import * as permissionRepo from "@kan/db/repository/permission.repo";
-import type { Permission, Role } from "@kan/shared";
 import { canManageRole, getDefaultPermissions } from "@kan/shared";
 
 /**
@@ -94,7 +94,11 @@ export async function hasPermission(
   workspaceId: number,
   permission: Permission,
 ): Promise<boolean> {
-  const member = await permissionRepo.getMemberWithRole(db, userId, workspaceId);
+  const member = await permissionRepo.getMemberWithRole(
+    db,
+    userId,
+    workspaceId,
+  );
 
   if (!member) {
     return false;
@@ -121,7 +125,11 @@ export async function getUserPermissions(
   role: string;
   roleId: number | null;
 } | null> {
-  const member = await permissionRepo.getMemberWithRole(db, userId, workspaceId);
+  const member = await permissionRepo.getMemberWithRole(
+    db,
+    userId,
+    workspaceId,
+  );
 
   if (!member) {
     return null;
@@ -234,9 +242,6 @@ export async function assertCanManageMember(
   }
 }
 
-/**
- * Assert user can delete an entity - either has the delete permission OR is the creator
- */
 export async function assertCanDelete(
   db: dbClient,
   userId: string,
@@ -245,15 +250,22 @@ export async function assertCanDelete(
   createdBy: string | null,
 ): Promise<void> {
   // Check if user has the general delete permission
-  const hasDeletePermission = await hasPermission(db, userId, workspaceId, permission);
+  const hasDeletePermission = await hasPermission(
+    db,
+    userId,
+    workspaceId,
+    permission,
+  );
 
   // If user has permission, allow deletion
   if (hasDeletePermission) {
     return;
   }
 
-  // If user doesn't have permission, check if they are the creator
-  if (createdBy && createdBy === userId) {
+  if (
+    createdBy === userId &&
+    (await permissionRepo.getMemberWithRole(db, userId, workspaceId))
+  ) {
     return;
   }
 
@@ -264,9 +276,6 @@ export async function assertCanDelete(
   });
 }
 
-/**
- * Assert user can edit an entity - either has the edit permission OR is the creator
- */
 export async function assertCanEdit(
   db: dbClient,
   userId: string,
@@ -275,15 +284,22 @@ export async function assertCanEdit(
   createdBy: string | null,
 ): Promise<void> {
   // Check if user has the general edit permission
-  const hasEditPermission = await hasPermission(db, userId, workspaceId, permission);
+  const hasEditPermission = await hasPermission(
+    db,
+    userId,
+    workspaceId,
+    permission,
+  );
 
   // If user has permission, allow editing
   if (hasEditPermission) {
     return;
   }
 
-  // If user doesn't have permission, check if they are the creator
-  if (createdBy && createdBy === userId) {
+  if (
+    createdBy === userId &&
+    (await permissionRepo.getMemberWithRole(db, userId, workspaceId))
+  ) {
     return;
   }
 

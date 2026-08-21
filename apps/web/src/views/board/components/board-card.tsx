@@ -59,6 +59,7 @@ export function BoardCard({
       completedAt={card.completedAt ?? null}
       priority={card.priority}
       colourCode={card.colourCode}
+      subtaskSummary={card.subtaskSummary}
       isSelectionMode={isSelectionMode}
       isSelected={isSelected}
     />

@@ -1,10 +1,22 @@
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
-import { cardActivities, cards, cardsToLabels, lists } from "@kan/db/schema";
+import {
+  cardActivities,
+  cardPipelineStages,
+  cards,
+  cardsToLabels,
+  cardSubtasks,
+  lists,
+} from "@kan/db/schema";
 import { generateUID } from "@kan/shared/utils";
 
-import { deriveCardLifecycle } from "./card.repo";
+import {
+  deriveCardLifecycle,
+  OPEN_SUBTASKS_CONFIRMATION_REQUIRED,
+} from "./card.repo";
+import { invalidateCardAlerts } from "./notification-alert.repo";
+import { assertBoardsInWorkspace } from "./workspace-boundary";
 
 export const getCandidates = async (db: dbClient, cardPublicIds: string[]) => {
   if (cardPublicIds.length === 0) return [];
@@ -58,7 +70,9 @@ export const moveMany = async (
   args: {
     cardIds: number[];
     destinationListId: number;
+    expectedWorkspaceId: number;
     createdBy: string;
+    confirmOpenSubtasks?: boolean;
   },
 ) => {
   if (args.cardIds.length === 0) return [];
@@ -80,7 +94,7 @@ export const moveMany = async (
       ]),
     ].sort((a, b) => a - b);
     const lockedLists = await tx
-      .select({ id: lists.id, status: lists.status })
+      .select({ id: lists.id, boardId: lists.boardId, status: lists.status })
       .from(lists)
       .where(and(inArray(lists.id, requestedListIds), isNull(lists.deletedAt)))
       .orderBy(asc(lists.id))
@@ -112,6 +126,12 @@ export const moveMany = async (
       throw new Error("One or more cards moved concurrently");
     }
 
+    await assertBoardsInWorkspace(
+      tx,
+      lockedLists.map((list) => list.boardId),
+      args.expectedWorkspaceId,
+    );
+
     if (selectedCards.some((card) => card.listId === args.destinationListId)) {
       throw new Error("Cards are already in the destination list");
     }
@@ -135,6 +155,33 @@ export const moveMany = async (
     );
 
     if (!destinationList) throw new Error("Destination list not found");
+
+    if (destinationList.status === "done") {
+      const cardIdsEnteringDone = orderedCards
+        .filter((card) => card.listStatus !== "done")
+        .map((card) => card.id);
+
+      if (cardIdsEnteringDone.length > 0) {
+        const [openSubtasks] = await tx
+          .select({ count: sql<number>`count(*)`.mapWith(Number) })
+          .from(cardSubtasks)
+          .innerJoin(
+            cardPipelineStages,
+            eq(cardSubtasks.stageId, cardPipelineStages.id),
+          )
+          .where(
+            and(
+              inArray(cardSubtasks.cardId, cardIdsEnteringDone),
+              isNull(cardSubtasks.deletedAt),
+              sql`${cardPipelineStages.status} <> 'done'`,
+            ),
+          );
+
+        if ((openSubtasks?.count ?? 0) > 0 && !args.confirmOpenSubtasks) {
+          throw new Error(OPEN_SUBTASKS_CONFIRMATION_REQUIRED);
+        }
+      }
+    }
 
     await tx
       .update(cards)
@@ -162,6 +209,12 @@ export const moveMany = async (
           updatedAt: movedAt,
         })
         .where(and(eq(cards.id, card.id), isNull(cards.deletedAt)));
+      if (lifecycle.completedAt) {
+        await invalidateCardAlerts(tx, {
+          cardId: card.id,
+          invalidatedAt: movedAt,
+        });
+      }
     }
 
     await tx

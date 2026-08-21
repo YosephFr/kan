@@ -11,6 +11,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
+import { cardSubtasks } from "./card-pipeline";
 import { cards, comments } from "./cards";
 import { users } from "./users";
 import { workspaces } from "./workspaces";
@@ -23,6 +24,9 @@ export const notificationTypes = [
   "card.priority.urgent",
   "card.due.soon",
   "card.due.overdue",
+  "subtask.assigned",
+  "subtask.due.soon",
+  "subtask.due.overdue",
 ] as const;
 
 export type NotificationType = (typeof notificationTypes)[number];
@@ -44,6 +48,10 @@ export const notifications = pgTable(
     cardId: bigint("cardId", { mode: "number" }).references(() => cards.id, {
       onDelete: "cascade",
     }),
+    subtaskId: bigint("subtaskId", { mode: "number" }).references(
+      () => cardSubtasks.id,
+      { onDelete: "cascade" },
+    ),
     commentId: bigint("commentId", { mode: "number" }).references(
       () => comments.id,
       { onDelete: "cascade" },
@@ -70,6 +78,11 @@ export const notifications = pgTable(
       table.type,
       table.cardId,
     ),
+    index("notification_user_type_subtask_idx").on(
+      table.userId,
+      table.type,
+      table.subtaskId,
+    ),
     index("notification_user_type_workspace_idx").on(
       table.userId,
       table.type,
@@ -89,6 +102,11 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
     fields: [notifications.cardId],
     references: [cards.id],
     relationName: "notificationsCard",
+  }),
+  subtask: one(cardSubtasks, {
+    fields: [notifications.subtaskId],
+    references: [cardSubtasks.id],
+    relationName: "notificationsSubtask",
   }),
   comment: one(comments, {
     fields: [notifications.commentId],

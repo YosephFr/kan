@@ -141,7 +141,7 @@ export function registerCardTools(server: McpServer): void {
 
   server.tool(
     "duplicate_card",
-    "Duplicate a card to a target list, optionally copying labels, members and checklists",
+    "Duplicate a card to a target list, optionally copying labels, members, checklists and its subtask pipeline. Linked binary resources are not copied.",
     {
       cardPublicId: z.string().describe("The card's public ID to duplicate"),
       listPublicId: z.string().describe("Target list public ID"),
@@ -164,6 +164,12 @@ export function registerCardTools(server: McpServer): void {
         .boolean()
         .default(true)
         .describe("Copy the source card's checklists"),
+      copyPipeline: z
+        .boolean()
+        .default(true)
+        .describe(
+          "Copy stages, subtasks and their checklist text while resetting owners, dates, execution and completion",
+        ),
     },
     async ({
       cardPublicId,
@@ -173,6 +179,7 @@ export function registerCardTools(server: McpServer): void {
       copyLabels,
       copyMembers,
       copyChecklists,
+      copyPipeline,
     }) => {
       const data = await kanRequest(
         "POST",
@@ -184,6 +191,7 @@ export function registerCardTools(server: McpServer): void {
           copyLabels,
           copyMembers,
           copyChecklists,
+          copyPipeline,
         },
       );
       return {

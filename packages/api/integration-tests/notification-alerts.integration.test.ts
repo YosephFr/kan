@@ -630,6 +630,45 @@ describe("notification alert repository", () => {
     ]);
   });
 
+  it("does not recreate a due alert when its board is archived after the candidate scan", async () => {
+    const fixture = await seedNotificationFixture(db);
+    await db
+      .update(cards)
+      .set({ priority: "high" })
+      .where(eq(cards.id, fixture.card.id));
+
+    const synced = await notificationRepo.syncDueAlerts(
+      db,
+      { userId: assigneeId, now },
+      {
+        afterCandidateScan: async (tx) => {
+          await tx
+            .update(boards)
+            .set({ isArchived: true })
+            .where(eq(boards.id, fixture.board.id));
+          await notificationRepo.invalidateCardAlertsForBoard(tx, {
+            boardId: fixture.board.id,
+            invalidatedAt: now,
+          });
+        },
+      },
+    );
+
+    expect(synced.created).toBe(0);
+    expect(await notificationRepo.getUnreadCount(db, assigneeId)).toBe(0);
+    expect(
+      await db
+        .select()
+        .from(notifications)
+        .where(
+          and(
+            eq(notifications.userId, assigneeId),
+            isNull(notifications.deletedAt),
+          ),
+        ),
+    ).toHaveLength(0);
+  });
+
   it("invalidates stale alerts after due-date changes, completion, and reassignment", async () => {
     const fixture = await seedNotificationFixture(db);
     await db

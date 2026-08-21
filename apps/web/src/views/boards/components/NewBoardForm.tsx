@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import type { Template } from "./TemplateBoards";
 import Button from "~/components/Button";
+import { DuplicateResourcesNotice } from "~/components/DuplicateResourcesNotice";
 import Input from "~/components/Input";
 import Toggle from "~/components/Toggle";
 import { useModal } from "~/providers/modal";
@@ -39,7 +40,7 @@ export function NewBoardForm({ isTemplate }: { isTemplate?: boolean }) {
   const { workspace } = useWorkspace();
   const [showTemplates, setShowTemplates] = useState(false);
   const { data: templates } = api.board.all.useQuery(
-    { workspacePublicId: workspace.publicId ?? "", type: "template" },
+    { workspacePublicId: workspace.publicId, type: "template" },
     { enabled: !!workspace.publicId },
   );
 
@@ -72,17 +73,7 @@ export function NewBoardForm({ isTemplate }: { isTemplate?: boolean }) {
 
   const createBoard = api.board.create.useMutation({
     onSuccess: async (board) => {
-      if (!board) {
-        showPopup({
-          header: t`Error`,
-          message: t`Failed to create board`,
-          icon: "error",
-        });
-      } else {
-        router.push(
-          `${isTemplate ? "/templates" : "/boards"}/${board.publicId}`,
-        );
-      }
+      router.push(`${isTemplate ? "/templates" : "/boards"}/${board.publicId}`);
       closeModal();
 
       await refetchBoards();
@@ -120,7 +111,8 @@ export function NewBoardForm({ isTemplate }: { isTemplate?: boolean }) {
           <h2 className="text-sm font-bold">{t`New ${isTemplate ? "template" : "board"}`}</h2>
           <button
             type="button"
-            className="hover:bg-li ght-300 rounded p-1 focus:outline-none dark:hover:bg-dark-300"
+            className="rounded p-1 hover:bg-light-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:hover:bg-dark-300 dark:focus-visible:ring-dark-800"
+            aria-label={t`Close`}
             onClick={(e) => {
               e.preventDefault();
               closeModal();
@@ -148,6 +140,11 @@ export function NewBoardForm({ isTemplate }: { isTemplate?: boolean }) {
         showTemplates={showTemplates}
         customTemplates={formattedTemplates ?? []}
       />
+      {currentTemplate?.sourceBoardPublicId && (
+        <div className="px-5 pt-4">
+          <DuplicateResourcesNotice />
+        </div>
+      )}
       <div className="mt-12 flex items-center justify-end space-x-4 border-t border-light-600 px-5 pb-5 pt-5 dark:border-dark-600">
         {!isTemplate && (
           <Toggle
@@ -156,7 +153,7 @@ export function NewBoardForm({ isTemplate }: { isTemplate?: boolean }) {
             onChange={() => {
               setShowTemplates(!showTemplates);
               if (!showTemplates && !currentTemplate) {
-                setValue("template", (templates?.[0] as any) ?? null);
+                setValue("template", formattedTemplates?.[0] ?? null);
               }
             }}
           />

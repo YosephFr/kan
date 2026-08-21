@@ -1,8 +1,160 @@
-import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
-import { checklistItems, checklists } from "@kan/db/schema";
+import { cardActivities, checklistItems, checklists } from "@kan/db/schema";
 import { generateUID } from "@kan/shared/utils";
+
+import type { WorkspaceBoundaryTransaction } from "./workspace-boundary";
+import {
+  lockCardsInWorkspace,
+  WorkspaceChangedError,
+} from "./workspace-boundary";
+
+const lockChecklistCard = async (
+  tx: WorkspaceBoundaryTransaction,
+  cardId: number,
+  expectedWorkspaceId: number,
+) => {
+  const [card] = await lockCardsInWorkspace(tx, [cardId], expectedWorkspaceId);
+  if (!card) throw new WorkspaceChangedError();
+  return card;
+};
+
+const lockChecklist = async (
+  tx: WorkspaceBoundaryTransaction,
+  checklistId: number,
+  expectedWorkspaceId: number,
+) => {
+  const [candidate] = await tx
+    .select({ cardId: checklists.cardId })
+    .from(checklists)
+    .where(and(eq(checklists.id, checklistId), isNull(checklists.deletedAt)))
+    .limit(1);
+  if (!candidate) throw new WorkspaceChangedError();
+
+  await lockChecklistCard(tx, candidate.cardId, expectedWorkspaceId);
+  const [checklist] = await tx
+    .select({
+      id: checklists.id,
+      cardId: checklists.cardId,
+      name: checklists.name,
+    })
+    .from(checklists)
+    .where(
+      and(
+        eq(checklists.id, checklistId),
+        eq(checklists.cardId, candidate.cardId),
+        isNull(checklists.deletedAt),
+      ),
+    )
+    .limit(1)
+    .for("update");
+  if (!checklist) throw new WorkspaceChangedError();
+  return checklist;
+};
+
+const lockChecklistItem = async (
+  tx: WorkspaceBoundaryTransaction,
+  itemId: number,
+  expectedWorkspaceId: number,
+) => {
+  const [candidate] = await tx
+    .select({
+      checklistId: checklistItems.checklistId,
+      cardId: checklists.cardId,
+    })
+    .from(checklistItems)
+    .innerJoin(checklists, eq(checklists.id, checklistItems.checklistId))
+    .where(
+      and(
+        eq(checklistItems.id, itemId),
+        isNull(checklistItems.deletedAt),
+        isNull(checklists.deletedAt),
+      ),
+    )
+    .limit(1);
+  if (!candidate) throw new WorkspaceChangedError();
+
+  await lockChecklistCard(tx, candidate.cardId, expectedWorkspaceId);
+  const [checklist] = await tx
+    .select({ id: checklists.id, cardId: checklists.cardId })
+    .from(checklists)
+    .where(
+      and(
+        eq(checklists.id, candidate.checklistId),
+        eq(checklists.cardId, candidate.cardId),
+        isNull(checklists.deletedAt),
+      ),
+    )
+    .limit(1)
+    .for("update");
+  if (!checklist) throw new WorkspaceChangedError();
+
+  const [item] = await tx
+    .select({
+      id: checklistItems.id,
+      checklistId: checklistItems.checklistId,
+      index: checklistItems.index,
+      title: checklistItems.title,
+      completed: checklistItems.completed,
+    })
+    .from(checklistItems)
+    .where(
+      and(
+        eq(checklistItems.id, itemId),
+        eq(checklistItems.checklistId, checklist.id),
+        isNull(checklistItems.deletedAt),
+      ),
+    )
+    .limit(1)
+    .for("update");
+  if (!item) throw new WorkspaceChangedError();
+  return { cardId: checklist.cardId, item };
+};
+
+const lockChecklists = async (
+  tx: WorkspaceBoundaryTransaction,
+  checklistIds: number[],
+  expectedWorkspaceId: number,
+) => {
+  const requestedIds = [...new Set(checklistIds)].sort((a, b) => a - b);
+  if (requestedIds.length === 0) throw new WorkspaceChangedError();
+  const candidates = await tx
+    .select({ id: checklists.id, cardId: checklists.cardId })
+    .from(checklists)
+    .where(
+      and(inArray(checklists.id, requestedIds), isNull(checklists.deletedAt)),
+    );
+  if (candidates.length !== requestedIds.length) {
+    throw new WorkspaceChangedError();
+  }
+
+  await lockCardsInWorkspace(
+    tx,
+    candidates.map((checklist) => checklist.cardId),
+    expectedWorkspaceId,
+  );
+  const locked = await tx
+    .select({ id: checklists.id, cardId: checklists.cardId })
+    .from(checklists)
+    .where(
+      and(inArray(checklists.id, requestedIds), isNull(checklists.deletedAt)),
+    )
+    .orderBy(asc(checklists.id))
+    .for("update");
+  const candidateCardById = new Map(
+    candidates.map((checklist) => [checklist.id, checklist.cardId]),
+  );
+  if (
+    locked.length !== requestedIds.length ||
+    locked.some(
+      (checklist) => candidateCardById.get(checklist.id) !== checklist.cardId,
+    )
+  ) {
+    throw new WorkspaceChangedError();
+  }
+  return locked;
+};
 
 export const getCount = async (db: dbClient) => {
   const result = await db
@@ -24,12 +176,18 @@ export const create = async (
   db: dbClient,
   checklistInput: {
     cardId: number;
+    expectedWorkspaceId: number;
     name: string;
     createdBy: string;
   },
 ) => {
   return db.transaction(async (tx) => {
-    const card = await tx.query.checklists.findFirst({
+    await lockChecklistCard(
+      tx,
+      checklistInput.cardId,
+      checklistInput.expectedWorkspaceId,
+    );
+    const lastChecklist = await tx.query.checklists.findFirst({
       where: and(
         eq(checklists.cardId, checklistInput.cardId),
         isNull(checklists.deletedAt),
@@ -44,13 +202,22 @@ export const create = async (
         name: checklistInput.name,
         createdBy: checklistInput.createdBy,
         cardId: checklistInput.cardId,
-        index: card ? card.index + 1 : 0,
+        index: lastChecklist ? lastChecklist.index + 1 : 0,
       })
       .returning({
         id: checklists.id,
         publicId: checklists.publicId,
         name: checklists.name,
       });
+    if (!result) return undefined;
+
+    await tx.insert(cardActivities).values({
+      publicId: generateUID(),
+      type: "card.updated.checklist.added",
+      cardId: checklistInput.cardId,
+      toTitle: result.name,
+      createdBy: checklistInput.createdBy,
+    });
 
     return result;
   });
@@ -63,9 +230,15 @@ export const createItem = async (
     title: string;
     createdBy: string;
     completed?: boolean;
+    expectedWorkspaceId: number;
   },
 ) => {
   return db.transaction(async (tx) => {
+    const checklist = await lockChecklist(
+      tx,
+      checklistItemInput.checklistId,
+      checklistItemInput.expectedWorkspaceId,
+    );
     const lastItem = await tx.query.checklistItems.findFirst({
       where: and(
         eq(checklistItems.checklistId, checklistItemInput.checklistId),
@@ -90,6 +263,15 @@ export const createItem = async (
         title: checklistItems.title,
         completed: checklistItems.completed,
       });
+    if (!result) return undefined;
+
+    await tx.insert(cardActivities).values({
+      publicId: generateUID(),
+      type: "card.updated.checklist.item.added",
+      cardId: checklist.cardId,
+      toTitle: result.title,
+      createdBy: checklistItemInput.createdBy,
+    });
 
     return result;
   });
@@ -157,79 +339,192 @@ export const getChecklistItemByPublicIdWithChecklist = async (
 
 export const updateItemById = async (
   db: dbClient,
-  args: { id: number; title?: string; completed?: boolean },
+  args: {
+    id: number;
+    title?: string;
+    completed?: boolean;
+    expectedWorkspaceId: number;
+    updatedBy: string;
+  },
 ) => {
-  const [result] = await db
-    .update(checklistItems)
-    .set({
-      ...(args.title !== undefined ? { title: args.title } : {}),
-      ...(args.completed !== undefined ? { completed: args.completed } : {}),
-      updatedAt: new Date(),
-    })
-    .where(eq(checklistItems.id, args.id))
-    .returning({
-      publicId: checklistItems.publicId,
-      title: checklistItems.title,
-      completed: checklistItems.completed,
-    });
+  return db.transaction(async (tx) => {
+    const { cardId, item } = await lockChecklistItem(
+      tx,
+      args.id,
+      args.expectedWorkspaceId,
+    );
+    const [result] = await tx
+      .update(checklistItems)
+      .set({
+        ...(args.title !== undefined ? { title: args.title } : {}),
+        ...(args.completed !== undefined ? { completed: args.completed } : {}),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(checklistItems.id, args.id), isNull(checklistItems.deletedAt)),
+      )
+      .returning({
+        publicId: checklistItems.publicId,
+        title: checklistItems.title,
+        completed: checklistItems.completed,
+      });
+    if (!result) throw new WorkspaceChangedError();
 
-  return result;
+    if (args.completed !== undefined) {
+      await tx.insert(cardActivities).values({
+        publicId: generateUID(),
+        type: args.completed
+          ? "card.updated.checklist.item.completed"
+          : "card.updated.checklist.item.uncompleted",
+        cardId,
+        toTitle: result.title,
+        createdBy: args.updatedBy,
+      });
+    }
+    if (args.title !== undefined && args.title !== item.title) {
+      await tx.insert(cardActivities).values({
+        publicId: generateUID(),
+        type: "card.updated.checklist.item.updated",
+        cardId,
+        fromTitle: item.title,
+        toTitle: result.title,
+        createdBy: args.updatedBy,
+      });
+    }
+
+    return result;
+  });
 };
 
 export const softDeleteItemById = async (
   db: dbClient,
-  args: { id: number; deletedAt: Date; deletedBy: string },
+  args: {
+    id: number;
+    expectedWorkspaceId: number;
+    deletedAt: Date;
+    deletedBy: string;
+  },
 ) => {
-  const [result] = await db
-    .update(checklistItems)
-    .set({ deletedAt: args.deletedAt, deletedBy: args.deletedBy })
-    .where(eq(checklistItems.id, args.id))
-    .returning({ id: checklistItems.id });
+  return db.transaction(async (tx) => {
+    const { cardId, item } = await lockChecklistItem(
+      tx,
+      args.id,
+      args.expectedWorkspaceId,
+    );
+    const [result] = await tx
+      .update(checklistItems)
+      .set({ deletedAt: args.deletedAt, deletedBy: args.deletedBy })
+      .where(
+        and(eq(checklistItems.id, args.id), isNull(checklistItems.deletedAt)),
+      )
+      .returning({ id: checklistItems.id });
+    if (!result) throw new WorkspaceChangedError();
 
-  return result;
-};
+    await tx.insert(cardActivities).values({
+      publicId: generateUID(),
+      type: "card.updated.checklist.item.deleted",
+      cardId,
+      fromTitle: item.title,
+      createdBy: args.deletedBy,
+    });
 
-export const softDeleteAllItemsByChecklistId = async (
-  db: dbClient,
-  args: { checklistId: number; deletedAt: Date; deletedBy: string },
-) => {
-  const result = await db
-    .update(checklistItems)
-    .set({ deletedAt: args.deletedAt, deletedBy: args.deletedBy })
-    .where(
-      and(
-        eq(checklistItems.checklistId, args.checklistId),
-        isNull(checklistItems.deletedAt),
-      ),
-    )
-    .returning({ id: checklistItems.id });
-
-  return result;
+    return result;
+  });
 };
 
 export const softDeleteById = async (
   db: dbClient,
-  args: { id: number; deletedAt: Date; deletedBy: string },
+  args: {
+    id: number;
+    expectedWorkspaceId: number;
+    deletedAt: Date;
+    deletedBy: string;
+  },
 ) => {
-  const [result] = await db
-    .update(checklists)
-    .set({ deletedAt: args.deletedAt, deletedBy: args.deletedBy })
-    .where(eq(checklists.id, args.id))
-    .returning({ id: checklists.id });
+  return db.transaction(async (tx) => {
+    const checklist = await lockChecklist(
+      tx,
+      args.id,
+      args.expectedWorkspaceId,
+    );
+    const activeItems = await tx
+      .select({ id: checklistItems.id })
+      .from(checklistItems)
+      .where(
+        and(
+          eq(checklistItems.checklistId, checklist.id),
+          isNull(checklistItems.deletedAt),
+        ),
+      )
+      .orderBy(asc(checklistItems.id))
+      .for("update");
+    if (activeItems.length > 0) {
+      await tx
+        .update(checklistItems)
+        .set({ deletedAt: args.deletedAt, deletedBy: args.deletedBy })
+        .where(
+          and(
+            inArray(
+              checklistItems.id,
+              activeItems.map((item) => item.id),
+            ),
+            isNull(checklistItems.deletedAt),
+          ),
+        );
+    }
 
-  return result;
+    const [result] = await tx
+      .update(checklists)
+      .set({ deletedAt: args.deletedAt, deletedBy: args.deletedBy })
+      .where(and(eq(checklists.id, args.id), isNull(checklists.deletedAt)))
+      .returning({ id: checklists.id });
+    if (!result) throw new WorkspaceChangedError();
+
+    await tx.insert(cardActivities).values({
+      publicId: generateUID(),
+      type: "card.updated.checklist.deleted",
+      cardId: checklist.cardId,
+      fromTitle: checklist.name,
+      createdBy: args.deletedBy,
+    });
+
+    return result;
+  });
 };
 
 export const updateChecklistById = async (
   db: dbClient,
-  args: { id: number; name: string },
+  args: {
+    id: number;
+    name: string;
+    expectedWorkspaceId: number;
+    updatedBy: string;
+  },
 ) => {
-  const [result] = await db
-    .update(checklists)
-    .set({ name: args.name, updatedAt: new Date() })
-    .where(eq(checklists.id, args.id))
-    .returning({ publicId: checklists.publicId, name: checklists.name });
-  return result;
+  return db.transaction(async (tx) => {
+    const checklist = await lockChecklist(
+      tx,
+      args.id,
+      args.expectedWorkspaceId,
+    );
+    const [result] = await tx
+      .update(checklists)
+      .set({ name: args.name, updatedAt: new Date() })
+      .where(and(eq(checklists.id, args.id), isNull(checklists.deletedAt)))
+      .returning({ publicId: checklists.publicId, name: checklists.name });
+    if (!result) throw new WorkspaceChangedError();
+
+    await tx.insert(cardActivities).values({
+      publicId: generateUID(),
+      type: "card.updated.checklist.renamed",
+      cardId: checklist.cardId,
+      fromTitle: checklist.name,
+      toTitle: result.name,
+      createdBy: args.updatedBy,
+    });
+
+    return result;
+  });
 };
 
 export const bulkCreate = async (
@@ -240,10 +535,16 @@ export const bulkCreate = async (
     createdBy: string;
     index: number;
   }[],
+  expectedWorkspaceId: number,
 ) => {
   if (checklistInput.length === 0) return [];
 
   return db.transaction(async (tx) => {
+    await lockCardsInWorkspace(
+      tx,
+      checklistInput.map((checklist) => checklist.cardId),
+      expectedWorkspaceId,
+    );
     const byCard = groupByKey(checklistInput, "cardId");
 
     const allValuesToInsert: {
@@ -279,7 +580,13 @@ export const bulkCreate = async (
       .values(allValuesToInsert)
       .returning({ id: checklists.id, publicId: checklists.publicId });
 
-    return inserted;
+    const insertedByPublicId = new Map(
+      inserted.map((checklist) => [checklist.publicId, checklist]),
+    );
+    return allValuesToInsert.flatMap((checklist) => {
+      const result = insertedByPublicId.get(checklist.publicId);
+      return result ? [result] : [];
+    });
   });
 };
 
@@ -292,10 +599,16 @@ export const bulkCreateItems = async (
     index: number;
     completed: boolean;
   }[],
+  expectedWorkspaceId: number,
 ) => {
   if (checklistItemInput.length === 0) return [];
 
   return db.transaction(async (tx) => {
+    await lockChecklists(
+      tx,
+      checklistItemInput.map((item) => item.checklistId),
+      expectedWorkspaceId,
+    );
     const byChecklist = groupByKey(checklistItemInput, "checklistId");
 
     const allValuesToInsert: {
@@ -363,46 +676,48 @@ export const reorderItem = async (
   args: {
     itemId: number;
     newIndex: number;
+    expectedWorkspaceId: number;
   },
 ) => {
   return db.transaction(async (tx) => {
-    const item = await tx.query.checklistItems.findFirst({
-      columns: {
-        id: true,
-        index: true,
-        checklistId: true,
-      },
-      where: and(
-        eq(checklistItems.id, args.itemId),
-        isNull(checklistItems.deletedAt),
-      ),
-    });
-
-    if (!item) {
-      throw new Error(`Checklist item not found for ID ${args.itemId}`);
-    }
-
-    const currentIndex = item.index;
-    const newIndex = args.newIndex;
-
-    if (currentIndex === newIndex) {
-      const unchanged = await tx.query.checklistItems.findFirst({
-        columns: {
-          publicId: true,
-          title: true,
-          completed: true,
-        },
-        where: and(
-          eq(checklistItems.id, args.itemId),
+    const { item } = await lockChecklistItem(
+      tx,
+      args.itemId,
+      args.expectedWorkspaceId,
+    );
+    const lockedItems = await tx
+      .select({
+        id: checklistItems.id,
+        publicId: checklistItems.publicId,
+        title: checklistItems.title,
+        completed: checklistItems.completed,
+      })
+      .from(checklistItems)
+      .where(
+        and(
+          eq(checklistItems.checklistId, item.checklistId),
           isNull(checklistItems.deletedAt),
         ),
-      });
+      )
+      .orderBy(asc(checklistItems.id))
+      .for("update");
 
+    const currentIndex = item.index;
+    const newIndex = Math.max(
+      0,
+      Math.min(args.newIndex, lockedItems.length - 1),
+    );
+
+    if (currentIndex === newIndex) {
+      const unchanged = lockedItems.find((entry) => entry.id === item.id);
       if (!unchanged) {
-        throw new Error(`Checklist item not found for ID ${args.itemId}`);
+        throw new WorkspaceChangedError();
       }
-
-      return unchanged;
+      return {
+        publicId: unchanged.publicId,
+        title: unchanged.title,
+        completed: unchanged.completed,
+      };
     }
 
     if (currentIndex < newIndex) {
@@ -428,7 +743,12 @@ export const reorderItem = async (
     const [updated] = await tx
       .update(checklistItems)
       .set({ index: newIndex })
-      .where(eq(checklistItems.id, args.itemId))
+      .where(
+        and(
+          eq(checklistItems.id, args.itemId),
+          isNull(checklistItems.deletedAt),
+        ),
+      )
       .returning({
         publicId: checklistItems.publicId,
         title: checklistItems.title,
@@ -436,7 +756,7 @@ export const reorderItem = async (
       });
 
     if (!updated) {
-      throw new Error(`Failed to update checklist item with ID ${args.itemId}`);
+      throw new WorkspaceChangedError();
     }
 
     return updated;

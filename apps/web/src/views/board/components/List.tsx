@@ -35,7 +35,12 @@ interface List {
   createdBy?: string | null;
   status?: ListStatus | null;
   colourCode?: string | null;
-  cards?: unknown[];
+  cards?: {
+    subtaskSummary?: {
+      total: number;
+      completed: number;
+    };
+  }[];
 }
 
 interface FormValues {

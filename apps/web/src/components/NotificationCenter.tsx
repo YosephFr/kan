@@ -41,6 +41,27 @@ const notificationPresentation = (notification: NotificationItem) => {
         icon: HiExclamationTriangle,
         iconClassName: "text-red-600 dark:text-red-400",
       };
+    case "subtask.assigned":
+      return {
+        title: t`Subtask assigned`,
+        description: t`You are now responsible for this subtask.`,
+        icon: HiOutlineUserGroup,
+        iconClassName: "text-blue-600 dark:text-blue-400",
+      };
+    case "subtask.due.soon":
+      return {
+        title: t`Subtask due in less than 24 hours`,
+        description: t`This subtask is approaching its due time.`,
+        icon: HiOutlineClock,
+        iconClassName: "text-amber-600 dark:text-amber-400",
+      };
+    case "subtask.due.overdue":
+      return {
+        title: t`Subtask overdue`,
+        description: t`The subtask due time has passed.`,
+        icon: HiExclamationTriangle,
+        iconClassName: "text-red-600 dark:text-red-400",
+      };
     case "mention":
       return {
         title: t`New mention`,
@@ -108,9 +129,9 @@ function NotificationRow({
               />
             )}
           </span>
-          {notification.card && (
+          {(notification.subtask ?? notification.card) && (
             <span className="mt-0.5 block truncate text-xs text-light-950 dark:text-dark-950">
-              {notification.card.title}
+              {notification.subtask?.title ?? notification.card?.title}
             </span>
           )}
           <span className="mt-0.5 block text-[11px] leading-4 text-light-800 dark:text-dark-800">

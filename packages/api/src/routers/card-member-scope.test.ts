@@ -1,19 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as cardRepo from "@kan/db/repository/card.repo";
+import * as cardAssociationsRepo from "@kan/db/repository/cardAssociations.repo";
 import * as labelRepo from "@kan/db/repository/label.repo";
 import * as listRepo from "@kan/db/repository/list.repo";
+import * as notificationRepo from "@kan/db/repository/notification.repo";
+import { WorkspaceChangedError } from "@kan/db/repository/workspace-boundary";
 import * as workspaceRepo from "@kan/db/repository/workspace.repo";
 
 import { assertPermission } from "../utils/permissions";
 
+const { mockLogger } = vi.hoisted(() => ({
+  mockLogger: {
+    debug: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+  },
+}));
+
 vi.mock("@kan/db/repository/card.repo", () => ({
   create: vi.fn(),
   getWorkspaceAndCardIdByCardPublicId: vi.fn(),
-  getCardMemberRelationship: vi.fn(),
-  createCardMemberRelationship: vi.fn(),
-  getCardLabelRelationship: vi.fn(),
-  createCardLabelRelationship: vi.fn(),
+}));
+vi.mock("@kan/db/repository/cardAssociations.repo", () => ({
+  toggleCardLabel: vi.fn(),
+  toggleCardMember: vi.fn(),
 }));
 vi.mock("@kan/db/repository/cardActivity.repo", () => ({}));
 vi.mock("@kan/db/repository/cardComment.repo", () => ({}));
@@ -25,7 +37,11 @@ vi.mock("@kan/db/repository/label.repo", () => ({
 vi.mock("@kan/db/repository/list.repo", () => ({
   getWorkspaceAndListIdByListPublicId: vi.fn(),
 }));
-vi.mock("@kan/db/repository/notification.repo", () => ({}));
+vi.mock("@kan/db/repository/notification.repo", () => ({
+  createUrgentAlertForAssignedMember: vi.fn(),
+  createUrgentAlertsForAssignees: vi.fn(),
+}));
+vi.mock("@kan/logger", () => ({ createLogger: vi.fn(() => mockLogger) }));
 vi.mock("@kan/db/repository/workspace.repo", () => ({
   getAllMembersByPublicIds: vi.fn(),
   getMemberByPublicId: vi.fn(),
@@ -205,6 +221,89 @@ describe("card relation scope isolation", () => {
     });
   });
 
+  it("keeps a created urgent card successful when its alert fails", async () => {
+    const alertError = new Error("notification unavailable");
+    vi.mocked(workspaceRepo.getAllMembersByPublicIds).mockResolvedValue([]);
+    vi.mocked(cardRepo.create).mockResolvedValue({
+      id: 31,
+      listId: list.id,
+      publicId: "cardcreate01",
+      cardNumber: 1,
+      dueDate: null,
+      priority: "urgent",
+      colourCode: null,
+      startedAt: null,
+      completedAt: null,
+    });
+    vi.mocked(
+      notificationRepo.createUrgentAlertsForAssignees,
+    ).mockRejectedValueOnce(alertError);
+    const { cardRouter } = await import("./card");
+
+    await expect(
+      cardRouter.createCaller(context).create({
+        title: "Urgent card",
+        description: "",
+        listPublicId: list.publicId,
+        labelPublicIds: [],
+        memberPublicIds: [],
+        position: "end",
+        priority: "urgent",
+      }),
+    ).resolves.toMatchObject({
+      publicId: "cardcreate01",
+      priority: "urgent",
+    });
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      {
+        error: alertError,
+        cardPublicId: "cardcreate01",
+        trigger: "create",
+      },
+      "Urgent card alert delivery failed",
+    );
+  });
+
+  it("persists labels and members inside the guarded card create command", async () => {
+    vi.mocked(labelRepo.getAllByPublicIdsForBoard).mockResolvedValue([
+      { id: 71 },
+    ]);
+    vi.mocked(workspaceRepo.getAllMembersByPublicIds).mockResolvedValue([
+      { id: 51 },
+    ]);
+    vi.mocked(cardRepo.create).mockResolvedValue({
+      id: 31,
+      listId: list.id,
+      publicId: "cardcreate01",
+      cardNumber: 1,
+      dueDate: null,
+      priority: "none",
+      colourCode: null,
+      startedAt: null,
+      completedAt: null,
+    });
+    const { cardRouter } = await import("./card");
+
+    await cardRouter.createCaller(context).create({
+      title: "Scoped card",
+      description: "",
+      listPublicId: list.publicId,
+      labelPublicIds: ["labelValid01"],
+      memberPublicIds: ["memberValid1"],
+      position: "end",
+    });
+
+    expect(cardRepo.create).toHaveBeenCalledWith(
+      db,
+      expect.objectContaining({
+        workspaceId: list.workspaceId,
+        labelIds: [71],
+        workspaceMemberIds: [51],
+      }),
+    );
+  });
+
   it("rejects assigning a cross-workspace member to an existing card", async () => {
     vi.mocked(workspaceRepo.getMemberByPublicId).mockResolvedValue(undefined);
     const { cardRouter } = await import("./card");
@@ -221,7 +320,7 @@ describe("card relation scope isolation", () => {
       "memberCross1",
       card.workspaceId,
     );
-    expect(cardRepo.createCardMemberRelationship).not.toHaveBeenCalled();
+    expect(cardAssociationsRepo.toggleCardMember).not.toHaveBeenCalled();
   });
 
   it("rejects toggling a label from another board", async () => {
@@ -240,6 +339,77 @@ describe("card relation scope isolation", () => {
       "labelCross01",
       card.boardId,
     );
-    expect(cardRepo.createCardLabelRelationship).not.toHaveBeenCalled();
+    expect(cardAssociationsRepo.toggleCardLabel).not.toHaveBeenCalled();
+  });
+
+  it("passes the authorized workspace into atomic relation toggles", async () => {
+    vi.mocked(labelRepo.getByPublicIdForBoard).mockResolvedValue({
+      id: 71,
+    } as never);
+    vi.mocked(cardAssociationsRepo.toggleCardLabel).mockResolvedValue({
+      newLabel: true,
+    });
+    const { cardRouter } = await import("./card");
+
+    await expect(
+      cardRouter.createCaller(context).addOrRemoveLabel({
+        cardPublicId: "card-target1",
+        labelPublicId: "labelValid01",
+      }),
+    ).resolves.toEqual({ newLabel: true });
+
+    expect(cardAssociationsRepo.toggleCardLabel).toHaveBeenCalledWith(db, {
+      cardId: card.id,
+      labelId: 71,
+      expectedWorkspaceId: card.workspaceId,
+      updatedBy: user.id,
+    });
+  });
+
+  it("hides a workspace move during an association toggle", async () => {
+    vi.mocked(workspaceRepo.getMemberByPublicId).mockResolvedValue({
+      id: 81,
+    } as never);
+    vi.mocked(cardAssociationsRepo.toggleCardMember).mockRejectedValue(
+      new WorkspaceChangedError(),
+    );
+    const { cardRouter } = await import("./card");
+
+    await expect(
+      cardRouter.createCaller(context).addOrRemoveMember({
+        cardPublicId: "card-target1",
+        workspaceMemberPublicId: "memberValid1",
+      }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("keeps an assignment successful when its urgent alert fails", async () => {
+    const alertError = new Error("notification unavailable");
+    vi.mocked(workspaceRepo.getMemberByPublicId).mockResolvedValue({
+      id: 81,
+    } as never);
+    vi.mocked(cardAssociationsRepo.toggleCardMember).mockResolvedValue({
+      newMember: true,
+    });
+    vi.mocked(
+      notificationRepo.createUrgentAlertForAssignedMember,
+    ).mockRejectedValueOnce(alertError);
+    const { cardRouter } = await import("./card");
+
+    await expect(
+      cardRouter.createCaller(context).addOrRemoveMember({
+        cardPublicId: "card-target1",
+        workspaceMemberPublicId: "memberValid1",
+      }),
+    ).resolves.toEqual({ newMember: true });
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      {
+        error: alertError,
+        cardPublicId: "card-target1",
+        trigger: "assignment",
+      },
+      "Urgent card alert delivery failed",
+    );
   });
 });

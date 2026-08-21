@@ -14,6 +14,8 @@ const attentionReasonSchema = z.enum([
   "urgent",
   "blocked",
   "overdue",
+  "subtaskBlocked",
+  "subtaskOverdue",
   "stalled",
   "unassigned",
 ]);

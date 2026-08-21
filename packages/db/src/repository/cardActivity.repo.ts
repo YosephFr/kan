@@ -5,6 +5,12 @@ import type { ActivityType, CardPriority } from "@kan/db/schema";
 import { cardActivities, comments } from "@kan/db/schema";
 import { generateUID } from "@kan/shared/utils";
 
+import type { WorkspaceBoundaryTransaction } from "./workspace-boundary";
+import {
+  lockCardsInWorkspace,
+  WorkspaceChangedError,
+} from "./workspace-boundary";
+
 export const getCount = async (db: dbClient) => {
   const result = await db.select({ count: count() }).from(cardActivities);
 
@@ -36,42 +42,56 @@ export const create = async (
     toPriority?: CardPriority;
     fromColourCode?: string;
     toColourCode?: string;
+    subtaskPublicId?: string;
+    fromPipelineStagePublicId?: string;
+    toPipelineStagePublicId?: string;
     sourceBoardId?: number;
     attachmentId?: number;
   },
+  options: { expectedWorkspaceId: number },
 ) => {
-  const [result] = await db
-    .insert(cardActivities)
-    .values({
-      publicId: generateUID(),
-      type: activityInput.type,
-      cardId: activityInput.cardId,
-      fromListId: activityInput.fromListId,
-      toListId: activityInput.toListId,
-      fromIndex: activityInput.fromIndex,
-      toIndex: activityInput.toIndex,
-      labelId: activityInput.labelId,
-      workspaceMemberId: activityInput.workspaceMemberId,
-      fromTitle: activityInput.fromTitle,
-      toTitle: activityInput.toTitle,
-      fromDescription: activityInput.fromDescription,
-      toDescription: activityInput.toDescription,
-      createdBy: activityInput.createdBy,
-      commentId: activityInput.commentId,
-      fromComment: activityInput.fromComment,
-      toComment: activityInput.toComment,
-      fromDueDate: activityInput.fromDueDate,
-      toDueDate: activityInput.toDueDate,
-      fromPriority: activityInput.fromPriority,
-      toPriority: activityInput.toPriority,
-      fromColourCode: activityInput.fromColourCode,
-      toColourCode: activityInput.toColourCode,
-      sourceBoardId: activityInput.sourceBoardId,
-      attachmentId: activityInput.attachmentId,
-    })
-    .returning({ id: cardActivities.id });
+  return db.transaction(async (tx) => {
+    await lockCardsInWorkspace(
+      tx,
+      [activityInput.cardId],
+      options.expectedWorkspaceId,
+    );
+    const [result] = await tx
+      .insert(cardActivities)
+      .values({
+        publicId: generateUID(),
+        type: activityInput.type,
+        cardId: activityInput.cardId,
+        fromListId: activityInput.fromListId,
+        toListId: activityInput.toListId,
+        fromIndex: activityInput.fromIndex,
+        toIndex: activityInput.toIndex,
+        labelId: activityInput.labelId,
+        workspaceMemberId: activityInput.workspaceMemberId,
+        fromTitle: activityInput.fromTitle,
+        toTitle: activityInput.toTitle,
+        fromDescription: activityInput.fromDescription,
+        toDescription: activityInput.toDescription,
+        createdBy: activityInput.createdBy,
+        commentId: activityInput.commentId,
+        fromComment: activityInput.fromComment,
+        toComment: activityInput.toComment,
+        fromDueDate: activityInput.fromDueDate,
+        toDueDate: activityInput.toDueDate,
+        fromPriority: activityInput.fromPriority,
+        toPriority: activityInput.toPriority,
+        fromColourCode: activityInput.fromColourCode,
+        toColourCode: activityInput.toColourCode,
+        subtaskPublicId: activityInput.subtaskPublicId,
+        fromPipelineStagePublicId: activityInput.fromPipelineStagePublicId,
+        toPipelineStagePublicId: activityInput.toPipelineStagePublicId,
+        sourceBoardId: activityInput.sourceBoardId,
+        attachmentId: activityInput.attachmentId,
+      })
+      .returning({ id: cardActivities.id });
 
-  return result;
+    return result;
+  });
 };
 
 export const bulkCreate = async (
@@ -96,25 +116,35 @@ export const bulkCreate = async (
     toPriority?: CardPriority;
     fromColourCode?: string;
     toColourCode?: string;
+    subtaskPublicId?: string;
+    fromPipelineStagePublicId?: string;
+    toPipelineStagePublicId?: string;
     sourceBoardId?: number;
     attachmentId?: number;
   }[],
+  options: { expectedWorkspaceId: number },
 ) => {
+  if (activityInputs.length === 0) return [];
   const activitiesWithPublicIds = activityInputs.map((activity) => ({
     ...activity,
     publicId: generateUID(),
   }));
 
-  const results = await db
-    .insert(cardActivities)
-    .values(activitiesWithPublicIds)
-    .returning({ id: cardActivities.id });
-
-  return results;
+  return db.transaction(async (tx) => {
+    await lockCardsInWorkspace(
+      tx,
+      activityInputs.map((activity) => activity.cardId),
+      options.expectedWorkspaceId,
+    );
+    return tx
+      .insert(cardActivities)
+      .values(activitiesWithPublicIds)
+      .returning({ id: cardActivities.id });
+  });
 };
 
-export const getPaginatedActivities = async (
-  db: dbClient,
+const queryPaginatedActivities = async (
+  db: dbClient | WorkspaceBoundaryTransaction,
   cardId: number,
   options?: {
     limit?: number;
@@ -148,6 +178,9 @@ export const getPaginatedActivities = async (
       toPriority: true,
       fromColourCode: true,
       toColourCode: true,
+      subtaskPublicId: true,
+      fromPipelineStagePublicId: true,
+      toPipelineStagePublicId: true,
     },
     where: and(
       eq(cardActivities.cardId, cardId),
@@ -232,6 +265,36 @@ export const getPaginatedActivities = async (
     nextCursor,
   };
 };
+
+export const getPaginatedActivities = (
+  db: dbClient,
+  cardId: number,
+  options?: { limit?: number; cursor?: Date },
+) => queryPaginatedActivities(db, cardId, options);
+
+export const getPaginatedActivitiesGuarded = async (
+  db: dbClient,
+  args: {
+    cardId: number;
+    expectedWorkspaceId: number;
+    requirePublic: boolean;
+    limit?: number;
+    cursor?: Date;
+  },
+) =>
+  db.transaction(async (tx) => {
+    const [lockedCard] = await lockCardsInWorkspace(
+      tx,
+      [args.cardId],
+      args.expectedWorkspaceId,
+      { cardLock: "share", requirePublic: args.requirePublic },
+    );
+    if (!lockedCard) throw new WorkspaceChangedError();
+    return queryPaginatedActivities(tx, lockedCard.id, {
+      limit: args.limit,
+      cursor: args.cursor,
+    });
+  });
 
 export type PaginatedActivitiesResult = Awaited<
   ReturnType<typeof getPaginatedActivities>

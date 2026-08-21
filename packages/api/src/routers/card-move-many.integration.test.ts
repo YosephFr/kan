@@ -44,6 +44,7 @@ describe("card move many repository", () => {
     const movedCards = await cardMoveRepo.moveMany(db, {
       cardIds: [seeded.secondCard.id, seeded.firstCard.id],
       destinationListId: seeded.destinationList.id,
+      expectedWorkspaceId: seeded.workspace.id,
       createdBy: seeded.user.id,
     });
 
@@ -166,6 +167,7 @@ describe("card move many repository", () => {
       cardMoveRepo.moveMany(db, {
         cardIds: [seeded.firstCard.id, 999999],
         destinationListId: seeded.destinationList.id,
+        expectedWorkspaceId: seeded.workspace.id,
         createdBy: seeded.user.id,
       }),
     ).rejects.toThrow("One or more cards were not found");
@@ -183,7 +185,10 @@ describe("card move many repository", () => {
       listRepo.update(
         db,
         { status: "inProgress" },
-        { listPublicId: seeded.firstSourceList.publicId },
+        {
+          listPublicId: seeded.firstSourceList.publicId,
+          expectedWorkspaceId: seeded.workspace.id,
+        },
       ),
     ).rejects.toBeInstanceOf(
       listRepo.ListStatusChangeConfirmationRequiredError,
@@ -198,7 +203,10 @@ describe("card move many repository", () => {
     await listRepo.update(
       db,
       { status: "inProgress", confirmCardLifecycleUpdate: true },
-      { listPublicId: seeded.firstSourceList.publicId },
+      {
+        listPublicId: seeded.firstSourceList.publicId,
+        expectedWorkspaceId: seeded.workspace.id,
+      },
     );
     const [startedCard] = await db
       .select({ startedAt: cards.startedAt, completedAt: cards.completedAt })
@@ -210,7 +218,10 @@ describe("card move many repository", () => {
     await listRepo.update(
       db,
       { status: "blocked", confirmCardLifecycleUpdate: true },
-      { listPublicId: seeded.firstSourceList.publicId },
+      {
+        listPublicId: seeded.firstSourceList.publicId,
+        expectedWorkspaceId: seeded.workspace.id,
+      },
     );
     const [blockedCard] = await db
       .select({ startedAt: cards.startedAt, completedAt: cards.completedAt })
@@ -222,7 +233,10 @@ describe("card move many repository", () => {
     await listRepo.update(
       db,
       { status: "done", confirmCardLifecycleUpdate: true },
-      { listPublicId: seeded.firstSourceList.publicId },
+      {
+        listPublicId: seeded.firstSourceList.publicId,
+        expectedWorkspaceId: seeded.workspace.id,
+      },
     );
     const [completedCard] = await db
       .select({ startedAt: cards.startedAt, completedAt: cards.completedAt })
@@ -234,7 +248,10 @@ describe("card move many repository", () => {
     await listRepo.update(
       db,
       { status: "planned", confirmCardLifecycleUpdate: true },
-      { listPublicId: seeded.firstSourceList.publicId },
+      {
+        listPublicId: seeded.firstSourceList.publicId,
+        expectedWorkspaceId: seeded.workspace.id,
+      },
     );
     const [reopenedCard] = await db
       .select({ startedAt: cards.startedAt, completedAt: cards.completedAt })
@@ -251,12 +268,16 @@ describe("card move many repository", () => {
       cardMoveRepo.moveMany(db, {
         cardIds: [seeded.firstCard.id],
         destinationListId: seeded.destinationList.id,
+        expectedWorkspaceId: seeded.workspace.id,
         createdBy: seeded.user.id,
       }),
       listRepo.update(
         db,
         { status: "done", confirmCardLifecycleUpdate: true },
-        { listPublicId: seeded.destinationList.publicId },
+        {
+          listPublicId: seeded.destinationList.publicId,
+          expectedWorkspaceId: seeded.workspace.id,
+        },
       ),
     ]);
 

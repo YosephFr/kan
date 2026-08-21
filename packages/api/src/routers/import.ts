@@ -14,9 +14,9 @@ import { colours } from "@kan/shared/constants";
 import { generateSlug, generateUID } from "@kan/shared/utils";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-import { assertPermission } from "../utils/permissions";
 import { assertUserInWorkspace } from "../utils/auth";
 import { decryptToken } from "../utils/encryption";
+import { assertPermission } from "../utils/permissions";
 import { apiKeys, urls } from "./integration";
 
 export interface TrelloBoard {
@@ -311,14 +311,22 @@ export const importRouter = createTRPCRouter({
               boardId: newBoardId,
               importId: newImportId,
             }));
+            const labelSourceByPublicId = new Map(
+              labelsInsert.map((label, index) => [
+                label.publicId,
+                formattedData.labels[index]?.sourceId,
+              ]),
+            );
 
-            const newLabels = await labelRepo.bulkCreate(ctx.db, labelsInsert);
+            const newLabels = await labelRepo.bulkCreate(ctx.db, labelsInsert, {
+              expectedWorkspaceId: workspace.id,
+            });
 
             if (newLabels.length)
               createdLabels = newLabels
-                .map((label, index) => ({
+                .map((label) => ({
                   id: label.id,
-                  sourceId: formattedData.labels[index]?.sourceId ?? "",
+                  sourceId: labelSourceByPublicId.get(label.publicId) ?? "",
                 }))
                 .filter((label) => !!label.sourceId);
           }
@@ -328,6 +336,7 @@ export const importRouter = createTRPCRouter({
               name: list.name,
               createdBy: userId,
               boardId: newBoardId,
+              expectedWorkspaceId: workspace.id,
               importId: newImportId,
             });
 
@@ -344,6 +353,12 @@ export const importRouter = createTRPCRouter({
                 index,
                 importId: newImportId,
               }));
+              const cardSourceByPublicId = new Map(
+                cardsInsert.map((card, index) => [
+                  card.publicId,
+                  list.cards[index]?.sourceId,
+                ]),
+              );
 
               const newCards = await cardRepo.bulkCreate(ctx.db, cardsInsert);
 
@@ -355,9 +370,9 @@ export const importRouter = createTRPCRouter({
 
               createdCards = createdCards.concat(
                 newCards
-                  .map((card, index) => ({
+                  .map((card) => ({
                     id: card.id,
-                    sourceId: list.cards[index]?.sourceId ?? "",
+                    sourceId: cardSourceByPublicId.get(card.publicId) ?? "",
                   }))
                   .filter((card) => !!card.sourceId),
               );
@@ -369,7 +384,9 @@ export const importRouter = createTRPCRouter({
               }));
 
               if (newCards.length > 0) {
-                await cardActivityRepo.bulkCreate(ctx.db, activities);
+                await cardActivityRepo.bulkCreate(ctx.db, activities, {
+                  expectedWorkspaceId: workspace.id,
+                });
               }
 
               const checklistsToCreate: {
@@ -426,6 +443,7 @@ export const importRouter = createTRPCRouter({
                     createdBy: checklist.createdBy,
                     index: checklist.index,
                   })),
+                  workspace.id,
                 );
 
                 const itemsToCreate: {
@@ -459,7 +477,11 @@ export const importRouter = createTRPCRouter({
                 }
 
                 if (itemsToCreate.length > 0) {
-                  await checklistRepo.bulkCreateItems(ctx.db, itemsToCreate);
+                  await checklistRepo.bulkCreateItems(
+                    ctx.db,
+                    itemsToCreate,
+                    workspace.id,
+                  );
                 }
               }
 
@@ -492,6 +514,7 @@ export const importRouter = createTRPCRouter({
                   await cardRepo.bulkCreateCardLabelRelationship(
                     ctx.db,
                     cardLabelRelations,
+                    { expectedWorkspaceId: workspace.id },
                   );
                 }
               }
@@ -793,15 +816,22 @@ export const importRouter = createTRPCRouter({
               importId: newImportId,
             };
           });
+          const labelNameByPublicId = new Map(
+            labelsInsert.map((label, index) => [
+              label.publicId,
+              areaOptions[index]?.name,
+            ]),
+          );
 
           const createdLabels = await labelRepo.bulkCreate(
             ctx.db,
             labelsInsert,
+            { expectedWorkspaceId: workspace.id },
           );
           const labelMap = new Map<string, number>();
 
-          createdLabels.forEach((label, index) => {
-            const originalName = areaOptions[index]?.name;
+          createdLabels.forEach((label) => {
+            const originalName = labelNameByPublicId.get(label.publicId);
             if (originalName) {
               labelMap.set(originalName, label.id);
             }
@@ -839,10 +869,15 @@ export const importRouter = createTRPCRouter({
             });
           }
 
-          const createdLists = await listRepo.bulkCreate(ctx.db, listsInsert);
+          const createdLists = await listRepo.bulkCreate(ctx.db, listsInsert, {
+            expectedWorkspaceId: workspace.id,
+          });
+          const listNameByPublicId = new Map(
+            listsInsert.map((list) => [list.publicId, list.name]),
+          );
           const listIdMap = new Map<string, number>();
-          createdLists.forEach((list, index) => {
-            const originalName = listsInsert[index]?.name;
+          createdLists.forEach((list) => {
+            const originalName = listNameByPublicId.get(list.publicId);
             if (originalName) {
               listIdMap.set(originalName, list.id);
             }
@@ -893,6 +928,12 @@ export const importRouter = createTRPCRouter({
             index: index,
             importId: newImportId,
           }));
+          const itemByCardPublicId = new Map(
+            cardsInput.map((card, index) => [
+              card.publicId,
+              itemsToInsert[index]?.item,
+            ]),
+          );
 
           const createdCards = await cardRepo.bulkCreate(ctx.db, cardsInput);
 
@@ -904,13 +945,15 @@ export const importRouter = createTRPCRouter({
           }));
 
           if (activities.length > 0) {
-            await cardActivityRepo.bulkCreate(ctx.db, activities);
+            await cardActivityRepo.bulkCreate(ctx.db, activities, {
+              expectedWorkspaceId: workspace.id,
+            });
           }
 
           // Link Labels
           const cardLabelRelations: { cardId: number; labelId: number }[] = [];
-          createdCards.forEach((card, index) => {
-            const originalItem = itemsToInsert[index]?.item;
+          createdCards.forEach((card) => {
+            const originalItem = itemByCardPublicId.get(card.publicId);
             const areaName = originalItem?.areaValue?.name;
 
             if (areaName) {
@@ -928,6 +971,7 @@ export const importRouter = createTRPCRouter({
             await cardRepo.bulkCreateCardLabelRelationships(
               ctx.db,
               cardLabelRelations,
+              { expectedWorkspaceId: workspace.id },
             );
           }
 

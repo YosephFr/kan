@@ -2,7 +2,11 @@ import crypto from "crypto";
 import { z } from "zod";
 
 import type { dbClient } from "@kan/db/client";
-import type { CardPriority, WebhookEvent } from "@kan/db/schema";
+import type {
+  CardPipelineStageStatus,
+  CardPriority,
+  WebhookEvent,
+} from "@kan/db/schema";
 import * as webhookRepo from "@kan/db/repository/webhook.repo";
 import { createLogger } from "@kan/logger";
 
@@ -26,6 +30,23 @@ export interface WebhookPayload {
       completedAt?: string | null;
       listId: string;
       boardId: string;
+    };
+    subtask?: {
+      id: string;
+      publicId: string;
+      title: string;
+      description?: string | null;
+      priority: CardPriority;
+      dueDate: string | null;
+      startedAt: string | null;
+      completedAt: string | null;
+      index: number;
+      stage: {
+        publicId: string;
+        status: CardPipelineStageStatus;
+        name: string;
+      };
+      ownerPublicId: string | null;
     };
     board?: {
       id: string;
@@ -295,6 +316,73 @@ export function createCardWebhookPayload(
         ? { id: card.listId, name: context.listName }
         : undefined,
       user: context.user,
+      changes: context.changes,
+    },
+  };
+}
+
+export function createSubtaskWebhookPayload(
+  event: Extract<
+    WebhookEventType,
+    | "subtask.created"
+    | "subtask.updated"
+    | "subtask.moved"
+    | "subtask.assigned"
+    | "subtask.deleted"
+  >,
+  subtask: {
+    publicId: string;
+    title: string;
+    description?: string | null;
+    priority: CardPriority;
+    dueDate: Date | null;
+    startedAt: Date | null;
+    completedAt: Date | null;
+    index: number;
+    stage: {
+      publicId: string;
+      status: CardPipelineStageStatus;
+      name: string;
+    };
+    ownerPublicId: string | null;
+  },
+  context: {
+    card: {
+      publicId: string;
+      title: string;
+      listPublicId: string;
+    };
+    board: { publicId: string; name: string };
+    listName: string;
+    changes?: Record<string, { from: unknown; to: unknown }>;
+  },
+): WebhookPayload {
+  return {
+    event,
+    timestamp: new Date().toISOString(),
+    data: {
+      card: {
+        id: context.card.publicId,
+        publicId: context.card.publicId,
+        title: context.card.title,
+        listId: context.card.listPublicId,
+        boardId: context.board.publicId,
+      },
+      subtask: {
+        id: subtask.publicId,
+        publicId: subtask.publicId,
+        title: subtask.title,
+        description: subtask.description,
+        priority: subtask.priority,
+        dueDate: subtask.dueDate?.toISOString() ?? null,
+        startedAt: subtask.startedAt?.toISOString() ?? null,
+        completedAt: subtask.completedAt?.toISOString() ?? null,
+        index: subtask.index,
+        stage: subtask.stage,
+        ownerPublicId: subtask.ownerPublicId,
+      },
+      board: { id: context.board.publicId, name: context.board.name },
+      list: { id: context.card.listPublicId, name: context.listName },
       changes: context.changes,
     },
   };

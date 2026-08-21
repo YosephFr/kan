@@ -2,11 +2,9 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import * as boardRepo from "@kan/db/repository/board.repo";
-import * as cardRepo from "@kan/db/repository/card.repo";
-import * as activityRepo from "@kan/db/repository/cardActivity.repo";
-import * as labelRepo from "@kan/db/repository/label.repo";
-import * as listRepo from "@kan/db/repository/list.repo";
-import * as notificationRepo from "@kan/db/repository/notification.repo";
+import * as boardCreateRepo from "@kan/db/repository/boardCreate.repo";
+import * as boardReadRepo from "@kan/db/repository/boardRead.repo";
+import { WorkspaceChangedError } from "@kan/db/repository/workspace-boundary";
 import * as workspaceRepo from "@kan/db/repository/workspace.repo";
 import { cardPriorities } from "@kan/db/schema";
 import { colours } from "@kan/shared/constants";
@@ -30,6 +28,13 @@ import {
   assertCanEdit,
   assertPermission,
 } from "../utils/permissions";
+
+function rethrowWorkspaceChanged(error: unknown): never {
+  if (error instanceof WorkspaceChangedError) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Resource not found" });
+  }
+  throw error;
+}
 
 export const boardRouter = createTRPCRouter({
   all: protectedProcedure
@@ -146,26 +151,22 @@ export const boardRouter = createTRPCRouter({
         ? convertDueDateFiltersToRanges(input.dueDateFilters)
         : [];
 
-      const result = await boardRepo.getByPublicId(
-        ctx.db,
-        input.boardPublicId,
-        userId,
-        {
-          members: input.members ?? [],
-          labels: input.labels ?? [],
-          lists: input.lists ?? [],
-          dueDate: dueDateFilters,
-          priorities: input.priorities ?? [],
-          type: input.type,
-        },
-      );
-
-      if (!result) {
-        throw new TRPCError({
-          message: `Board with public ID ${input.boardPublicId} not found`,
-          code: "NOT_FOUND",
-        });
-      }
+      const { board: result, summaries } = await boardReadRepo
+        .getByPublicIdGuarded(ctx.db, {
+          boardPublicId: input.boardPublicId,
+          userId,
+          expectedWorkspaceId: board.workspaceId,
+          requirePublic: false,
+          filters: {
+            members: input.members ?? [],
+            labels: input.labels ?? [],
+            lists: input.lists ?? [],
+            dueDate: dueDateFilters,
+            priorities: input.priorities ?? [],
+            type: input.type,
+          },
+        })
+        .catch(rethrowWorkspaceChanged);
 
       // Generate presigned URLs for workspace member avatars
       const workspaceWithAvatarUrls = {
@@ -209,10 +210,20 @@ export const boardRouter = createTRPCRouter({
           ),
         })),
       );
-
       return {
         ...result,
-        lists: listsWithAvatarUrls,
+        lists: listsWithAvatarUrls.map((list) => ({
+          ...list,
+          cards: list.cards.map((card) => ({
+            ...card,
+            subtaskSummary: summaries.get(card.publicId) ?? {
+              total: 0,
+              completed: 0,
+              blocked: 0,
+              progressPercent: 0,
+            },
+          })),
+        })),
         workspace: workspaceWithAvatarUrls,
       };
     }),
@@ -276,20 +287,41 @@ export const boardRouter = createTRPCRouter({
         ? convertDueDateFiltersToRanges(input.dueDateFilters)
         : [];
 
-      const result = await boardRepo.getBySlug(
-        ctx.db,
-        input.boardSlug,
-        workspace.id,
-        {
-          members: input.members ?? [],
-          labels: input.labels ?? [],
-          lists: input.lists ?? [],
-          dueDate: dueDateFilters,
-          priorities: input.priorities ?? [],
-        },
-      );
+      const snapshot = await boardReadRepo
+        .getBySlugGuarded(ctx.db, {
+          boardSlug: input.boardSlug,
+          expectedWorkspaceId: workspace.id,
+          filters: {
+            members: input.members ?? [],
+            labels: input.labels ?? [],
+            lists: input.lists ?? [],
+            dueDate: dueDateFilters,
+            priorities: input.priorities ?? [],
+          },
+        })
+        .catch((error: unknown) => {
+          if (error instanceof WorkspaceChangedError) return null;
+          throw error;
+        });
 
-      return result;
+      if (!snapshot) return null;
+      const { board: result, summaries } = snapshot;
+
+      return {
+        ...result,
+        lists: result.lists.map((list) => ({
+          ...list,
+          cards: list.cards.map((card) => ({
+            ...card,
+            subtaskSummary: summaries.get(card.publicId) ?? {
+              total: 0,
+              completed: 0,
+              blocked: 0,
+              progressPercent: 0,
+            },
+          })),
+        })),
+      };
     }),
   create: protectedProcedure
     .meta({
@@ -337,7 +369,6 @@ export const boardRouter = createTRPCRouter({
 
       // If sourceBoardPublicId is provided, clone the source board
       if (input.sourceBoardPublicId) {
-        // First get the source board info (ID and type)
         const sourceBoardInfo = await boardRepo.getIdByPublicId(
           ctx.db,
           input.sourceBoardPublicId,
@@ -349,38 +380,18 @@ export const boardRouter = createTRPCRouter({
             code: "NOT_FOUND",
           });
 
-        // Get the full board data with the correct type
-        const sourceBoard = await boardRepo.getByPublicId(
-          ctx.db,
-          input.sourceBoardPublicId,
-          userId,
-          {
-            members: [],
-            labels: [],
-            lists: [],
-            dueDate: [],
-            priorities: [],
-            type: sourceBoardInfo.type,
-          },
-        );
-
-        if (!sourceBoard)
-          throw new TRPCError({
-            message: `Source board with public ID ${input.sourceBoardPublicId} not found`,
-            code: "NOT_FOUND",
-          });
-
-        // Verify the source board belongs to the same workspace
-        const sourceWorkspace = await workspaceRepo.getByPublicId(
-          ctx.db,
-          sourceBoard.workspace.publicId,
-        );
-
-        if (!sourceWorkspace || sourceWorkspace.id !== workspace.id)
+        if (sourceBoardInfo.workspaceId !== workspace.id)
           throw new TRPCError({
             message: `Source board does not belong to this workspace`,
             code: "FORBIDDEN",
           });
+
+        await assertPermission(
+          ctx.db,
+          userId,
+          sourceBoardInfo.workspaceId,
+          "board:view",
+        );
 
         let slug = generateSlug(input.name);
 
@@ -392,15 +403,17 @@ export const boardRouter = createTRPCRouter({
         if (!isSlugUnique || input.type === "template")
           slug = `${slug}-${generateUID()}`;
 
-        const result = await boardRepo.createFromSnapshot(ctx.db, {
-          source: sourceBoard,
-          workspaceId: workspace.id,
-          createdBy: userId,
-          slug,
-          name: input.name,
-          type: input.type ?? "regular",
-          sourceBoardId: sourceBoardInfo.id,
-        });
+        const result = await boardRepo
+          .createFromSnapshot(ctx.db, {
+            workspaceId: workspace.id,
+            expectedSourceWorkspaceId: sourceBoardInfo.workspaceId,
+            createdBy: userId,
+            slug,
+            name: input.name,
+            type: input.type ?? "regular",
+            sourceBoardId: sourceBoardInfo.id,
+          })
+          .catch(rethrowWorkspaceChanged);
 
         return result;
       }
@@ -416,44 +429,21 @@ export const boardRouter = createTRPCRouter({
       if (!isSlugUnique || input.type === "template")
         slug = `${slug}-${generateUID()}`;
 
-      const result = await boardRepo.create(ctx.db, {
-        publicId: generateUID(),
-        slug,
-        name: input.name,
-        createdBy: userId,
-        workspaceId: workspace.id,
-        type: input.type,
-      });
-
-      if (!result)
-        throw new TRPCError({
-          message: `Failed to create board`,
-          code: "INTERNAL_SERVER_ERROR",
-        });
-
-      if (input.lists.length) {
-        const listInputs = input.lists.map((list, index) => ({
+      const result = await boardCreateRepo
+        .createWithSetup(ctx.db, {
           publicId: generateUID(),
-          name: list,
-          boardId: result.id,
+          slug,
+          name: input.name,
           createdBy: userId,
-          index,
-        }));
-
-        await listRepo.bulkCreate(ctx.db, listInputs);
-      }
-
-      if (input.labels.length) {
-        const labelInputs = input.labels.map((label, index) => ({
-          publicId: generateUID(),
-          name: label,
-          boardId: result.id,
-          createdBy: userId,
-          colourCode: colours[index % colours.length]?.code ?? "#0d9488",
-        }));
-
-        await labelRepo.bulkCreate(ctx.db, labelInputs);
-      }
+          workspaceId: workspace.id,
+          type: input.type,
+          lists: input.lists.map((name) => ({ name })),
+          labels: input.labels.map((name, index) => ({
+            name,
+            colourCode: colours[index % colours.length]?.code ?? "#0d9488",
+          })),
+        })
+        .catch(rethrowWorkspaceChanged);
 
       return result;
     }),
@@ -548,25 +538,22 @@ export const boardRouter = createTRPCRouter({
         }
       }
 
-      const result = await boardRepo.update(ctx.db, {
-        name: input.name,
-        slug: input.slug,
-        boardPublicId: input.boardPublicId,
-        visibility: input.visibility,
-        isArchived: input.isArchived,
-      });
+      const result = await boardRepo
+        .update(ctx.db, {
+          name: input.name,
+          slug: input.slug,
+          boardPublicId: input.boardPublicId,
+          expectedWorkspaceId: board.workspaceId,
+          visibility: input.visibility,
+          isArchived: input.isArchived,
+        })
+        .catch(rethrowWorkspaceChanged);
 
       if (!result)
         throw new TRPCError({
           message: `Failed to update board`,
           code: "INTERNAL_SERVER_ERROR",
         });
-
-      if (input.isArchived === true) {
-        await notificationRepo.invalidateCardAlertsForBoard(ctx.db, {
-          boardId: board.id,
-        });
-      }
 
       return result;
     }),
@@ -615,58 +602,16 @@ export const boardRouter = createTRPCRouter({
         board.createdBy ?? null,
       );
 
-      const listIds = board.lists.map((list) => list.id);
-
       const deletedAt = new Date();
 
-      await boardRepo.softDelete(ctx.db, {
-        boardId: board.id,
-        deletedAt,
-        deletedBy: userId,
-      });
-
-      await notificationRepo.invalidateCardAlertsForBoard(ctx.db, {
-        boardId: board.id,
-        invalidatedAt: deletedAt,
-      });
-
-      if (listIds.length) {
-        const deletedLists = await listRepo.softDeleteAllByBoardId(ctx.db, {
+      await boardRepo
+        .softDelete(ctx.db, {
           boardId: board.id,
+          expectedWorkspaceId: board.workspaceId,
           deletedAt,
           deletedBy: userId,
-        });
-
-        if (!Array.isArray(deletedLists)) {
-          throw new TRPCError({
-            message: `Failed to delete lists`,
-            code: "INTERNAL_SERVER_ERROR",
-          });
-        }
-
-        const deletedCards = await cardRepo.softDeleteAllByListIds(ctx.db, {
-          listIds,
-          deletedAt,
-          deletedBy: userId,
-        });
-
-        if (!Array.isArray(deletedCards)) {
-          throw new TRPCError({
-            message: `Failed to delete cards`,
-            code: "INTERNAL_SERVER_ERROR",
-          });
-        }
-
-        if (deletedCards.length) {
-          const activities = deletedCards.map((card) => ({
-            type: "card.archived" as const,
-            createdBy: userId,
-            cardId: card.id,
-          }));
-
-          await activityRepo.bulkCreate(ctx.db, activities);
-        }
-      }
+        })
+        .catch(rethrowWorkspaceChanged);
 
       return { success: true };
     }),
@@ -723,13 +668,7 @@ export const boardRouter = createTRPCRouter({
         });
 
       // Check permission to edit board in source workspace
-      await assertCanEdit(
-        ctx.db,
-        userId,
-        board.workspaceId,
-        "board:edit",
-        board.createdBy ?? null,
-      );
+      await assertPermission(ctx.db, userId, board.workspaceId, "board:edit");
 
       // Get target workspace. workspaceRepo.getByPublicId does not yet
       // filter soft-deleted workspaces (legacy: same is true for several
@@ -774,12 +713,12 @@ export const boardRouter = createTRPCRouter({
       }
 
       // Move the board
-      await boardRepo.moveToWorkspace(
-        ctx.db,
-        board.id,
-        targetWorkspace.id,
-        slug,
-      );
+      await boardRepo
+        .moveToWorkspace(ctx.db, board.id, targetWorkspace.id, slug, {
+          expectedSourceWorkspaceId: board.workspaceId,
+          movedBy: userId,
+        })
+        .catch(rethrowWorkspaceChanged);
 
       return { success: true };
     }),

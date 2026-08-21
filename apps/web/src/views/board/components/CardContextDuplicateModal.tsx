@@ -11,6 +11,7 @@ import { HiChevronDown } from "react-icons/hi2";
 import { twMerge } from "tailwind-merge";
 
 import Button from "~/components/Button";
+import { DuplicateResourcesNotice } from "~/components/DuplicateResourcesNotice";
 import Input from "~/components/Input";
 import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
@@ -32,8 +33,7 @@ export function CardContextDuplicateModal({
   const modalState = getModalState("CARD_CONTEXT_DUPLICATE") as
     | { boardPublicId: string; isTemplate?: boolean }
     | undefined;
-  const boardPublicId =
-    boardPublicIdProp ?? modalState?.boardPublicId ?? "";
+  const boardPublicId = boardPublicIdProp ?? modalState?.boardPublicId ?? "";
   const isTemplate = isTemplateProp ?? modalState?.isTemplate ?? false;
 
   const [listPublicId, setListPublicId] = useState("");
@@ -44,8 +44,8 @@ export function CardContextDuplicateModal({
   const [title, setTitle] = useState("");
 
   const { data: card, isLoading: isCardLoading } = api.card.byId.useQuery(
-    { cardPublicId: cardPublicId ?? "" },
-    { enabled: !!cardPublicId && cardPublicId.length >= 12 },
+    { cardPublicId },
+    { enabled: cardPublicId.length >= 12 },
   );
 
   const boardType = isTemplate ? "template" : "regular";
@@ -54,19 +54,26 @@ export function CardContextDuplicateModal({
     { enabled: !!boardPublicId },
   );
   const lists = board?.lists ?? [];
-  const listOptions = lists.map((l) => ({ publicId: l.publicId, name: l.name }));
-  const currentListPublicId = card?.list?.publicId;
-  const hasLabels = (card?.labels?.length ?? 0) > 0;
-  const hasMembers = (card?.members?.length ?? 0) > 0;
-  const hasChecklists = (card?.checklists?.length ?? 0) > 0;
+  const listOptions = lists.map((l) => ({
+    publicId: l.publicId,
+    name: l.name,
+  }));
+  const currentListPublicId = card?.list.publicId;
+  const hasLabels = (card?.labels.length ?? 0) > 0;
+  const hasMembers = (card?.members.length ?? 0) > 0;
+  const hasChecklists = (card?.checklists.length ?? 0) > 0;
+  const hasFiles = (card?.attachments.length ?? 0) > 0;
   const hasAnyCopyOption = hasLabels || hasMembers || hasChecklists;
 
   const duplicateCard = api.card.duplicate.useMutation({
-    onSuccess: () => {
+    onSuccess: (result) => {
       showPopup({
         header: t`Card duplicated`,
         icon: "success",
-        message: t`The card has been duplicated.`,
+        message:
+          result.skippedResourceCount > 0
+            ? t`The card was duplicated, but ${result.skippedResourceCount} linked resources were not copied.`
+            : t`The card has been duplicated.`,
       });
       closeModal();
     },
@@ -85,8 +92,7 @@ export function CardContextDuplicateModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!cardPublicId || !listPublicId) return;
-    const indexNum =
-      position === "" ? undefined : parseInt(position, 10);
+    const indexNum = position === "" ? undefined : parseInt(position, 10);
     if (
       position !== "" &&
       (indexNum === undefined || isNaN(indexNum) || indexNum < 0)
@@ -98,6 +104,7 @@ export function CardContextDuplicateModal({
       copyLabels,
       copyMembers,
       copyChecklists,
+      copyPipeline: true,
       ...(typeof indexNum === "number" && { index: indexNum }),
       title: title.trim() || undefined,
     });
@@ -126,8 +133,7 @@ export function CardContextDuplicateModal({
               >
                 <span className="block truncate">
                   {listPublicId
-                    ? listOptions.find((o) => o.publicId === listPublicId)
-                        ?.name
+                    ? listOptions.find((o) => o.publicId === listPublicId)?.name
                     : t`Select a list`}
                 </span>
                 <span className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 items-center">
@@ -143,7 +149,7 @@ export function CardContextDuplicateModal({
                 leaveTo="opacity-0"
               >
                 <ListboxOptions className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-light-200 bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none dark:border-dark-400 dark:bg-dark-200">
-                  <div className="max-h-60 overflow-y-auto py-1 pr-1 scrollbar scrollbar-track-rounded-[4px] scrollbar-thumb-rounded-[4px] scrollbar-w-[8px] scrollbar-track-light-200 scrollbar-thumb-light-400 dark:scrollbar-track-dark-100 dark:scrollbar-thumb-dark-600">
+                  <div className="scrollbar-track-rounded-[4px] scrollbar-thumb-rounded-[4px] scrollbar-w-[8px] max-h-60 overflow-y-auto py-1 pr-1 scrollbar scrollbar-track-light-200 scrollbar-thumb-light-400 dark:scrollbar-track-dark-100 dark:scrollbar-thumb-dark-600">
                     {listOptions.map((option) => {
                       const isCurrentList =
                         option.publicId === currentListPublicId;
@@ -260,6 +266,8 @@ export function CardContextDuplicateModal({
             )}
           </div>
         )}
+
+        {hasFiles && <DuplicateResourcesNotice />}
       </div>
 
       <div className="mt-6 flex justify-end gap-2">

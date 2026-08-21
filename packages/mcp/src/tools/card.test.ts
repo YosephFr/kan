@@ -44,6 +44,7 @@ describe("duplicate_card", () => {
       copyLabels: false,
       copyMembers: true,
       copyChecklists: false,
+      copyPipeline: true,
     });
 
     await handler(input);
@@ -58,6 +59,7 @@ describe("duplicate_card", () => {
         copyLabels: false,
         copyMembers: true,
         copyChecklists: false,
+        copyPipeline: true,
       },
     );
   });
@@ -79,6 +81,7 @@ describe("duplicate_card", () => {
         copyLabels: true,
         copyMembers: true,
         copyChecklists: true,
+        copyPipeline: true,
       }),
     );
   });

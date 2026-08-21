@@ -2,8 +2,8 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import * as cardRepo from "@kan/db/repository/card.repo";
-import * as cardActivityRepo from "@kan/db/repository/cardActivity.repo";
 import * as checklistRepo from "@kan/db/repository/checklist.repo";
+import { WorkspaceChangedError } from "@kan/db/repository/workspace-boundary";
 import { stripHtml } from "@kan/shared/utils";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
@@ -19,6 +19,17 @@ const checklistItemSchema = z.object({
   title: z.string().min(1).max(500),
   completed: z.boolean(),
 });
+
+const executeWorkspaceBound = async <T>(operation: () => Promise<T>) => {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error instanceof WorkspaceChangedError) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Resource not found" });
+    }
+    throw error;
+  }
+};
 
 export const checklistRouter = createTRPCRouter({
   create: protectedProcedure
@@ -60,24 +71,20 @@ export const checklistRouter = createTRPCRouter({
         });
       await assertPermission(ctx.db, userId, card.workspaceId, "card:edit");
 
-      const newChecklist = await checklistRepo.create(ctx.db, {
-        name: input.name,
-        createdBy: userId,
-        cardId: card.id,
-      });
+      const newChecklist = await executeWorkspaceBound(() =>
+        checklistRepo.create(ctx.db, {
+          name: input.name,
+          createdBy: userId,
+          cardId: card.id,
+          expectedWorkspaceId: card.workspaceId,
+        }),
+      );
 
       if (!newChecklist?.id)
         throw new TRPCError({
           message: `Failed to create checklist`,
           code: "INTERNAL_SERVER_ERROR",
         });
-
-      await cardActivityRepo.create(ctx.db, {
-        type: "card.updated.checklist.added",
-        cardId: card.id,
-        toTitle: newChecklist.name,
-        createdBy: userId,
-      });
 
       return newChecklist;
     }),
@@ -123,26 +130,14 @@ export const checklistRouter = createTRPCRouter({
         "card:edit",
       );
 
-      const previousName = checklist.name;
-
-      const updated = await checklistRepo.updateChecklistById(ctx.db, {
-        id: checklist.id,
-        name: input.name,
-      });
-
-      if (!updated)
-        throw new TRPCError({
-          message: `Failed to update checklist`,
-          code: "INTERNAL_SERVER_ERROR",
-        });
-
-      await cardActivityRepo.create(ctx.db, {
-        type: "card.updated.checklist.renamed",
-        cardId: checklist.cardId,
-        fromTitle: previousName,
-        toTitle: updated.name,
-        createdBy: userId,
-      });
+      const updated = await executeWorkspaceBound(() =>
+        checklistRepo.updateChecklistById(ctx.db, {
+          id: checklist.id,
+          name: input.name,
+          expectedWorkspaceId: checklist.card.list.board.workspace.id,
+          updatedBy: userId,
+        }),
+      );
 
       return updated;
     }),
@@ -183,30 +178,14 @@ export const checklistRouter = createTRPCRouter({
         "card:edit",
       );
 
-      await checklistRepo.softDeleteAllItemsByChecklistId(ctx.db, {
-        checklistId: checklist.id,
-        deletedAt: new Date(),
-        deletedBy: userId,
-      });
-
-      const deleted = await checklistRepo.softDeleteById(ctx.db, {
-        id: checklist.id,
-        deletedAt: new Date(),
-        deletedBy: userId,
-      });
-
-      if (!deleted)
-        throw new TRPCError({
-          message: `Failed to delete checklist`,
-          code: "INTERNAL_SERVER_ERROR",
-        });
-
-      await cardActivityRepo.create(ctx.db, {
-        type: "card.updated.checklist.deleted",
-        cardId: checklist.cardId,
-        fromTitle: checklist.name,
-        createdBy: userId,
-      });
+      const _deleted = await executeWorkspaceBound(() =>
+        checklistRepo.softDeleteById(ctx.db, {
+          id: checklist.id,
+          expectedWorkspaceId: checklist.card.list.board.workspace.id,
+          deletedAt: new Date(),
+          deletedBy: userId,
+        }),
+      );
 
       return { success: true };
     }),
@@ -254,24 +233,20 @@ export const checklistRouter = createTRPCRouter({
         "card:edit",
       );
 
-      const newChecklistItem = await checklistRepo.createItem(ctx.db, {
-        title: input.title,
-        createdBy: userId,
-        checklistId: checklist.id,
-      });
+      const newChecklistItem = await executeWorkspaceBound(() =>
+        checklistRepo.createItem(ctx.db, {
+          title: input.title,
+          createdBy: userId,
+          checklistId: checklist.id,
+          expectedWorkspaceId: checklist.card.list.board.workspace.id,
+        }),
+      );
 
       if (!newChecklistItem?.id)
         throw new TRPCError({
           message: `Failed to create checklist item`,
           code: "INTERNAL_SERVER_ERROR",
         });
-
-      await cardActivityRepo.create(ctx.db, {
-        type: "card.updated.checklist.item.added",
-        cardId: checklist.cardId,
-        toTitle: newChecklistItem.title,
-        createdBy: userId,
-      });
 
       return newChecklistItem;
     }),
@@ -321,52 +296,35 @@ export const checklistRouter = createTRPCRouter({
         "card:edit",
       );
 
-      const previousTitle = item.title;
-
       let updatedItem;
 
       if (input.title !== undefined || input.completed !== undefined) {
-        updatedItem = await checklistRepo.updateItemById(ctx.db, {
-          id: item.id,
-          title: input.title,
-          completed: input.completed,
-        });
+        updatedItem = await executeWorkspaceBound(() =>
+          checklistRepo.updateItemById(ctx.db, {
+            id: item.id,
+            title: input.title,
+            completed: input.completed,
+            expectedWorkspaceId: item.checklist.card.list.board.workspace.id,
+            updatedBy: userId,
+          }),
+        );
       }
 
       if (input.index !== undefined) {
-        updatedItem = await checklistRepo.reorderItem(ctx.db, {
-          itemId: item.id,
-          newIndex: input.index,
-        });
+        const newIndex = input.index;
+        updatedItem = await executeWorkspaceBound(() =>
+          checklistRepo.reorderItem(ctx.db, {
+            itemId: item.id,
+            newIndex,
+            expectedWorkspaceId: item.checklist.card.list.board.workspace.id,
+          }),
+        );
       }
 
       if (!updatedItem) {
         throw new TRPCError({
           message: `Failed to update checklist item`,
           code: "INTERNAL_SERVER_ERROR",
-        });
-      }
-
-      // Log completion toggle
-      if (input.completed !== undefined) {
-        await cardActivityRepo.create(ctx.db, {
-          type: input.completed
-            ? "card.updated.checklist.item.completed"
-            : "card.updated.checklist.item.uncompleted",
-          cardId: item.checklist.cardId,
-          toTitle: updatedItem.title,
-          createdBy: userId,
-        });
-      }
-
-      // Log title change
-      if (input.title !== undefined && input.title !== previousTitle) {
-        await cardActivityRepo.create(ctx.db, {
-          type: "card.updated.checklist.item.updated",
-          cardId: item.checklist.cardId,
-          fromTitle: previousTitle,
-          toTitle: updatedItem.title,
-          createdBy: userId,
         });
       }
 
@@ -409,24 +367,14 @@ export const checklistRouter = createTRPCRouter({
         "card:edit",
       );
 
-      const deleted = await checklistRepo.softDeleteItemById(ctx.db, {
-        id: item.id,
-        deletedAt: new Date(),
-        deletedBy: userId,
-      });
-
-      if (!deleted)
-        throw new TRPCError({
-          message: `Failed to delete item`,
-          code: "INTERNAL_SERVER_ERROR",
-        });
-
-      await cardActivityRepo.create(ctx.db, {
-        type: "card.updated.checklist.item.deleted",
-        cardId: item.checklist.cardId,
-        fromTitle: item.title,
-        createdBy: userId,
-      });
+      const _deleted = await executeWorkspaceBound(() =>
+        checklistRepo.softDeleteItemById(ctx.db, {
+          id: item.id,
+          expectedWorkspaceId: item.checklist.card.list.board.workspace.id,
+          deletedAt: new Date(),
+          deletedBy: userId,
+        }),
+      );
 
       return { success: true };
     }),

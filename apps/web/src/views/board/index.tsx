@@ -29,8 +29,10 @@ import { usePopup } from "~/providers/popup";
 import { useWorkspace } from "~/providers/workspace";
 import { api } from "~/utils/api";
 import { isCardPriority } from "~/utils/card-presentation";
+import { isOpenSubtasksConfirmationError } from "~/utils/card-workspace";
 import { formatToArray } from "~/utils/helpers";
 import { DeleteCardConfirmation } from "~/views/card/components/DeleteCardConfirmation";
+import { OpenSubtasksConfirmationDialog } from "~/views/card/components/OpenSubtasksConfirmationDialog";
 import { BoardCard } from "./components/board-card";
 import { BoardHeaderActions } from "./components/board-header-actions";
 import { CardContextMoveManyBoardModal } from "./components/card-context-move-many-board-modal";
@@ -69,6 +71,12 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
   const [selectedCardPublicIds, setSelectedCardPublicIds] = useState<string[]>(
     [],
   );
+  const [pendingCardMove, setPendingCardMove] = useState<{
+    cardPublicId: string;
+    listPublicId: string;
+    index: number;
+    openCount: number;
+  } | null>(null);
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -185,6 +193,20 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
           selectedCardPublicIdSet.has(card.publicId) && card.labels.length > 0,
       ),
     ) ?? false;
+  const selectedOpenSubtaskCount =
+    boardData?.lists
+      .filter((list) => list.status !== "done")
+      .flatMap((list) => list.cards)
+      .filter((card) => selectedCardPublicIdSet.has(card.publicId))
+      .reduce(
+        (total, card) =>
+          total +
+          Math.max(
+            0,
+            card.subtaskSummary.total - card.subtaskSummary.completed,
+          ),
+        0,
+      ) ?? 0;
 
   useEffect(() => {
     setIsSelectingCards(false);
@@ -253,7 +275,10 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
       utils.board.byId.setData(queryParams, (oldBoard) => {
         if (!oldBoard) return oldBoard;
 
-        const updatedLists = Array.from(oldBoard.lists);
+        const updatedLists = oldBoard.lists.map((list) => ({
+          ...list,
+          cards: [...list.cards],
+        }));
 
         const sourceList = updatedLists.find((list) =>
           list.cards.some((card) => card.publicId === args.cardPublicId),
@@ -278,6 +303,16 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
         ) {
           destinationList.cards.splice(args.index, 0, removedCard);
 
+          sourceList.cards = sourceList.cards.map((card, index) => ({
+            ...card,
+            index,
+          }));
+          if (destinationList !== sourceList) {
+            destinationList.cards = destinationList.cards.map(
+              (card, index) => ({ ...card, index }),
+            );
+          }
+
           return {
             ...oldBoard,
             lists: updatedLists,
@@ -287,8 +322,28 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
 
       return { previousState: currentState };
     },
-    onError: (_error, _newList, context) => {
+    onError: (error, newList, context) => {
       utils.board.byId.setData(queryParams, context?.previousState);
+      if (
+        isOpenSubtasksConfirmationError(error) &&
+        newList.listPublicId &&
+        newList.index !== undefined
+      ) {
+        const card = boardData?.lists
+          .flatMap((list) => list.cards)
+          .find((candidate) => candidate.publicId === newList.cardPublicId);
+        setPendingCardMove({
+          cardPublicId: newList.cardPublicId,
+          listPublicId: newList.listPublicId,
+          index: newList.index,
+          openCount: Math.max(
+            0,
+            (card?.subtaskSummary.total ?? 0) -
+              (card?.subtaskSummary.completed ?? 0),
+          ),
+        });
+        return;
+      }
       showPopup({
         header: t`Unable to update card`,
         message: t`Please try again later, or contact customer support.`,
@@ -398,7 +453,7 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
   };
 
   const onDragEnd = ({
-    source: _source,
+    source,
     destination,
     draggableId,
     type,
@@ -415,9 +470,36 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
     }
 
     if (type === "CARD" && canEditCard) {
+      const card = boardData?.lists
+        .flatMap((list) => list.cards)
+        .find((candidate) => candidate.publicId === draggableId);
+      const destinationList = boardData?.lists.find(
+        (list) => list.publicId === destination.droppableId,
+      );
+      const sourceList = boardData?.lists.find(
+        (list) => list.publicId === source.droppableId,
+      );
+      const openCount = Math.max(
+        0,
+        (card?.subtaskSummary.total ?? 0) -
+          (card?.subtaskSummary.completed ?? 0),
+      );
+      if (
+        destinationList?.status === "done" &&
+        sourceList?.status !== "done" &&
+        source.droppableId !== destination.droppableId &&
+        openCount > 0
+      ) {
+        setPendingCardMove({
+          cardPublicId: draggableId,
+          listPublicId: destination.droppableId,
+          index: destination.index,
+          openCount,
+        });
+        return;
+      }
       updateCardMutation.mutate({
         cardPublicId: draggableId,
-
         listPublicId: destination.droppableId,
         index: destination.index,
       });
@@ -563,6 +645,7 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
             currentBoardPublicId={boardId ?? ""}
             workspacePublicId={workspace.publicId}
             hasLabels={selectedCardsHaveLabels}
+            openSubtaskCount={selectedOpenSubtaskCount}
             onMoved={cancelCardSelection}
           />
         </Modal>
@@ -791,6 +874,23 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
             canSetDueDate={!isTemplate}
           />
         )}
+        <OpenSubtasksConfirmationDialog
+          isOpen={pendingCardMove !== null}
+          openCount={pendingCardMove?.openCount ?? 0}
+          isLoading={updateCardMutation.isPending}
+          onCancel={() => setPendingCardMove(null)}
+          onConfirm={() => {
+            if (!pendingCardMove) return;
+            const move = pendingCardMove;
+            setPendingCardMove(null);
+            updateCardMutation.mutate({
+              cardPublicId: move.cardPublicId,
+              listPublicId: move.listPublicId,
+              index: move.index,
+              confirmOpenSubtasks: true,
+            });
+          }}
+        />
         {renderModalContent()}
       </div>
     </>

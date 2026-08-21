@@ -2,10 +2,8 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import * as boardRepo from "@kan/db/repository/board.repo";
-import * as cardRepo from "@kan/db/repository/card.repo";
-import * as activityRepo from "@kan/db/repository/cardActivity.repo";
 import * as listRepo from "@kan/db/repository/list.repo";
-import * as notificationRepo from "@kan/db/repository/notification.repo";
+import { WorkspaceChangedError } from "@kan/db/repository/workspace-boundary";
 import { listStatuses } from "@kan/db/schema";
 import { colours } from "@kan/shared/constants";
 
@@ -27,6 +25,14 @@ const colourCodeSchema = z
     message: "Colour must use the Kan palette",
   })
   .nullable();
+
+function rethrowWorkspaceChanged(error: unknown): never {
+  if (error instanceof WorkspaceChangedError) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "List not found" });
+  }
+
+  throw error;
+}
 
 export const listRouter = createTRPCRouter({
   create: protectedProcedure
@@ -71,13 +77,18 @@ export const listRouter = createTRPCRouter({
 
       await assertPermission(ctx.db, userId, board.workspaceId, "list:create");
 
-      return listRepo.create(ctx.db, {
-        name: input.name,
-        createdBy: userId,
-        boardId: board.id,
-        status: input.status,
-        colourCode: input.colourCode,
-      });
+      try {
+        return await listRepo.create(ctx.db, {
+          name: input.name,
+          createdBy: userId,
+          boardId: board.id,
+          expectedWorkspaceId: board.workspaceId,
+          status: input.status,
+          colourCode: input.colourCode,
+        });
+      } catch (error) {
+        rethrowWorkspaceChanged(error);
+      }
     }),
   delete: protectedProcedure
     .meta({
@@ -126,36 +137,16 @@ export const listRouter = createTRPCRouter({
 
       const deletedAt = new Date();
 
-      await listRepo.softDeleteById(ctx.db, {
-        listId: list.id,
-        deletedAt,
-        deletedBy: userId,
-      });
-
-      await notificationRepo.invalidateCardAlertsForList(ctx.db, {
-        listId: list.id,
-        invalidatedAt: deletedAt,
-      });
-
-      const deletedCards = await cardRepo.softDeleteAllByListIds(ctx.db, {
-        listIds: [list.id],
-        deletedAt,
-        deletedBy: userId,
-      });
-
-      if (!Array.isArray(deletedCards))
-        throw new TRPCError({
-          message: `Failed to delete cards`,
-          code: "INTERNAL_SERVER_ERROR",
+      try {
+        await listRepo.softDeleteById(ctx.db, {
+          listId: list.id,
+          expectedWorkspaceId: list.workspaceId,
+          deletedAt,
+          deletedBy: userId,
         });
-
-      const activities = deletedCards.map((card) => ({
-        type: "card.archived" as const,
-        createdBy: userId,
-        cardId: card.id,
-      }));
-
-      if (activities.length) await activityRepo.bulkCreate(ctx.db, activities);
+      } catch (error) {
+        rethrowWorkspaceChanged(error);
+      }
 
       return { success: true };
     }),
@@ -218,12 +209,13 @@ export const listRouter = createTRPCRouter({
           }
         | undefined;
 
-      if (
-        input.name !== undefined ||
-        input.status !== undefined ||
-        input.colourCode !== undefined
-      ) {
-        try {
+      try {
+        if (
+          input.name !== undefined ||
+          input.status !== undefined ||
+          input.colourCode !== undefined ||
+          input.index !== undefined
+        ) {
           result = await listRepo.update(
             ctx.db,
             {
@@ -231,34 +223,25 @@ export const listRouter = createTRPCRouter({
               status: input.status,
               colourCode: input.colourCode,
               confirmCardLifecycleUpdate: input.confirmCardLifecycleUpdate,
+              newIndex: input.index,
             },
-            { listPublicId: input.listPublicId },
+            {
+              listPublicId: input.listPublicId,
+              expectedWorkspaceId: list.workspaceId,
+            },
           );
-        } catch (error) {
-          if (
-            error instanceof listRepo.ListStatusChangeConfirmationRequiredError
-          ) {
-            throw new TRPCError({
-              message: `Confirm the status change for ${error.cardCount} cards`,
-              code: "BAD_REQUEST",
-            });
-          }
-
-          throw error;
         }
-      }
+      } catch (error) {
+        if (
+          error instanceof listRepo.ListStatusChangeConfirmationRequiredError
+        ) {
+          throw new TRPCError({
+            message: `Confirm the status change for ${error.cardCount} cards`,
+            code: "BAD_REQUEST",
+          });
+        }
 
-      if (input.index !== undefined) {
-        result = await listRepo.reorder(ctx.db, {
-          listPublicId: input.listPublicId,
-          newIndex: input.index,
-        });
-      }
-
-      if (input.status === "done") {
-        await notificationRepo.invalidateCardAlertsForList(ctx.db, {
-          listId: list.id,
-        });
+        rethrowWorkspaceChanged(error);
       }
 
       if (!result)

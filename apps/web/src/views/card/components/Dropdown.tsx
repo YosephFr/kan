@@ -1,4 +1,5 @@
 import { t } from "@lingui/core/macro";
+import { useState } from "react";
 import {
   HiEllipsisHorizontal,
   HiHashtag,
@@ -8,44 +9,48 @@ import {
   HiOutlineTrash,
 } from "react-icons/hi2";
 
-import { authClient } from "@kan/auth/client";
-
 import Dropdown from "~/components/Dropdown";
-import { usePermissions } from "~/hooks/usePermissions";
 import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
+import { DuplicateCardConfirmationDialog } from "./DuplicateCardConfirmationDialog";
 
 export default function CardDropdown({
   cardPublicId,
   isTemplate,
   boardPublicId,
-  cardCreatedBy,
+  canEdit,
+  canDelete,
   ticketNumber,
   listPublicId,
   cardIndex,
+  hasFiles = false,
 }: {
   cardPublicId: string;
   isTemplate?: boolean;
   boardPublicId?: string;
-  cardCreatedBy?: string | null;
+  canEdit: boolean;
+  canDelete: boolean;
   ticketNumber?: string | null;
   listPublicId?: string;
   cardIndex?: number;
+  hasFiles?: boolean;
 }) {
   const { openModal } = useModal();
   const { showPopup } = usePopup();
-  const { canEditCard, canDeleteCard } = usePermissions();
-  const { data: session } = authClient.useSession();
   const utils = api.useUtils();
-  const isCreator = cardCreatedBy && session?.user.id === cardCreatedBy;
+  const [isDuplicateWarningOpen, setIsDuplicateWarningOpen] = useState(false);
 
   const duplicateCard = api.card.duplicate.useMutation({
-    onSuccess: () => {
+    onSuccess: (result) => {
+      setIsDuplicateWarningOpen(false);
       showPopup({
         header: t`Card duplicated`,
         icon: "success",
-        message: t`Card duplicated successfully.`,
+        message:
+          result.skippedResourceCount > 0
+            ? t`Card duplicated. ${result.skippedResourceCount} linked resources were not copied.`
+            : t`Card duplicated successfully.`,
       });
     },
     onError: () => {
@@ -59,6 +64,19 @@ export default function CardDropdown({
       await utils.board.byId.invalidate();
     },
   });
+
+  const handleDuplicate = () => {
+    if (!listPublicId || cardIndex === undefined) return;
+    duplicateCard.mutate({
+      cardPublicId,
+      listPublicId,
+      index: cardIndex + 1,
+      copyLabels: true,
+      copyMembers: true,
+      copyChecklists: true,
+      copyPipeline: true,
+    });
+  };
 
   const handleCopyCardLink = async () => {
     const path =
@@ -117,7 +135,7 @@ export default function CardDropdown({
           },
         ]
       : []),
-    ...(canEditCard
+    ...(canEdit
       ? [
           {
             label: t`Add checklist`,
@@ -130,14 +148,11 @@ export default function CardDropdown({
             label: t`Duplicate card`,
             action: () => {
               if (!listPublicId || cardIndex === undefined) return;
-              duplicateCard.mutate({
-                cardPublicId,
-                listPublicId,
-                index: cardIndex + 1,
-                copyLabels: true,
-                copyMembers: true,
-                copyChecklists: true,
-              });
+              if (hasFiles) {
+                setIsDuplicateWarningOpen(true);
+                return;
+              }
+              handleDuplicate();
             },
             icon: (
               <HiOutlineDocumentDuplicate className="h-[16px] w-[16px] text-dark-900" />
@@ -146,7 +161,7 @@ export default function CardDropdown({
           },
         ]
       : []),
-    ...(canDeleteCard || isCreator
+    ...(canDelete
       ? [
           {
             label: t`Delete card`,
@@ -164,8 +179,16 @@ export default function CardDropdown({
   }
 
   return (
-    <Dropdown items={items}>
-      <HiEllipsisHorizontal className="h-5 w-5 text-dark-900" />
-    </Dropdown>
+    <>
+      <Dropdown items={items}>
+        <HiEllipsisHorizontal className="h-5 w-5 text-dark-900" />
+      </Dropdown>
+      <DuplicateCardConfirmationDialog
+        isOpen={isDuplicateWarningOpen}
+        isLoading={duplicateCard.isPending}
+        onCancel={() => setIsDuplicateWarningOpen(false)}
+        onConfirm={handleDuplicate}
+      />
+    </>
   );
 }

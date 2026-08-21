@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as cardRepo from "@kan/db/repository/card.repo";
-import * as cardActivityRepo from "@kan/db/repository/cardActivity.repo";
 import * as listRepo from "@kan/db/repository/list.repo";
 import * as notificationRepo from "@kan/db/repository/notification.repo";
 
@@ -11,15 +10,24 @@ import {
   sendWebhooksForWorkspace,
 } from "../utils/webhook";
 
+const { mockLogger } = vi.hoisted(() => ({
+  mockLogger: {
+    debug: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+  },
+}));
+
 vi.mock("@kan/db/repository/card.repo", () => ({
+  OPEN_SUBTASKS_CONFIRMATION_REQUIRED: "OPEN_SUBTASKS_CONFIRMATION_REQUIRED",
   getWorkspaceAndCardIdByCardPublicId: vi.fn(),
   getByPublicId: vi.fn(),
   reorder: vi.fn(),
+  update: vi.fn(),
 }));
 
-vi.mock("@kan/db/repository/cardActivity.repo", () => ({
-  bulkCreate: vi.fn(),
-}));
+vi.mock("@kan/db/repository/cardActivity.repo", () => ({}));
 
 vi.mock("@kan/db/repository/cardComment.repo", () => ({}));
 vi.mock("@kan/db/repository/checklist.repo", () => ({}));
@@ -30,8 +38,11 @@ vi.mock("@kan/db/repository/list.repo", () => ({
 }));
 
 vi.mock("@kan/db/repository/notification.repo", () => ({
+  createUrgentAlertsForAssignees: vi.fn(),
   invalidateCardAlerts: vi.fn(),
 }));
+
+vi.mock("@kan/logger", () => ({ createLogger: vi.fn(() => mockLogger) }));
 
 vi.mock("@kan/db/repository/workspace.repo", () => ({}));
 
@@ -64,9 +75,7 @@ const mockGetCardWorkspace =
   cardRepo.getWorkspaceAndCardIdByCardPublicId as ReturnType<typeof vi.fn>;
 const mockGetCard = cardRepo.getByPublicId as ReturnType<typeof vi.fn>;
 const mockReorderCard = cardRepo.reorder as ReturnType<typeof vi.fn>;
-const mockBulkCreateActivities = cardActivityRepo.bulkCreate as ReturnType<
-  typeof vi.fn
->;
+const mockUpdateCard = cardRepo.update as ReturnType<typeof vi.fn>;
 const mockGetDestinationList =
   listRepo.getWorkspaceAndListIdByListPublicId as ReturnType<typeof vi.fn>;
 const mockInvalidateCardAlerts =
@@ -144,7 +153,7 @@ describe("card.update list moves", () => {
     mockGetDestinationList.mockResolvedValue(destinationList);
     mockAssertCanEdit.mockResolvedValue(undefined);
     mockReorderCard.mockResolvedValue(updatedCard);
-    mockBulkCreateActivities.mockResolvedValue(undefined);
+    mockUpdateCard.mockResolvedValue(updatedCard);
   });
 
   it("rejects moving a card to a list in another workspace", async () => {
@@ -191,29 +200,28 @@ describe("card.update list moves", () => {
       cardId: existingCard.id,
       newIndex: 0,
       newListId: destinationList.id,
+      expectedWorkspaceId: sourceCard.workspaceId,
       clearLabels: true,
+      confirmOpenSubtasks: undefined,
+      activities: [
+        {
+          type: "card.updated.list",
+          createdBy: mockUser.id,
+          fromListId: existingCard.listId,
+          toListId: destinationList.id,
+        },
+        {
+          type: "card.updated.label.removed",
+          createdBy: mockUser.id,
+          labelId: 501,
+        },
+        {
+          type: "card.updated.label.removed",
+          createdBy: mockUser.id,
+          labelId: 502,
+        },
+      ],
     });
-    expect(mockBulkCreateActivities).toHaveBeenCalledWith(mockDb, [
-      {
-        type: "card.updated.list",
-        cardId: existingCard.id,
-        createdBy: mockUser.id,
-        fromListId: existingCard.listId,
-        toListId: destinationList.id,
-      },
-      {
-        type: "card.updated.label.removed",
-        cardId: existingCard.id,
-        createdBy: mockUser.id,
-        labelId: 501,
-      },
-      {
-        type: "card.updated.label.removed",
-        cardId: existingCard.id,
-        createdBy: mockUser.id,
-        labelId: 502,
-      },
-    ]);
     expect(mockCreateCardWebhookPayload).toHaveBeenCalledWith(
       "card.moved",
       expect.objectContaining({ listId: destinationList.publicId }),
@@ -248,20 +256,71 @@ describe("card.update list moves", () => {
       cardId: existingCard.id,
       newIndex: 0,
       newListId: destinationList.id,
+      expectedWorkspaceId: sourceCard.workspaceId,
       clearLabels: false,
+      confirmOpenSubtasks: undefined,
+      activities: [
+        {
+          type: "card.updated.list",
+          createdBy: mockUser.id,
+          fromListId: existingCard.listId,
+          toListId: destinationList.id,
+        },
+      ],
     });
-    expect(mockBulkCreateActivities).toHaveBeenCalledWith(mockDb, [
-      {
-        type: "card.updated.list",
-        cardId: existingCard.id,
-        createdBy: mockUser.id,
-        fromListId: existingCard.listId,
-        toListId: destinationList.id,
-      },
-    ]);
   });
 
-  it("invalidates alerts from the locked completion even when the pre-read status is stale", async () => {
+  it("applies scalar updates inside the guarded reorder transaction", async () => {
+    mockReorderCard.mockResolvedValueOnce({
+      ...updatedCard,
+      priority: "urgent",
+    });
+    const { cardRouter } = await import("./card");
+
+    await cardRouter.createCaller(mockContext).update({
+      cardPublicId: existingCard.publicId,
+      listPublicId: destinationList.publicId,
+      index: 0,
+      priority: "urgent",
+    });
+
+    expect(mockReorderCard).toHaveBeenCalledWith(mockDb, {
+      cardId: existingCard.id,
+      newIndex: 0,
+      newListId: destinationList.id,
+      expectedWorkspaceId: sourceCard.workspaceId,
+      clearLabels: true,
+      confirmOpenSubtasks: undefined,
+      updates: { priority: "urgent" },
+      activities: [
+        {
+          type: "card.updated.priority",
+          createdBy: mockUser.id,
+          fromPriority: "none",
+          toPriority: "urgent",
+        },
+        {
+          type: "card.updated.list",
+          createdBy: mockUser.id,
+          fromListId: existingCard.listId,
+          toListId: destinationList.id,
+        },
+        {
+          type: "card.updated.label.removed",
+          createdBy: mockUser.id,
+          labelId: 501,
+        },
+        {
+          type: "card.updated.label.removed",
+          createdBy: mockUser.id,
+          labelId: 502,
+        },
+      ],
+    });
+    expect(mockUpdateCard).not.toHaveBeenCalled();
+  });
+
+  it("does not duplicate the repository's locked completion invalidation", async () => {
     const completedAt = new Date("2026-08-20T12:00:00.000Z");
     const { cardRouter } = await import("./card");
     mockReorderCard.mockResolvedValueOnce({ ...updatedCard, completedAt });
@@ -273,8 +332,116 @@ describe("card.update list moves", () => {
     });
 
     expect(destinationList.status).toBe("planned");
-    expect(mockInvalidateCardAlerts).toHaveBeenCalledWith(mockDb, {
-      cardId: updatedCard.id,
+    expect(mockInvalidateCardAlerts).not.toHaveBeenCalled();
+  });
+
+  it("keeps an urgent priority update successful when its alert fails", async () => {
+    const alertError = new Error("notification unavailable");
+    mockUpdateCard.mockResolvedValueOnce({
+      ...updatedCard,
+      priority: "urgent",
+    });
+    vi.mocked(
+      notificationRepo.createUrgentAlertsForAssignees,
+    ).mockRejectedValueOnce(alertError);
+    const { cardRouter } = await import("./card");
+
+    await expect(
+      cardRouter.createCaller(mockContext).update({
+        cardPublicId: existingCard.publicId,
+        priority: "urgent",
+      }),
+    ).resolves.toMatchObject({
+      publicId: existingCard.publicId,
+      priority: "urgent",
+    });
+
+    expect(mockUpdateCard).toHaveBeenCalledWith(
+      mockDb,
+      { priority: "urgent" },
+      {
+        cardPublicId: existingCard.publicId,
+        expectedWorkspaceId: sourceCard.workspaceId,
+        activities: [
+          {
+            type: "card.updated.priority",
+            createdBy: mockUser.id,
+            fromPriority: "none",
+            toPriority: "urgent",
+          },
+        ],
+      },
+    );
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      {
+        error: alertError,
+        cardPublicId: existingCard.publicId,
+        trigger: "priority",
+      },
+      "Urgent card alert delivery failed",
+    );
+  });
+
+  it("requires and forwards explicit confirmation before closing a parent with open subtasks", async () => {
+    const { cardRouter } = await import("./card");
+    const doneList = {
+      ...destinationList,
+      status: "done" as const,
+    };
+    mockGetDestinationList.mockResolvedValue(doneList);
+    mockReorderCard.mockRejectedValueOnce(
+      new Error("OPEN_SUBTASKS_CONFIRMATION_REQUIRED"),
+    );
+
+    await expect(
+      cardRouter.createCaller(mockContext).update({
+        cardPublicId: existingCard.publicId,
+        listPublicId: doneList.publicId,
+        index: 0,
+      }),
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: "OPEN_SUBTASKS_CONFIRMATION_REQUIRED",
+    });
+
+    mockReorderCard.mockResolvedValueOnce({
+      ...updatedCard,
+      completedAt: new Date("2026-08-21T12:00:00.000Z"),
+    });
+
+    await cardRouter.createCaller(mockContext).update({
+      cardPublicId: existingCard.publicId,
+      listPublicId: doneList.publicId,
+      index: 0,
+      confirmOpenSubtasks: true,
+    });
+
+    expect(mockReorderCard).toHaveBeenLastCalledWith(mockDb, {
+      cardId: existingCard.id,
+      newIndex: 0,
+      newListId: doneList.id,
+      expectedWorkspaceId: sourceCard.workspaceId,
+      clearLabels: true,
+      confirmOpenSubtasks: true,
+      activities: [
+        {
+          type: "card.updated.list",
+          createdBy: mockUser.id,
+          fromListId: existingCard.listId,
+          toListId: doneList.id,
+        },
+        {
+          type: "card.updated.label.removed",
+          createdBy: mockUser.id,
+          labelId: 501,
+        },
+        {
+          type: "card.updated.label.removed",
+          createdBy: mockUser.id,
+          labelId: 502,
+        },
+      ],
     });
   });
 });

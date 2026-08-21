@@ -39,6 +39,12 @@ const notificationItemSchema = z.object({
       workspacePublicId: z.string().length(12),
     })
     .nullable(),
+  subtask: z
+    .object({
+      publicId: z.string().length(12),
+      title: z.string(),
+    })
+    .nullable(),
 });
 
 const getUserId = (user: { id: string } | null | undefined) => {
@@ -61,11 +67,18 @@ export const notificationRouter = createTRPCRouter({
     })
     .input(z.void())
     .output(z.object({ created: z.number(), invalidated: z.number() }))
-    .mutation(({ ctx }) =>
-      notificationRepo.syncDueAlerts(ctx.db, {
-        userId: getUserId(ctx.user),
-      }),
-    ),
+    .mutation(async ({ ctx }) => {
+      const userId = getUserId(ctx.user);
+      const [cardsResult, subtasksResult] = await Promise.all([
+        notificationRepo.syncDueAlerts(ctx.db, { userId }),
+        notificationRepo.syncSubtaskDueAlerts(ctx.db, { userId }),
+      ]);
+
+      return {
+        created: cardsResult.created + subtasksResult.created,
+        invalidated: cardsResult.invalidated + subtasksResult.invalidated,
+      };
+    }),
   list: protectedProcedure
     .meta({
       openapi: {

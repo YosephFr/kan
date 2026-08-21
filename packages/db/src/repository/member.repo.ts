@@ -1,9 +1,17 @@
-import { and, count, eq, isNull, ne, or } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull, ne, or } from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
 import type { MemberRole, MemberStatus } from "@kan/db/schema";
-import { workspaceMembers } from "@kan/db/schema";
+import {
+  cardActivities,
+  cards,
+  cardSubtasks,
+  notifications,
+  workspaceMembers,
+} from "@kan/db/schema";
 import { generateUID } from "@kan/shared/utils";
+
+import type { DbTransaction } from "./cardPipeline.internal";
 
 export const getActiveCount = async (db: dbClient) => {
   const result = await db
@@ -144,6 +152,117 @@ export const acceptInvite = async (
   return result;
 };
 
+const SOFT_DELETE_MAX_ATTEMPTS = 3;
+
+export const softDeleteMemberAttempt = async (
+  db: dbClient,
+  args: {
+    memberId: number;
+    deletedAt: Date;
+    deletedBy: string;
+  },
+  hooks?: { afterInitialCardLocks?: (tx: DbTransaction) => Promise<void> },
+) => {
+  return db.transaction(async (tx) => {
+    const initialOwnedSubtasks = await tx
+      .select({ cardId: cardSubtasks.cardId })
+      .from(cardSubtasks)
+      .where(eq(cardSubtasks.ownerWorkspaceMemberId, args.memberId));
+    const initialCardIds = [
+      ...new Set(initialOwnedSubtasks.map((subtask) => subtask.cardId)),
+    ].sort((a, b) => a - b);
+    if (initialCardIds.length > 0) {
+      await tx
+        .select({ id: cards.id })
+        .from(cards)
+        .where(inArray(cards.id, initialCardIds))
+        .orderBy(asc(cards.id))
+        .for("update");
+    }
+    await hooks?.afterInitialCardLocks?.(tx);
+
+    const [member] = await tx
+      .select({
+        id: workspaceMembers.id,
+        publicId: workspaceMembers.publicId,
+        userId: workspaceMembers.userId,
+      })
+      .from(workspaceMembers)
+      .where(
+        and(
+          eq(workspaceMembers.id, args.memberId),
+          isNull(workspaceMembers.deletedAt),
+        ),
+      )
+      .limit(1)
+      .for("update");
+    if (!member) return { status: "not_found" as const };
+
+    const finalOwnedCards = await tx
+      .select({ cardId: cardSubtasks.cardId })
+      .from(cardSubtasks)
+      .where(eq(cardSubtasks.ownerWorkspaceMemberId, member.id));
+    if (
+      finalOwnedCards.some(
+        (subtask) => !initialCardIds.includes(subtask.cardId),
+      )
+    ) {
+      return { status: "retry" as const };
+    }
+
+    const [result] = await tx
+      .update(workspaceMembers)
+      .set({ deletedAt: args.deletedAt, deletedBy: args.deletedBy })
+      .where(eq(workspaceMembers.id, member.id))
+      .returning({
+        id: workspaceMembers.id,
+        publicId: workspaceMembers.publicId,
+      });
+    if (!result) return { status: "not_found" as const };
+
+    const ownedSubtasks = await tx
+      .update(cardSubtasks)
+      .set({ ownerWorkspaceMemberId: null, updatedAt: args.deletedAt })
+      .where(eq(cardSubtasks.ownerWorkspaceMemberId, member.id))
+      .returning({
+        id: cardSubtasks.id,
+        publicId: cardSubtasks.publicId,
+        cardId: cardSubtasks.cardId,
+      });
+    if (ownedSubtasks.length > 0) {
+      const subtaskIds = ownedSubtasks.map((subtask) => subtask.id);
+      await tx.insert(cardActivities).values(
+        ownedSubtasks.map((subtask) => ({
+          publicId: generateUID(),
+          type: "card.updated.subtask.updated" as const,
+          cardId: subtask.cardId,
+          subtaskPublicId: subtask.publicId,
+          createdBy: args.deletedBy,
+        })),
+      );
+      if (member.userId) {
+        await tx
+          .update(notifications)
+          .set({ deletedAt: args.deletedAt, dedupeKey: null })
+          .where(
+            and(
+              inArray(notifications.subtaskId, subtaskIds),
+              eq(notifications.userId, member.userId),
+              inArray(notifications.type, [
+                "subtask.assigned",
+                "subtask.due.soon",
+                "subtask.due.overdue",
+              ]),
+              isNull(notifications.deletedAt),
+            ),
+          );
+      }
+    }
+
+    return { status: "deleted" as const, member: result };
+  });
+};
+
 export const softDelete = async (
   db: dbClient,
   args: {
@@ -152,21 +271,13 @@ export const softDelete = async (
     deletedBy: string;
   },
 ) => {
-  const [result] = await db
-    .update(workspaceMembers)
-    .set({ deletedAt: args.deletedAt, deletedBy: args.deletedBy })
-    .where(
-      and(
-        eq(workspaceMembers.id, args.memberId),
-        isNull(workspaceMembers.deletedAt),
-      ),
-    )
-    .returning({
-      id: workspaceMembers.id,
-      publicId: workspaceMembers.publicId,
-    });
+  for (let attempt = 0; attempt < SOFT_DELETE_MAX_ATTEMPTS; attempt += 1) {
+    const result = await softDeleteMemberAttempt(db, args);
+    if (result.status === "deleted") return result.member;
+    if (result.status === "not_found") return undefined;
+  }
 
-  return result;
+  throw new Error("Member deletion could not stabilize owned cards");
 };
 
 export const unpauseAllMembers = async (db: dbClient, workspaceId: number) => {

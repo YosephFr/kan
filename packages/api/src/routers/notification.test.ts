@@ -8,6 +8,7 @@ vi.mock("@kan/db/repository/notification.repo", () => ({
   markAllAsRead: vi.fn(),
   markAsRead: vi.fn(),
   syncDueAlerts: vi.fn(),
+  syncSubtaskDueAlerts: vi.fn(),
 }));
 
 const mockList = notificationRepo.list as ReturnType<typeof vi.fn>;
@@ -21,6 +22,8 @@ const mockGetUnreadCount = notificationRepo.getUnreadCount as ReturnType<
 const mockSyncDueAlerts = notificationRepo.syncDueAlerts as ReturnType<
   typeof vi.fn
 >;
+const mockSyncSubtaskDueAlerts =
+  notificationRepo.syncSubtaskDueAlerts as ReturnType<typeof vi.fn>;
 
 describe("notification router", () => {
   const db = {} as never;
@@ -51,6 +54,7 @@ describe("notification router", () => {
               boardName: "Gerencia",
               workspacePublicId: "workspc00001",
             },
+            subtask: null,
           },
         ],
         nextCursor: { publicId: "notice000001" },
@@ -124,18 +128,22 @@ describe("notification router", () => {
     mockGetUnreadCount.mockResolvedValue(4);
     mockMarkAllAsRead.mockResolvedValue(4);
     mockSyncDueAlerts.mockResolvedValue({ created: 1, invalidated: 2 });
+    mockSyncSubtaskDueAlerts.mockResolvedValue({ created: 2, invalidated: 1 });
     const { notificationRouter } = await import("./notification");
     const caller = notificationRouter.createCaller(context);
 
     await expect(caller.unreadCount()).resolves.toEqual({ count: 4 });
     await expect(caller.markAllRead()).resolves.toEqual({ count: 4 });
     await expect(caller.syncDueAlerts()).resolves.toEqual({
-      created: 1,
-      invalidated: 2,
+      created: 3,
+      invalidated: 3,
     });
     expect(mockGetUnreadCount).toHaveBeenCalledWith(db, user.id);
     expect(mockMarkAllAsRead).toHaveBeenCalledWith(db, user.id);
     expect(mockSyncDueAlerts).toHaveBeenCalledWith(db, { userId: user.id });
+    expect(mockSyncSubtaskDueAlerts).toHaveBeenCalledWith(db, {
+      userId: user.id,
+    });
   });
 
   it("requires authentication for every endpoint", async () => {

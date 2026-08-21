@@ -1,4 +1,5 @@
 import { useRouter } from "next/router";
+import { Dialog } from "@headlessui/react";
 import { t } from "@lingui/core/macro";
 import { useEffect, useRef, useState } from "react";
 import { HiLink, HiXMark } from "react-icons/hi2";
@@ -9,9 +10,14 @@ import LabelIcon from "~/components/LabelIcon";
 import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
+import { getCardWorkspaceView } from "~/utils/card-workspace";
 import ActivityList from "~/views/card/components/ActivityList";
 import { AttachmentThumbnails } from "~/views/card/components/AttachmentThumbnails";
+import { CardSubtasksView } from "~/views/card/components/CardSubtasksView";
+import { CardWorkspaceComingSoon } from "~/views/card/components/CardWorkspaceComingSoon";
+import { CardWorkspaceTabs } from "~/views/card/components/CardWorkspaceTabs";
 import Checklists from "~/views/card/components/Checklists";
+import { DevelopmentProgress } from "~/views/card/components/DevelopmentProgress";
 
 export function CardModal({
   cardPublicId,
@@ -59,15 +65,19 @@ export function CardModal({
   // Redirect to 404 if card doesn't exist
   useEffect(() => {
     if (isOpen && cardPublicId && !isLoading) {
-      if (error?.data?.code === "NOT_FOUND" || (!data && !isLoading && error)) {
+      if (error?.data?.code === "NOT_FOUND" || (!data && error)) {
         // Close modal first, then redirect
         closeModal();
-        router.replace("/404");
+        void router.replace("/404");
       }
     }
   }, [isOpen, cardPublicId, isLoading, error, data, closeModal, router]);
 
   const labels = data?.labels ?? [];
+  const activeView = getCardWorkspaceView(
+    router.query.vista,
+    router.query.view,
+  );
 
   const handleScroll = () => {
     if (!scrollRef.current) return;
@@ -92,6 +102,9 @@ export function CardModal({
 
   return (
     <div className="flex h-full flex-1 flex-row">
+      <Dialog.Title className="sr-only">
+        {data?.title ?? t`Card details`}
+      </Dialog.Title>
       <div className="flex h-full w-full flex-col overflow-hidden">
         <div className="h-full p-8">
           <div className="mb-6">
@@ -133,11 +146,15 @@ export function CardModal({
                     closeModal();
 
                     setTimeout(() => {
+                      const nextQuery = { ...router.query };
+                      delete nextQuery.view;
+                      delete nextQuery.vista;
+                      delete nextQuery.subtask;
                       void router.replace(
                         {
                           pathname: router.pathname,
                           query: {
-                            ...router.query,
+                            ...nextQuery,
                             workspaceSlug: workspaceSlug ?? "",
                             boardSlug: [boardSlug ?? ""],
                           },
@@ -147,6 +164,7 @@ export function CardModal({
                       );
                     }, 400);
                   }}
+                  aria-label={t`Close`}
                 >
                   <HiXMark
                     size={18}
@@ -166,66 +184,109 @@ export function CardModal({
                 ))}
               </div>
             )}
+            {data && (
+              <div className="mt-4 border-t border-light-300 pt-2 dark:border-dark-400">
+                <CardWorkspaceTabs
+                  activeView={activeView}
+                  developmentCount={data.subtaskSummary.total}
+                  compact
+                />
+              </div>
+            )}
           </div>
 
-          <div className="relative">
+          {activeView === "summary" && (
             <div
-              ref={scrollRef}
-              className="h-full max-h-[425px] overflow-y-auto"
+              className="relative"
+              id="card-view-summary"
+              role="tabpanel"
+              aria-labelledby="card-tab-summary"
             >
-              {data?.description && (
-                <div className="mb-10 flex w-full max-w-2xl justify-between">
-                  <div className="mt-2">
-                    <Editor
-                      content={data.description}
-                      readOnly
-                      workspaceMembers={
-                        data?.list.board.workspace.members ?? []
-                      }
-                    />
+              <div
+                ref={scrollRef}
+                className="h-full max-h-[425px] overflow-y-auto"
+              >
+                {data?.description && (
+                  <div className="mb-10 flex w-full max-w-2xl justify-between">
+                    <div className="mt-2">
+                      <Editor
+                        content={data.description}
+                        readOnly
+                        workspaceMembers={data.list.board.workspace.members}
+                      />
+                    </div>
                   </div>
-                </div>
-              )}
-              {data?.attachments &&
-                data.attachments.length > 0 &&
-                cardPublicId && (
-                  <div className="mb-10 max-w-2xl">
-                    <AttachmentThumbnails
-                      attachments={data.attachments}
-                      cardPublicId={cardPublicId}
-                      isReadOnly
+                )}
+                {data && (
+                  <div className="mb-8 max-w-2xl">
+                    <DevelopmentProgress
+                      summary={data.subtaskSummary}
+                      interactive={false}
                     />
                   </div>
                 )}
-              {data?.checklists && data.checklists.length > 0 && (
-                <Checklists
-                  checklists={data.checklists}
-                  cardPublicId={cardPublicId ?? ""}
-                  viewOnly
-                />
-              )}
-              <div className="border-t-[1px] border-light-600 pb-4 pt-12 dark:border-dark-400">
-                <h2 className="text-md pb-4 font-medium text-light-900 dark:text-dark-1000">
-                  {t`Activity`}
-                </h2>
-                <div>
-                  {cardPublicId && (
-                    <ActivityList
-                      cardPublicId={cardPublicId}
-                      isLoading={isLoading}
-                      isViewOnly={true}
-                    />
+                {data?.attachments &&
+                  data.attachments.length > 0 &&
+                  cardPublicId && (
+                    <div className="mb-10 max-w-2xl">
+                      <AttachmentThumbnails
+                        attachments={data.attachments}
+                        cardPublicId={cardPublicId}
+                        isReadOnly
+                      />
+                    </div>
                   )}
+                {data?.checklists && data.checklists.length > 0 && (
+                  <Checklists
+                    checklists={data.checklists}
+                    cardPublicId={cardPublicId ?? ""}
+                    viewOnly
+                  />
+                )}
+                <div className="border-t-[1px] border-light-600 pb-4 pt-12 dark:border-dark-400">
+                  <h2 className="text-md pb-4 font-medium text-light-900 dark:text-dark-1000">
+                    {t`Activity`}
+                  </h2>
+                  <div>
+                    {cardPublicId && (
+                      <ActivityList
+                        cardPublicId={cardPublicId}
+                        isLoading={isLoading}
+                        isViewOnly={true}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
+              {showTopFade && (
+                <div className="pointer-events-none absolute left-0 right-0 top-0 h-6 bg-gradient-to-b from-white/80 to-transparent dark:from-dark-100/80" />
+              )}
+              {showFade && (
+                <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white/80 to-transparent dark:from-dark-100/80" />
+              )}
             </div>
-            {showTopFade && (
-              <div className="pointer-events-none absolute left-0 right-0 top-0 h-6 bg-gradient-to-b from-white/80 to-transparent dark:from-dark-100/80" />
-            )}
-            {showFade && (
-              <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white/80 to-transparent dark:from-dark-100/80" />
-            )}
-          </div>
+          )}
+          {activeView === "subtasks" && data && cardPublicId && (
+            <div className="h-[min(32rem,calc(100dvh-15rem))] min-h-[24rem] overflow-hidden">
+              <CardSubtasksView
+                key={cardPublicId}
+                cardPublicId={cardPublicId}
+                members={[]}
+                canEdit={false}
+                singleStageLayout
+              />
+            </div>
+          )}
+          {activeView === "whiteboard" && (
+            <div className="max-h-[32rem] overflow-y-auto">
+              <CardWorkspaceComingSoon view="whiteboard" />
+            </div>
+          )}
+          {activeView === "files" && (
+            <div className="max-h-[32rem] overflow-y-auto">
+              <CardWorkspaceComingSoon view="files" />
+            </div>
+          )}
         </div>
       </div>
     </div>

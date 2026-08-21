@@ -54,6 +54,8 @@ const preparePortfolio = (
   const workspaceIdByCardId = new Map<number, number>();
   const activitiesByCardId = new Map<number, PortfolioSource["activities"]>();
   const assignmentsByCardId = new Map<number, number[]>();
+  const subtaskBlockedCardIds = new Set<number>();
+  const subtaskOverdueCardIds = new Set<number>();
   const actorByWorkspaceAndUserId = new Map<
     string,
     PortfolioSource["members"][number]
@@ -75,6 +77,12 @@ const preparePortfolio = (
     const memberIds = assignmentsByCardId.get(assignment.cardId) ?? [];
     memberIds.push(assignment.memberId);
     assignmentsByCardId.set(assignment.cardId, memberIds);
+  }
+  for (const signal of source.subtaskSignals) {
+    if (signal.blocked) subtaskBlockedCardIds.add(signal.cardId);
+    if (signal.dueDate && signal.dueDate <= now) {
+      subtaskOverdueCardIds.add(signal.cardId);
+    }
   }
 
   for (const member of source.members) {
@@ -152,6 +160,8 @@ const preparePortfolio = (
     workspaceIdByCardId,
     activitiesByCardId,
     assignmentsByCardId,
+    subtaskBlockedCardIds,
+    subtaskOverdueCardIds,
     periodActivities,
     advancedCardIds,
     deliveredActivities,
@@ -307,6 +317,12 @@ export const buildPortfolioSummary = (
       if (card.priority === "urgent") reasons.push("urgent");
       if (status === "blocked") reasons.push("blocked");
       if (isOverdue) reasons.push("overdue");
+      if (prepared.subtaskBlockedCardIds.has(card.id)) {
+        reasons.push("subtaskBlocked");
+      }
+      if (prepared.subtaskOverdueCardIds.has(card.id)) {
+        reasons.push("subtaskOverdue");
+      }
       if (isStalled) reasons.push("stalled");
       if (memberIds.length === 0) reasons.push("unassigned");
       if (reasons.length === 0) return [];
@@ -336,6 +352,8 @@ export const buildPortfolioSummary = (
             (card.priority === "urgent" ? 500 : 0) +
             (status === "blocked" ? 400 : 0) +
             (isOverdue ? 300 : 0) +
+            (prepared.subtaskBlockedCardIds.has(card.id) ? 350 : 0) +
+            (prepared.subtaskOverdueCardIds.has(card.id) ? 250 : 0) +
             (isStalled ? 200 + inactiveDays : 0) +
             (memberIds.length === 0 ? 100 : 0),
         },

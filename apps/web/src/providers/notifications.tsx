@@ -147,7 +147,9 @@ export function NotificationsProvider({
   const openNotification = useCallback(
     async (notification: NotificationItem) => {
       const destination = notification.card
-        ? `/cards/${notification.card.publicId}`
+        ? notification.subtask
+          ? `/cards/${notification.card.publicId}?vista=subtareas&subtask=${notification.subtask.publicId}`
+          : `/cards/${notification.card.publicId}`
         : null;
       const changesWorkspace =
         notification.card?.workspacePublicId !== undefined &&

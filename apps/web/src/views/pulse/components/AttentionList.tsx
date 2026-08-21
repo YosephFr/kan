@@ -42,6 +42,16 @@ const reasonPresentation = (reason: AttentionReason) => {
       className: "text-red-700 dark:text-red-400",
       icon: HiOutlineClock,
     },
+    subtaskBlocked: {
+      label: t`Blocked subtask`,
+      className: "text-red-700 dark:text-red-400",
+      icon: HiOutlinePauseCircle,
+    },
+    subtaskOverdue: {
+      label: t`Overdue subtask`,
+      className: "text-red-700 dark:text-red-400",
+      icon: HiOutlineClock,
+    },
     stalled: {
       label: t`Without movement`,
       className: "text-amber-700 dark:text-amber-400",
@@ -105,7 +115,7 @@ export function AttentionList({ attention, cardPrefix }: AttentionListProps) {
             {t`No immediate flow risks`}
           </p>
           <p className="mt-1 text-xs text-light-800 dark:text-dark-800">
-            {t`There are no urgent, blocked, overdue, stalled, or unassigned open cards.`}
+            {t`There are no urgent, blocked, overdue, stalled, or unassigned open cards or subtasks.`}
           </p>
         </div>
       ) : (

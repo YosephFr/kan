@@ -11,6 +11,8 @@ export type PulseAttentionReason =
   | "urgent"
   | "blocked"
   | "overdue"
+  | "subtaskBlocked"
+  | "subtaskOverdue"
   | "stalled"
   | "unassigned";
 
@@ -116,6 +118,8 @@ export const buildPulseSummary = (
   );
   const activitiesByCard = new Map<number, PulseSource["activities"]>();
   const assignmentsByCard = new Map<number, number[]>();
+  const subtaskBlockedCardIds = new Set<number>();
+  const subtaskOverdueCardIds = new Set<number>();
 
   for (const activity of source.activities) {
     const activities = activitiesByCard.get(activity.cardId) ?? [];
@@ -126,6 +130,12 @@ export const buildPulseSummary = (
     const memberIds = assignmentsByCard.get(assignment.cardId) ?? [];
     memberIds.push(assignment.memberId);
     assignmentsByCard.set(assignment.cardId, memberIds);
+  }
+  for (const signal of source.subtaskSignals) {
+    if (signal.blocked) subtaskBlockedCardIds.add(signal.cardId);
+    if (signal.dueDate && signal.dueDate <= now) {
+      subtaskOverdueCardIds.add(signal.cardId);
+    }
   }
 
   const periodStart =
@@ -248,6 +258,8 @@ export const buildPulseSummary = (
     if (card.priority === "urgent") reasons.push("urgent");
     if (status === "blocked") reasons.push("blocked");
     if (isOverdue) reasons.push("overdue");
+    if (subtaskBlockedCardIds.has(card.id)) reasons.push("subtaskBlocked");
+    if (subtaskOverdueCardIds.has(card.id)) reasons.push("subtaskOverdue");
     if (isStalled) reasons.push("stalled");
     if (isUnassigned) reasons.push("unassigned");
     if (isStalled) stalledCardIds.add(card.id);
@@ -281,6 +293,8 @@ export const buildPulseSummary = (
         (card.priority === "urgent" ? 500 : 0) +
         (status === "blocked" ? 400 : 0) +
         (isOverdue ? 300 : 0) +
+        (subtaskBlockedCardIds.has(card.id) ? 350 : 0) +
+        (subtaskOverdueCardIds.has(card.id) ? 250 : 0) +
         (isStalled ? 200 + inactiveDays : 0) +
         (isUnassigned ? 100 : 0),
     });

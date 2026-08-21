@@ -5,6 +5,7 @@ import * as webhookRepo from "@kan/db/repository/webhook.repo";
 import type { WebhookPayload } from "./webhook";
 import {
   createCardWebhookPayload,
+  createSubtaskWebhookPayload,
   sendWebhooksForWorkspace,
   sendWebhookToUrl,
   webhookUrlSchema,
@@ -196,6 +197,55 @@ describe("webhook utilities", () => {
       expect(payload.data.changes).toEqual({
         listId: { from: "list-public-backlog", to: "list-public-done" },
       });
+    });
+  });
+
+  describe("createSubtaskWebhookPayload", () => {
+    it("uses public IDs and emits the explicit assignment event", () => {
+      const payload = createSubtaskWebhookPayload(
+        "subtask.assigned",
+        {
+          publicId: "subtask00001",
+          title: "Preparar temario",
+          description: null,
+          priority: "high",
+          dueDate: new Date("2026-08-22T12:00:00.000Z"),
+          startedAt: null,
+          completedAt: null,
+          index: 1,
+          stage: {
+            publicId: "stage0000001",
+            status: "planned",
+            name: "Por hacer",
+          },
+          ownerPublicId: "member000001",
+        },
+        {
+          card: {
+            publicId: "card00000001",
+            title: "Curso King",
+            listPublicId: "list00000001",
+          },
+          board: { publicId: "board0000001", name: "Cursos" },
+          listName: "En desarrollo",
+          changes: {
+            ownerPublicId: { from: null, to: "member000001" },
+          },
+        },
+      );
+
+      expect(payload.event).toBe("subtask.assigned");
+      expect(payload.data.card.publicId).toBe("card00000001");
+      expect(payload.data.subtask).toMatchObject({
+        publicId: "subtask00001",
+        ownerPublicId: "member000001",
+        dueDate: "2026-08-22T12:00:00.000Z",
+        stage: { publicId: "stage0000001", status: "planned" },
+      });
+      expect(JSON.stringify(payload)).not.toContain('"cardId"');
+      expect(JSON.stringify(payload)).not.toContain('"subtaskId"');
+      expect(payload.data.user).toBeUndefined();
+      expect(JSON.stringify(payload)).not.toContain("actor-internal-uuid");
     });
   });
 

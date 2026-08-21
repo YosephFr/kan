@@ -22,6 +22,7 @@ import {
   boards,
   cardActivities,
   cards,
+  cardSubtasks,
   cardToWorkspaceMembers,
   lists,
   notifications,
@@ -30,7 +31,9 @@ import {
 } from "@kan/db/schema";
 import { generateUID } from "@kan/shared/utils";
 
+import type { NotificationSyncHooks } from "./notification-sync.internal";
 import { dueNotificationTypes } from "./notification-alert.repo";
+import { lockActiveNotificationCardIds } from "./notification-sync.internal";
 
 export {
   invalidateCardAlerts,
@@ -39,7 +42,12 @@ export {
   invalidateCardAlertsForWorkspaceMember,
   invalidateDueAlertsForCard,
   invalidateUrgentAlertsForCard,
+  invalidateSubtaskAlerts,
+  invalidateSubtaskAlertsForCard,
+  invalidateSubtaskDueAlerts,
+  invalidateSubtaskDueAlertsForWorkspaceMember,
 } from "./notification-alert.repo";
+export { syncSubtaskDueAlerts } from "./notification-subtask.repo";
 
 const urgentDedupeKey = (userId: string, cardPublicId: string) =>
   ["card.priority.urgent", userId, cardPublicId].join(":");
@@ -66,12 +74,17 @@ export interface NotificationListItem {
     boardName: string;
     workspacePublicId: string;
   } | null;
+  subtask: {
+    publicId: string;
+    title: string;
+  } | null;
 }
 
 interface NotificationInsert {
   type: NotificationType;
   userId: string;
   cardId?: number;
+  subtaskId?: number;
   commentId?: number;
   workspaceId?: number;
   metadata?: string;
@@ -87,6 +100,7 @@ export const create = async (
     type: notificationInput.type,
     userId: notificationInput.userId,
     cardId: notificationInput.cardId,
+    subtaskId: notificationInput.subtaskId,
     commentId: notificationInput.commentId,
     workspaceId: notificationInput.workspaceId,
     metadata: notificationInput.metadata,
@@ -182,6 +196,9 @@ export const list = async (
       boardArchived: boards.isArchived,
       workspacePublicId: workspaces.publicId,
       workspaceDeletedAt: workspaces.deletedAt,
+      subtaskPublicId: cardSubtasks.publicId,
+      subtaskTitle: cardSubtasks.title,
+      subtaskDeletedAt: cardSubtasks.deletedAt,
       hasWorkspaceAccess: sql<boolean>`exists (
         select 1
         from "workspace_members" access_member
@@ -202,6 +219,7 @@ export const list = async (
         : sql`false`,
     )
     .leftJoin(cards, eq(notifications.cardId, cards.id))
+    .leftJoin(cardSubtasks, eq(notifications.subtaskId, cardSubtasks.id))
     .leftJoin(lists, eq(cards.listId, lists.id))
     .leftJoin(boards, eq(lists.boardId, boards.id))
     .leftJoin(workspaces, eq(boards.workspaceId, workspaces.id))
@@ -240,12 +258,21 @@ export const list = async (
       };
     }
 
+    const subtask =
+      card !== null &&
+      row.subtaskPublicId !== null &&
+      row.subtaskTitle !== null &&
+      row.subtaskDeletedAt === null
+        ? { publicId: row.subtaskPublicId, title: row.subtaskTitle }
+        : null;
+
     return {
       publicId: row.publicId,
       type: row.type,
       createdAt: row.createdAt,
       readAt: row.readAt,
       card,
+      subtask,
     };
   });
   const lastItem = hasMore ? pageRows.at(-1) : undefined;
@@ -312,17 +339,13 @@ export const getUnreadCount = async (db: dbClient, userId: string) => {
 export const syncDueAlerts = async (
   db: dbClient,
   args: { userId: string; now?: Date },
+  hooks?: NotificationSyncHooks,
 ) => {
   const now = args.now ?? new Date();
   const dueSoonLimit = new Date(now.getTime() + 24 * 60 * 60 * 1000);
   return db.transaction(async (tx) => {
-    const dueCandidates = await tx
-      .select({
-        cardId: cards.id,
-        cardPublicId: cards.publicId,
-        dueDate: cards.dueDate,
-        workspaceId: boards.workspaceId,
-      })
+    const scannedCandidates = await tx
+      .select({ cardId: cards.id })
       .from(cardToWorkspaceMembers)
       .innerJoin(
         workspaceMembers,
@@ -345,46 +368,90 @@ export const syncDueAlerts = async (
           or(isNull(lists.status), ne(lists.status, "done")),
           isNull(boards.deletedAt),
           eq(boards.isArchived, false),
-          lte(cards.dueDate, dueSoonLimit),
+          or(lte(cards.dueDate, dueSoonLimit), eq(cards.priority, "urgent")),
         ),
       )
-      .orderBy(asc(cards.id))
-      .for("update", { of: cards });
-    const urgentCandidates = await tx
-      .select({
-        cardId: cards.id,
-        cardPublicId: cards.publicId,
-        workspaceId: boards.workspaceId,
-        createdBy: cards.createdBy,
-        workspaceMemberId: workspaceMembers.id,
-      })
-      .from(cardToWorkspaceMembers)
-      .innerJoin(
-        workspaceMembers,
-        eq(cardToWorkspaceMembers.workspaceMemberId, workspaceMembers.id),
-      )
-      .innerJoin(cards, eq(cardToWorkspaceMembers.cardId, cards.id))
-      .innerJoin(lists, eq(cards.listId, lists.id))
-      .innerJoin(boards, eq(lists.boardId, boards.id))
-      .innerJoin(workspaces, eq(boards.workspaceId, workspaces.id))
-      .where(
-        and(
-          eq(workspaceMembers.userId, args.userId),
-          eq(workspaceMembers.workspaceId, boards.workspaceId),
-          eq(workspaceMembers.status, "active"),
-          isNull(workspaceMembers.deletedAt),
-          isNull(workspaces.deletedAt),
-          eq(cards.priority, "urgent"),
-          isNull(cards.deletedAt),
-          isNull(cards.completedAt),
-          isNull(lists.deletedAt),
-          or(isNull(lists.status), ne(lists.status, "done")),
-          isNull(boards.deletedAt),
-          eq(boards.isArchived, false),
-        ),
-      )
-      .orderBy(asc(cards.id))
-      .for("update", { of: cards });
+      .orderBy(asc(cards.id));
+
+    await hooks?.afterCandidateScan?.(tx);
+    const activeCardIds = await lockActiveNotificationCardIds(tx, [
+      ...new Set(scannedCandidates.map((candidate) => candidate.cardId)),
+    ]);
+    const dueCandidates =
+      activeCardIds.length === 0
+        ? []
+        : await tx
+            .select({
+              cardId: cards.id,
+              cardPublicId: cards.publicId,
+              dueDate: cards.dueDate,
+              workspaceId: boards.workspaceId,
+            })
+            .from(cardToWorkspaceMembers)
+            .innerJoin(
+              workspaceMembers,
+              eq(cardToWorkspaceMembers.workspaceMemberId, workspaceMembers.id),
+            )
+            .innerJoin(cards, eq(cardToWorkspaceMembers.cardId, cards.id))
+            .innerJoin(lists, eq(cards.listId, lists.id))
+            .innerJoin(boards, eq(lists.boardId, boards.id))
+            .innerJoin(workspaces, eq(boards.workspaceId, workspaces.id))
+            .where(
+              and(
+                eq(workspaceMembers.userId, args.userId),
+                eq(workspaceMembers.workspaceId, boards.workspaceId),
+                eq(workspaceMembers.status, "active"),
+                isNull(workspaceMembers.deletedAt),
+                isNull(workspaces.deletedAt),
+                inArray(cards.id, activeCardIds),
+                isNull(cards.deletedAt),
+                isNull(cards.completedAt),
+                isNull(lists.deletedAt),
+                or(isNull(lists.status), ne(lists.status, "done")),
+                isNull(boards.deletedAt),
+                eq(boards.isArchived, false),
+                lte(cards.dueDate, dueSoonLimit),
+              ),
+            )
+            .orderBy(asc(cards.id));
+    const urgentCandidates =
+      activeCardIds.length === 0
+        ? []
+        : await tx
+            .select({
+              cardId: cards.id,
+              cardPublicId: cards.publicId,
+              workspaceId: boards.workspaceId,
+              createdBy: cards.createdBy,
+              workspaceMemberId: workspaceMembers.id,
+            })
+            .from(cardToWorkspaceMembers)
+            .innerJoin(
+              workspaceMembers,
+              eq(cardToWorkspaceMembers.workspaceMemberId, workspaceMembers.id),
+            )
+            .innerJoin(cards, eq(cardToWorkspaceMembers.cardId, cards.id))
+            .innerJoin(lists, eq(cards.listId, lists.id))
+            .innerJoin(boards, eq(lists.boardId, boards.id))
+            .innerJoin(workspaces, eq(boards.workspaceId, workspaces.id))
+            .where(
+              and(
+                eq(workspaceMembers.userId, args.userId),
+                eq(workspaceMembers.workspaceId, boards.workspaceId),
+                eq(workspaceMembers.status, "active"),
+                isNull(workspaceMembers.deletedAt),
+                isNull(workspaces.deletedAt),
+                inArray(cards.id, activeCardIds),
+                eq(cards.priority, "urgent"),
+                isNull(cards.deletedAt),
+                isNull(cards.completedAt),
+                isNull(lists.deletedAt),
+                or(isNull(lists.status), ne(lists.status, "done")),
+                isNull(boards.deletedAt),
+                eq(boards.isArchived, false),
+              ),
+            )
+            .orderBy(asc(cards.id));
     const urgentCardIds = urgentCandidates.map((candidate) => candidate.cardId);
     const urgentActivities =
       urgentCardIds.length === 0

@@ -212,9 +212,33 @@ const source = {
     { cardId: 2000, memberId: 6000 },
     { cardId: 2001, memberId: 6001 },
   ],
+  subtaskSignals: [],
 } as PortfolioSource;
 
 describe("buildPortfolioSummary", () => {
+  it("adds subtask attention reasons without changing parent-card totals", () => {
+    const result = buildPortfolioSummary(
+      {
+        ...source,
+        subtaskSignals: [
+          {
+            cardId: 1000,
+            blocked: true,
+            dueDate: now,
+          },
+        ],
+      },
+      "week",
+      now,
+    );
+
+    expect(
+      result.attention.find((item) => item.cardPublicId === "card10000000")
+        ?.reasons,
+    ).toEqual(expect.arrayContaining(["subtaskBlocked", "subtaskOverdue"]));
+    expect(result.totals).toMatchObject({ companies: 2, open: 3 });
+  });
+
   it("compares accessible companies and attributes weekly movement to its actor", () => {
     const result = buildPortfolioSummary(source, "week", now);
 

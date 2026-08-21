@@ -16,6 +16,7 @@ import LabelIcon from "~/components/LabelIcon";
 import { PriorityIndicator } from "~/components/PrioritySelector";
 import { useLocalisation } from "~/hooks/useLocalisation";
 import { getAvatarUrl } from "~/utils/helpers";
+import { DevelopmentProgress } from "~/views/card/components/DevelopmentProgress";
 
 const Card = ({
   title,
@@ -31,6 +32,7 @@ const Card = ({
   completedAt,
   priority = "none",
   colourCode,
+  subtaskSummary,
   isSelectionMode = false,
   isSelected = false,
 }: {
@@ -60,6 +62,12 @@ const Card = ({
   completedAt?: Date | null;
   priority?: CardPriority;
   colourCode?: string | null;
+  subtaskSummary?: {
+    total: number;
+    completed: number;
+    blocked: number;
+    progressPercent: number;
+  };
   isSelectionMode?: boolean;
   isSelected?: boolean;
 }) => {
@@ -122,7 +130,8 @@ const Card = ({
       hasDescription ||
       comments.length > 0 ||
       hasDueDate ||
-      hasAttachments ? (
+      hasAttachments ||
+      (subtaskSummary?.total ?? 0) > 0 ? (
         <div className="mt-2 flex flex-col justify-end">
           <div className="space-x-0.5">
             {labels.map((label) => (
@@ -141,6 +150,9 @@ const Card = ({
               completedAt={completedAt}
               compact
             />
+            {subtaskSummary && (
+              <DevelopmentProgress summary={subtaskSummary} compact />
+            )}
           </div>
           <div className="mt-2 flex items-center justify-between gap-1">
             <div className="flex items-center gap-2">

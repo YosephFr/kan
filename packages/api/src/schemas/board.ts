@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { cardPriorities, listStatuses } from "@kan/db/schema";
 
+import { subtaskSummarySchema } from "./card-pipeline";
 import {
   checklistResponseSchema,
   labelSchema,
@@ -54,6 +55,7 @@ const boardDetailCardSchema = z.object({
   attachments: z.array(z.object({ publicId: z.string() })),
   checklists: z.array(checklistResponseSchema),
   comments: z.array(z.object({ publicId: z.string() })),
+  subtaskSummary: subtaskSummarySchema,
 });
 
 // ─── board.byId ──────────────────────────────────────────────
@@ -105,6 +107,7 @@ const boardSlugCardSchema = z.object({
   attachments: z.array(z.object({ publicId: z.string() })),
   checklists: z.array(checklistResponseSchema),
   comments: z.array(z.object({ publicId: z.string() })),
+  subtaskSummary: subtaskSummarySchema,
 });
 
 // ─── board.bySlug ────────────────────────────────────────────

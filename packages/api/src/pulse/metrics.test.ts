@@ -14,10 +14,34 @@ const source = {
   },
   boards: [{ id: 1, publicId: "board123456", name: "IA" }],
   lists: [
-    { id: 10, publicId: "planned12345", name: "Por hacer", boardId: 1 },
-    { id: 11, publicId: "progress1234", name: "En curso", boardId: 1 },
-    { id: 12, publicId: "blocked12345", name: "Bloqueado", boardId: 1 },
-    { id: 13, publicId: "done12345678", name: "Listo", boardId: 1 },
+    {
+      id: 10,
+      publicId: "planned12345",
+      name: "Por hacer",
+      boardId: 1,
+      status: null,
+    },
+    {
+      id: 11,
+      publicId: "progress1234",
+      name: "En curso",
+      boardId: 1,
+      status: null,
+    },
+    {
+      id: 12,
+      publicId: "blocked12345",
+      name: "Bloqueado",
+      boardId: 1,
+      status: null,
+    },
+    {
+      id: 13,
+      publicId: "done12345678",
+      name: "Listo",
+      boardId: 1,
+      status: null,
+    },
   ],
   cards: [
     {
@@ -122,7 +146,8 @@ const source = {
     { cardId: 102, completed: true },
     { cardId: 103, completed: true },
   ],
-} as PulseSource;
+  subtaskSignals: [],
+} as unknown as PulseSource;
 
 describe("classifyListName", () => {
   it.each([
@@ -138,6 +163,30 @@ describe("classifyListName", () => {
 });
 
 describe("buildPulseSummary", () => {
+  it("flags the parent for blocked and overdue subtasks without inflating totals", () => {
+    const result = buildPulseSummary(
+      {
+        ...source,
+        subtaskSignals: [
+          {
+            cardId: 105,
+            blocked: true,
+            dueDate: now,
+          },
+        ],
+      },
+      "week",
+      now,
+    );
+
+    expect(
+      result.attention.find((item) => item.cardPublicId === "card10500000")
+        ?.reasons,
+    ).toEqual(["subtaskBlocked", "subtaskOverdue"]);
+    expect(result.totals.blocked).toBe(1);
+    expect(result.totals.overdue).toBe(1);
+  });
+
   it("builds an actionable weekly snapshot without ranking output", () => {
     const result = buildPulseSummary(source, "week", now);
 

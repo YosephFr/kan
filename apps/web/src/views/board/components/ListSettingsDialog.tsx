@@ -26,7 +26,12 @@ interface ListSettingsDialogProps {
     name: string;
     status?: StatusValue;
     colourCode?: string | null;
-    cards?: unknown[];
+    cards?: {
+      subtaskSummary?: {
+        total: number;
+        completed: number;
+      };
+    }[];
   };
 }
 
@@ -62,6 +67,19 @@ export default function ListSettingsDialog({
     list.colourCode ?? null,
   );
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const openSubtaskCount =
+    list.cards?.reduce(
+      (total, card) =>
+        total +
+        Math.max(
+          0,
+          (card.subtaskSummary?.total ?? 0) -
+            (card.subtaskSummary?.completed ?? 0),
+        ),
+      0,
+    ) ?? 0;
+  const willCompleteCards =
+    status === "done" && (list.status ?? null) !== "done";
 
   useEffect(() => {
     if (!isOpen) return;
@@ -153,6 +171,11 @@ export default function ListSettingsDialog({
                     <p className="mt-2 text-xs leading-5 text-light-800 dark:text-dark-800">
                       {t`Changing the list type can start, complete, or reopen the cards currently in this list.`}
                     </p>
+                    {willCompleteCards && openSubtaskCount > 0 && (
+                      <p className="mt-3 border-l-2 border-amber-500 pl-3 text-xs leading-5 text-amber-800 dark:text-amber-300">
+                        {t`${openSubtaskCount} open subtasks will remain open after their parent cards are completed.`}
+                      </p>
+                    )}
                     <div className="mt-6 flex justify-end gap-2">
                       <Button
                         type="button"

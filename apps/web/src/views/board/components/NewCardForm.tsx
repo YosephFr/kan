@@ -220,6 +220,12 @@ export function NewCardForm({
               colourCode: args.colourCode ?? null,
               startedAt: null,
               completedAt: null,
+              subtaskSummary: {
+                total: 0,
+                completed: 0,
+                blocked: 0,
+                progressPercent: 0,
+              },
               cardNumber: null,
               comments: [],
               checklists: [],

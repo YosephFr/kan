@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { cardPriorities, listStatuses } from "@kan/db/schema";
 
+import { subtaskSummarySchema } from "./card-pipeline";
 import {
   checklistResponseSchema,
   labelSchema,
@@ -96,12 +97,14 @@ export const cardDetailSchema = z.object({
       ),
       workspace: z.object({
         publicId: z.string(),
+        name: z.string(),
         cardPrefix: z.string(),
         members: z.array(workspaceMemberSchema),
       }),
     }),
   }),
   members: z.array(cardMemberSchema),
+  subtaskSummary: subtaskSummarySchema,
   activities: z.array(
     z.object({
       publicId: z.string(),
@@ -119,6 +122,9 @@ export const cardDetailSchema = z.object({
       toPriority: z.enum(cardPriorities).nullable(),
       fromColourCode: z.string().nullable(),
       toColourCode: z.string().nullable(),
+      subtaskPublicId: z.string().length(12).nullable(),
+      fromPipelineStagePublicId: z.string().length(12).nullable(),
+      toPipelineStagePublicId: z.string().length(12).nullable(),
       fromList: z
         .object({
           publicId: z.string(),
@@ -186,6 +192,9 @@ export const activityItemSchema = z.object({
   toPriority: z.enum(cardPriorities).nullable(),
   fromColourCode: z.string().nullable(),
   toColourCode: z.string().nullable(),
+  subtaskPublicId: z.string().length(12).nullable(),
+  fromPipelineStagePublicId: z.string().length(12).nullable(),
+  toPipelineStagePublicId: z.string().length(12).nullable(),
   fromList: z
     .object({
       publicId: z.string(),

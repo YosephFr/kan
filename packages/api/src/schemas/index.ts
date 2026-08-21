@@ -39,6 +39,16 @@ export { memberInviteResponseSchema } from "./member";
 export { attachmentConfirmResponseSchema } from "./attachment";
 
 export {
+  cardPipelineSchema,
+  cardPipelineStageSchema,
+  cardSubtaskChecklistItemSchema,
+  cardSubtaskOwnerSchema,
+  cardSubtaskResourceSchema,
+  cardSubtaskSchema,
+  subtaskSummarySchema,
+} from "./card-pipeline";
+
+export {
   pulsePortfolioDetailSchema,
   pulsePortfolioSummarySchema,
   pulseSummarySchema,

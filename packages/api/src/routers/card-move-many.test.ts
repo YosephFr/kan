@@ -237,7 +237,9 @@ describe("card.moveMany", () => {
     expect(mockMoveMany).toHaveBeenCalledWith(mockDb, {
       cardIds: [secondCard.id, firstCard.id],
       destinationListId: destinationList.id,
+      expectedWorkspaceId: firstCard.list.board.workspaceId,
       createdBy: mockUser.id,
+      confirmOpenSubtasks: undefined,
     });
     expect(result.map((card) => card.publicId)).toEqual([
       secondCard.publicId,
@@ -247,7 +249,7 @@ describe("card.moveMany", () => {
     expect(mockSendWebhooksForWorkspace).toHaveBeenCalledTimes(2);
   });
 
-  it("invalidates completed cards from the locked move result when the pre-read status is stale", async () => {
+  it("does not duplicate transactional invalidation for completed cards", async () => {
     const completedAt = new Date("2026-08-20T12:00:00.000Z");
     mockMoveMany.mockResolvedValueOnce([
       {
@@ -280,9 +282,41 @@ describe("card.moveMany", () => {
     });
 
     expect(destinationList.status).toBe("inProgress");
-    expect(mockInvalidateCardAlerts).toHaveBeenCalledTimes(1);
-    expect(mockInvalidateCardAlerts).toHaveBeenCalledWith(mockDb, {
-      cardId: firstCard.id,
+    expect(mockInvalidateCardAlerts).not.toHaveBeenCalled();
+  });
+
+  it("requires and forwards explicit confirmation before bulk-closing parents with open subtasks", async () => {
+    mockMoveMany.mockRejectedValueOnce(
+      new Error("OPEN_SUBTASKS_CONFIRMATION_REQUIRED"),
+    );
+
+    await expect(
+      testRouter.createCaller(mockContext).moveMany({
+        cardPublicIds: [firstCard.publicId, secondCard.publicId],
+        listPublicId: destinationList.publicId,
+      }),
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: "OPEN_SUBTASKS_CONFIRMATION_REQUIRED",
+    });
+
+    mockMoveMany.mockResolvedValueOnce([
+      { ...firstCard, completedAt: new Date("2026-08-21T12:00:00.000Z") },
+      { ...secondCard, completedAt: new Date("2026-08-21T12:00:00.000Z") },
+    ]);
+
+    await testRouter.createCaller(mockContext).moveMany({
+      cardPublicIds: [firstCard.publicId, secondCard.publicId],
+      listPublicId: destinationList.publicId,
+      confirmOpenSubtasks: true,
+    });
+
+    expect(mockMoveMany).toHaveBeenLastCalledWith(mockDb, {
+      cardIds: [firstCard.id, secondCard.id],
+      destinationListId: destinationList.id,
+      expectedWorkspaceId: firstCard.list.board.workspaceId,
+      createdBy: mockUser.id,
+      confirmOpenSubtasks: true,
     });
   });
 });

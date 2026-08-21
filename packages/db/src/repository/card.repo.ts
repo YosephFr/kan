@@ -13,10 +13,11 @@ import {
 import type { dbClient } from "@kan/db/client";
 import type { CardPriority, ListStatus } from "@kan/db/schema";
 import {
-  cardActivities,
   cardAttachments,
+  cardPipelineStages,
   cards,
   cardsToLabels,
+  cardSubtasks,
   cardToWorkspaceMembers,
   checklistItems,
   checklists,
@@ -25,26 +26,27 @@ import {
   workspaceMembers,
   workspaces,
 } from "@kan/db/schema";
-import { generateUID } from "@kan/shared/utils";
 
-export const deriveCardLifecycle = (args: {
-  currentStatus?: ListStatus | null;
-  destinationStatus: ListStatus | null;
-  startedAt: Date | null;
-  completedAt?: Date | null;
-  movedAt: Date;
-}) => ({
-  startedAt:
-    args.destinationStatus === "inProgress" && !args.startedAt
-      ? args.movedAt
-      : args.startedAt,
-  completedAt:
-    args.destinationStatus === "done"
-      ? args.currentStatus === "done"
-        ? (args.completedAt ?? null)
-        : args.movedAt
-      : null,
-});
+import type { CardMutationActivityInput } from "./cardMutationActivity";
+import type { WorkspaceBoundaryTransaction } from "./workspace-boundary";
+import { deriveCardLifecycle } from "./cardLifecycle";
+import { insertCardMutationActivitiesTx } from "./cardMutationActivity";
+import {
+  invalidateCardAlerts,
+  invalidateDueAlertsForCard,
+  invalidateUrgentAlertsForCard,
+} from "./notification-alert.repo";
+import {
+  assertBoardsInWorkspace,
+  lockCardsInWorkspace,
+  WorkspaceChangedError,
+} from "./workspace-boundary";
+
+export const OPEN_SUBTASKS_CONFIRMATION_REQUIRED =
+  "OPEN_SUBTASKS_CONFIRMATION_REQUIRED";
+
+export { create } from "./cardCreate.repo";
+export { deriveCardLifecycle } from "./cardLifecycle";
 
 export const getCount = async (db: dbClient) => {
   const result = await db
@@ -55,182 +57,52 @@ export const getCount = async (db: dbClient) => {
   return result[0]?.count ?? 0;
 };
 
-export const create = async (
-  db: dbClient,
-  cardInput: {
-    title: string;
-    description: string;
-    createdBy: string;
-    listId: number;
-    workspaceId: number;
-    position: "start" | "end";
-    dueDate?: Date | null;
-    priority?: CardPriority;
-    colourCode?: string | null;
-    initializeLifecycle?: boolean;
-  },
-) => {
-  return db.transaction(async (tx) => {
-    let index = 0;
-    const lifecycleAt = new Date();
-    const [destinationList] = await tx
-      .select({ status: lists.status })
-      .from(lists)
-      .where(and(eq(lists.id, cardInput.listId), isNull(lists.deletedAt)))
-      .limit(1)
-      .for("update");
-
-    if (!destinationList) throw new Error(`List ${cardInput.listId} not found`);
-
-    const lifecycle =
-      cardInput.initializeLifecycle === false
-        ? { startedAt: null, completedAt: null }
-        : deriveCardLifecycle({
-            destinationStatus: destinationList.status,
-            startedAt: null,
-            movedAt: lifecycleAt,
-          });
-
-    if (cardInput.position === "end") {
-      const lastCard = await tx.query.cards.findFirst({
-        columns: {
-          index: true,
-        },
-        where: and(eq(cards.listId, cardInput.listId), isNull(cards.deletedAt)),
-        orderBy: desc(cards.index),
-      });
-
-      if (lastCard) index = lastCard.index + 1;
-    }
-
-    const getExistingCardAtIndex = async () =>
-      tx.query.cards.findFirst({
-        columns: {
-          id: true,
-        },
-        where: and(
-          eq(cards.listId, cardInput.listId),
-          eq(cards.index, index),
-          isNull(cards.deletedAt),
-        ),
-      });
-
-    const existingCardAtIndex = await getExistingCardAtIndex();
-
-    if (existingCardAtIndex?.id) {
-      await tx.execute(sql`
-        UPDATE card
-        SET index = index + 1
-        WHERE "listId" = ${cardInput.listId} AND index >= ${index} AND "deletedAt" IS NULL;
-      `);
-    }
-
-    const [counterResult] = await tx
-      .update(workspaces)
-      .set({ cardCounter: sql`${workspaces.cardCounter} + 1` })
-      .where(eq(workspaces.id, cardInput.workspaceId))
-      .returning({ cardCounter: workspaces.cardCounter });
-
-    if (!counterResult)
-      throw new Error(`Workspace ${cardInput.workspaceId} not found`);
-
-    const cardNumber = counterResult.cardCounter;
-
-    const result = await tx
-      .insert(cards)
-      .values({
-        publicId: generateUID(),
-        title: cardInput.title,
-        description: cardInput.description,
-        createdBy: cardInput.createdBy,
-        listId: cardInput.listId,
-        index: index,
-        cardNumber,
-        dueDate: cardInput.dueDate ?? null,
-        priority: cardInput.priority ?? "none",
-        colourCode: cardInput.colourCode ?? null,
-        startedAt: lifecycle.startedAt,
-        completedAt: lifecycle.completedAt,
-      })
-      .returning({
-        id: cards.id,
-        listId: cards.listId,
-        publicId: cards.publicId,
-        cardNumber: cards.cardNumber,
-        priority: cards.priority,
-        colourCode: cards.colourCode,
-        dueDate: cards.dueDate,
-        startedAt: cards.startedAt,
-        completedAt: cards.completedAt,
-      });
-
-    if (!result[0]) throw new Error("Unable to create card");
-
-    await tx.insert(cardActivities).values({
-      publicId: generateUID(),
-      cardId: result[0].id,
-      type: "card.created",
-      createdBy: cardInput.createdBy,
-    });
-
-    const countExpr = sql<number>`COUNT(*)`.mapWith(Number);
-
-    const duplicateIndices = await tx
-      .select({
-        index: cards.index,
-        count: countExpr,
-      })
-      .from(cards)
-      .where(and(eq(cards.listId, result[0].listId), isNull(cards.deletedAt)))
-      .groupBy(cards.listId, cards.index)
-      .having(gt(countExpr, 1));
-
-    if (duplicateIndices.length > 0) {
-      // Compact indices for this list to sequential values (0..n-1) preserving order
-      await tx.execute(sql`
-        WITH ordered AS (
-          SELECT id, ROW_NUMBER() OVER (ORDER BY "index", id) - 1 AS new_index
-          FROM "card"
-          WHERE "listId" = ${result[0].listId} AND "deletedAt" IS NULL
-        )
-        UPDATE "card" c
-        SET "index" = o.new_index
-        FROM ordered o
-        WHERE c.id = o.id;
-      `);
-
-      // Last resort: verify fix; rollback if duplicates persist
-      const postFixDupes = await tx
-        .select({ index: cards.index, count: countExpr })
-        .from(cards)
-        .where(and(eq(cards.listId, result[0].listId), isNull(cards.deletedAt)))
-        .groupBy(cards.listId, cards.index)
-        .having(gt(countExpr, 1));
-
-      if (postFixDupes.length > 0) {
-        throw new Error(
-          `Invariant violation: duplicate card indices remain after compaction in list ${result[0].listId}`,
-        );
-      }
-    }
-
-    return result[0];
-  });
-};
-
 export const bulkCreateCardLabelRelationships = async (
   db: dbClient,
   cardLabelRelationshipInput: {
     cardId: number;
     labelId: number;
   }[],
+  options: { expectedWorkspaceId: number },
 ) => {
-  const result = await db
-    .insert(cardsToLabels)
-    .values(cardLabelRelationshipInput)
-    .returning();
+  if (cardLabelRelationshipInput.length === 0) return [];
+  return db.transaction(async (tx) => {
+    const lockedCards = await lockCardsInWorkspace(
+      tx,
+      cardLabelRelationshipInput.map((relationship) => relationship.cardId),
+      options.expectedWorkspaceId,
+    );
+    const labelIds = [
+      ...new Set(
+        cardLabelRelationshipInput.map((relationship) => relationship.labelId),
+      ),
+    ].sort((a, b) => a - b);
+    const lockedLabels = await tx
+      .select({ id: labels.id, boardId: labels.boardId })
+      .from(labels)
+      .where(and(inArray(labels.id, labelIds), isNull(labels.deletedAt)))
+      .orderBy(asc(labels.id))
+      .for("share");
+    if (lockedLabels.length !== labelIds.length) {
+      throw new WorkspaceChangedError();
+    }
+    const cardById = new Map(lockedCards.map((card) => [card.id, card]));
+    const labelById = new Map(lockedLabels.map((label) => [label.id, label]));
+    if (
+      cardLabelRelationshipInput.some((relationship) => {
+        const card = cardById.get(relationship.cardId);
+        const label = labelById.get(relationship.labelId);
+        return !card || !label || card.boardId !== label.boardId;
+      })
+    ) {
+      throw new WorkspaceChangedError();
+    }
 
-  return result;
+    return tx
+      .insert(cardsToLabels)
+      .values(cardLabelRelationshipInput)
+      .returning();
+  });
 };
 
 export const bulkCreateCardWorkspaceMemberRelationships = async (
@@ -239,13 +111,46 @@ export const bulkCreateCardWorkspaceMemberRelationships = async (
     cardId: number;
     workspaceMemberId: number;
   }[],
+  options: { expectedWorkspaceId: number },
 ) => {
-  const result = await db
-    .insert(cardToWorkspaceMembers)
-    .values(cardWorkspaceMemberRelationshipInput)
-    .returning();
+  if (cardWorkspaceMemberRelationshipInput.length === 0) return [];
+  return db.transaction(async (tx) => {
+    await lockCardsInWorkspace(
+      tx,
+      cardWorkspaceMemberRelationshipInput.map(
+        (relationship) => relationship.cardId,
+      ),
+      options.expectedWorkspaceId,
+    );
+    const memberIds = [
+      ...new Set(
+        cardWorkspaceMemberRelationshipInput.map(
+          (relationship) => relationship.workspaceMemberId,
+        ),
+      ),
+    ].sort((a, b) => a - b);
+    const lockedMembers = await tx
+      .select({ id: workspaceMembers.id })
+      .from(workspaceMembers)
+      .where(
+        and(
+          inArray(workspaceMembers.id, memberIds),
+          eq(workspaceMembers.workspaceId, options.expectedWorkspaceId),
+          eq(workspaceMembers.status, "active"),
+          isNull(workspaceMembers.deletedAt),
+        ),
+      )
+      .orderBy(asc(workspaceMembers.id))
+      .for("share");
+    if (lockedMembers.length !== memberIds.length) {
+      throw new WorkspaceChangedError();
+    }
 
-  return result;
+    return tx
+      .insert(cardToWorkspaceMembers)
+      .values(cardWorkspaceMemberRelationshipInput)
+      .returning();
+  });
 };
 
 export const update = async (
@@ -259,34 +164,96 @@ export const update = async (
   },
   args: {
     cardPublicId: string;
+    expectedWorkspaceId: number;
+    activities?: CardMutationActivityInput[];
   },
-) => {
-  const [result] = await db
-    .update(cards)
-    .set({
-      title: cardInput.title,
-      description: cardInput.description,
-      dueDate: cardInput.dueDate !== undefined ? cardInput.dueDate : undefined,
-      priority: cardInput.priority,
-      colourCode:
-        cardInput.colourCode !== undefined ? cardInput.colourCode : undefined,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(cards.publicId, args.cardPublicId), isNull(cards.deletedAt)))
-    .returning({
-      id: cards.id,
-      publicId: cards.publicId,
-      title: cards.title,
-      description: cards.description,
-      dueDate: cards.dueDate,
-      priority: cards.priority,
-      colourCode: cards.colourCode,
-      startedAt: cards.startedAt,
-      completedAt: cards.completedAt,
-    });
+) =>
+  db.transaction(async (tx) => {
+    const [candidate] = await tx
+      .select({ id: cards.id, listId: cards.listId })
+      .from(cards)
+      .where(
+        and(eq(cards.publicId, args.cardPublicId), isNull(cards.deletedAt)),
+      )
+      .limit(1);
+    if (!candidate) throw new WorkspaceChangedError();
 
-  return result;
-};
+    const [lockedList] = await tx
+      .select({ id: lists.id, boardId: lists.boardId })
+      .from(lists)
+      .where(and(eq(lists.id, candidate.listId), isNull(lists.deletedAt)))
+      .limit(1)
+      .for("share");
+    if (!lockedList) throw new WorkspaceChangedError();
+
+    const [current] = await tx
+      .select({
+        id: cards.id,
+        listId: cards.listId,
+        dueDate: cards.dueDate,
+        priority: cards.priority,
+      })
+      .from(cards)
+      .where(and(eq(cards.id, candidate.id), isNull(cards.deletedAt)))
+      .limit(1)
+      .for("update");
+    if (!current || current.listId !== lockedList.id) {
+      throw new WorkspaceChangedError();
+    }
+    await assertBoardsInWorkspace(
+      tx,
+      [lockedList.boardId],
+      args.expectedWorkspaceId,
+    );
+
+    const [result] = await tx
+      .update(cards)
+      .set({
+        title: cardInput.title,
+        description: cardInput.description,
+        dueDate:
+          cardInput.dueDate !== undefined ? cardInput.dueDate : undefined,
+        priority: cardInput.priority,
+        colourCode:
+          cardInput.colourCode !== undefined ? cardInput.colourCode : undefined,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(cards.id, current.id), isNull(cards.deletedAt)))
+      .returning({
+        id: cards.id,
+        publicId: cards.publicId,
+        title: cards.title,
+        description: cards.description,
+        dueDate: cards.dueDate,
+        priority: cards.priority,
+        colourCode: cards.colourCode,
+        startedAt: cards.startedAt,
+        completedAt: cards.completedAt,
+      });
+    if (!result) return undefined;
+
+    if (result.completedAt) {
+      await invalidateCardAlerts(tx, { cardId: result.id });
+    } else {
+      if (
+        cardInput.dueDate !== undefined &&
+        current.dueDate?.getTime() !== cardInput.dueDate?.getTime()
+      ) {
+        await invalidateDueAlertsForCard(tx, { cardId: result.id });
+      }
+      if (
+        cardInput.priority !== undefined &&
+        current.priority !== cardInput.priority &&
+        cardInput.priority !== "urgent"
+      ) {
+        await invalidateUrgentAlertsForCard(tx, { cardId: result.id });
+      }
+    }
+
+    await insertCardMutationActivitiesTx(tx, result.id, args.activities);
+
+    return result;
+  });
 
 export const getCardWithListByPublicId = (
   db: dbClient,
@@ -373,40 +340,60 @@ export const bulkCreate = async (
   if (cardInput.length === 0) return [];
 
   return db.transaction(async (tx) => {
-    // Group incoming cards by list to compute safe, sequential indices per list
+    const workspaceIds = [
+      ...new Set(cardInput.map((card) => card.workspaceId)),
+    ];
+    if (workspaceIds.length !== 1 || workspaceIds[0] === undefined) {
+      throw new WorkspaceChangedError();
+    }
+    const expectedWorkspaceId = workspaceIds[0];
+
     const byList = new Map<number, typeof cardInput>();
     for (const item of cardInput) {
       const arr = byList.get(item.listId) ?? [];
       arr.push(item);
       byList.set(item.listId, arr);
     }
-
-    // Atomically reserve a contiguous range of cardNumbers per workspace by
-    // bumping cardCounter once per workspace.
-    const countsByWorkspace = new Map<number, number>();
-    for (const item of cardInput) {
-      countsByWorkspace.set(
-        item.workspaceId,
-        (countsByWorkspace.get(item.workspaceId) ?? 0) + 1,
-      );
+    const listIds = [...byList.keys()].sort((a, b) => a - b);
+    const destinationLists = await tx
+      .select({ id: lists.id, boardId: lists.boardId, status: lists.status })
+      .from(lists)
+      .where(and(inArray(lists.id, listIds), isNull(lists.deletedAt)))
+      .orderBy(asc(lists.id))
+      .for("update");
+    if (destinationLists.length !== listIds.length) {
+      throw new WorkspaceChangedError();
     }
+    await assertBoardsInWorkspace(
+      tx,
+      destinationLists.map((list) => list.boardId),
+      expectedWorkspaceId,
+      { workspaceLock: "update" },
+    );
+    const destinationListById = new Map(
+      destinationLists.map((list) => [list.id, list]),
+    );
 
     const cardNumberByWorkspaceQueue = new Map<number, number[]>();
-    for (const [workspaceId, count] of countsByWorkspace.entries()) {
-      const [counterResult] = await tx
-        .update(workspaces)
-        .set({ cardCounter: sql`${workspaces.cardCounter} + ${count}` })
-        .where(eq(workspaces.id, workspaceId))
-        .returning({ cardCounter: workspaces.cardCounter });
+    const [counterResult] = await tx
+      .update(workspaces)
+      .set({
+        cardCounter: sql`${workspaces.cardCounter} + ${cardInput.length}`,
+      })
+      .where(eq(workspaces.id, expectedWorkspaceId))
+      .returning({ cardCounter: workspaces.cardCounter });
 
-      if (!counterResult) throw new Error(`Workspace ${workspaceId} not found`);
+    if (!counterResult) throw new WorkspaceChangedError();
 
-      const last = counterResult.cardCounter;
-      const start = last - count + 1;
-      const queue: number[] = [];
-      for (let n = start; n <= last; n++) queue.push(n);
-      cardNumberByWorkspaceQueue.set(workspaceId, queue);
-    }
+    const lastCardNumber = counterResult.cardCounter;
+    const firstCardNumber = lastCardNumber - cardInput.length + 1;
+    cardNumberByWorkspaceQueue.set(
+      expectedWorkspaceId,
+      Array.from(
+        { length: cardInput.length },
+        (_, index) => firstCardNumber + index,
+      ),
+    );
 
     const allValuesToInsert: {
       publicId: string;
@@ -424,14 +411,9 @@ export const bulkCreate = async (
       completedAt: Date | null;
     }[] = [];
 
-    // For each list, append incoming cards after current max index, preserving incoming order
     for (const [listId, items] of byList.entries()) {
-      const destinationList = await tx.query.lists.findFirst({
-        columns: { status: true },
-        where: and(eq(lists.id, listId), isNull(lists.deletedAt)),
-      });
-
-      if (!destinationList) throw new Error(`List ${listId} not found`);
+      const destinationList = destinationListById.get(listId);
+      if (!destinationList) throw new WorkspaceChangedError();
 
       const last = await tx.query.cards.findFirst({
         columns: { index: true },
@@ -474,7 +456,7 @@ export const bulkCreate = async (
     const inserted = await tx
       .insert(cards)
       .values(allValuesToInsert)
-      .returning({ id: cards.id });
+      .returning({ id: cards.id, publicId: cards.publicId });
 
     // Post-insert: compact per list if duplicates exist; then verify
     const countExpr = sql<number>`COUNT(*)`.mapWith(Number);
@@ -536,13 +518,15 @@ export const createCardLabelRelationship = async (
 export const bulkCreateCardLabelRelationship = async (
   db: dbClient,
   cardLabelRelationshipInput: { cardId: number; labelId: number }[],
+  options: { expectedWorkspaceId: number },
 ) => {
-  const [result] = await db
-    .insert(cardsToLabels)
-    .values(cardLabelRelationshipInput)
-    .returning();
+  const result = await bulkCreateCardLabelRelationships(
+    db,
+    cardLabelRelationshipInput,
+    options,
+  );
 
-  return result;
+  return result[0];
 };
 
 export const getCardMemberRelationship = (
@@ -573,7 +557,7 @@ export const createCardMemberRelationship = async (
 };
 
 export const getWithListAndMembersByPublicId = async (
-  db: dbClient,
+  db: dbClient | WorkspaceBoundaryTransaction,
   cardPublicId: string,
 ) => {
   const card = await db.query.cards.findFirst({
@@ -669,6 +653,7 @@ export const getWithListAndMembersByPublicId = async (
               workspace: {
                 columns: {
                   publicId: true,
+                  name: true,
                   cardPrefix: true,
                 },
                 with: {
@@ -735,6 +720,9 @@ export const getWithListAndMembersByPublicId = async (
           toPriority: true,
           fromColourCode: true,
           toColourCode: true,
+          subtaskPublicId: true,
+          fromPipelineStagePublicId: true,
+          toPipelineStagePublicId: true,
         },
         with: {
           fromList: {
@@ -815,7 +803,17 @@ export const reorder = async (
     newListId: number | undefined;
     newIndex: number | undefined;
     cardId: number;
+    expectedWorkspaceId: number;
     clearLabels?: boolean;
+    confirmOpenSubtasks?: boolean;
+    updates?: {
+      title?: string;
+      description?: string;
+      dueDate?: Date | null;
+      priority?: CardPriority;
+      colourCode?: string | null;
+    };
+    activities?: CardMutationActivityInput[];
   },
 ) => {
   return db.transaction(async (tx) => {
@@ -832,7 +830,12 @@ export const reorder = async (
       ...new Set([cardLocation.listId, args.newListId ?? cardLocation.listId]),
     ].sort((a, b) => a - b);
     const lockedLists = await tx
-      .select({ id: lists.id, index: lists.index, status: lists.status })
+      .select({
+        id: lists.id,
+        boardId: lists.boardId,
+        index: lists.index,
+        status: lists.status,
+      })
       .from(lists)
       .where(and(inArray(lists.id, requestedListIds), isNull(lists.deletedAt)))
       .orderBy(asc(lists.id))
@@ -848,6 +851,8 @@ export const reorder = async (
         listId: cards.listId,
         startedAt: cards.startedAt,
         completedAt: cards.completedAt,
+        dueDate: cards.dueDate,
+        priority: cards.priority,
       })
       .from(cards)
       .where(and(eq(cards.id, args.cardId), isNull(cards.deletedAt)))
@@ -856,6 +861,12 @@ export const reorder = async (
 
     if (!card || !requestedListIds.includes(card.listId))
       throw new Error(`Card ${args.cardId} moved concurrently`);
+
+    await assertBoardsInWorkspace(
+      tx,
+      lockedLists.map((list) => list.boardId),
+      args.expectedWorkspaceId,
+    );
 
     if (args.clearLabels) {
       await tx
@@ -876,6 +887,27 @@ export const reorder = async (
 
     if (!destinationList)
       throw new Error(`List not found for public ID ${destinationListId}`);
+
+    if (destinationList.status === "done" && currentList.status !== "done") {
+      const [openSubtasks] = await tx
+        .select({ count: count() })
+        .from(cardSubtasks)
+        .innerJoin(
+          cardPipelineStages,
+          eq(cardSubtasks.stageId, cardPipelineStages.id),
+        )
+        .where(
+          and(
+            eq(cardSubtasks.cardId, card.id),
+            isNull(cardSubtasks.deletedAt),
+            sql`${cardPipelineStages.status} <> 'done'`,
+          ),
+        );
+
+      if ((openSubtasks?.count ?? 0) > 0 && !args.confirmOpenSubtasks) {
+        throw new Error(OPEN_SUBTASKS_CONFIRMATION_REQUIRED);
+      }
+    }
 
     const lastDestinationCard =
       args.newListId === undefined
@@ -953,6 +985,12 @@ export const reorder = async (
           updatedAt: movedAt,
         })
         .where(and(eq(cards.id, card.id), isNull(cards.deletedAt)));
+      if (lifecycle.completedAt) {
+        await invalidateCardAlerts(tx, {
+          cardId: card.id,
+          invalidatedAt: movedAt,
+        });
+      }
     }
 
     const countExpr = sql<number>`COUNT(*)`.mapWith(Number);
@@ -1020,6 +1058,47 @@ export const reorder = async (
       }
     }
 
+    if (args.updates) {
+      const [scalarResult] = await tx
+        .update(cards)
+        .set({
+          title: args.updates.title,
+          description: args.updates.description,
+          dueDate:
+            args.updates.dueDate !== undefined
+              ? args.updates.dueDate
+              : undefined,
+          priority: args.updates.priority,
+          colourCode:
+            args.updates.colourCode !== undefined
+              ? args.updates.colourCode
+              : undefined,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(cards.id, card.id), isNull(cards.deletedAt)))
+        .returning({ completedAt: cards.completedAt });
+      if (!scalarResult) throw new WorkspaceChangedError();
+      if (scalarResult.completedAt) {
+        await invalidateCardAlerts(tx, { cardId: card.id });
+      } else {
+        if (
+          args.updates.dueDate !== undefined &&
+          card.dueDate?.getTime() !== args.updates.dueDate?.getTime()
+        ) {
+          await invalidateDueAlertsForCard(tx, { cardId: card.id });
+        }
+        if (
+          args.updates.priority !== undefined &&
+          card.priority !== args.updates.priority &&
+          args.updates.priority !== "urgent"
+        ) {
+          await invalidateUrgentAlertsForCard(tx, { cardId: card.id });
+        }
+      }
+    }
+
+    await insertCardMutationActivitiesTx(tx, card.id, args.activities);
+
     const updatedCard = await tx.query.cards.findFirst({
       columns: {
         id: true,
@@ -1043,15 +1122,46 @@ export const softDelete = async (
   db: dbClient,
   args: {
     cardId: number;
+    expectedWorkspaceId: number;
     deletedAt: Date;
     deletedBy: string;
   },
 ) => {
   return db.transaction(async (tx) => {
+    const [candidate] = await tx
+      .select({ id: cards.id, listId: cards.listId })
+      .from(cards)
+      .where(and(eq(cards.id, args.cardId), isNull(cards.deletedAt)))
+      .limit(1);
+    if (!candidate) throw new WorkspaceChangedError();
+
+    const [lockedList] = await tx
+      .select({ id: lists.id, boardId: lists.boardId })
+      .from(lists)
+      .where(and(eq(lists.id, candidate.listId), isNull(lists.deletedAt)))
+      .limit(1)
+      .for("share");
+    if (!lockedList) throw new WorkspaceChangedError();
+
+    const [lockedCard] = await tx
+      .select({ id: cards.id, listId: cards.listId, index: cards.index })
+      .from(cards)
+      .where(and(eq(cards.id, candidate.id), isNull(cards.deletedAt)))
+      .limit(1)
+      .for("update");
+    if (!lockedCard || lockedCard.listId !== lockedList.id) {
+      throw new WorkspaceChangedError();
+    }
+    await assertBoardsInWorkspace(
+      tx,
+      [lockedList.boardId],
+      args.expectedWorkspaceId,
+    );
+
     const [result] = await tx
       .update(cards)
       .set({ deletedAt: args.deletedAt, deletedBy: args.deletedBy })
-      .where(eq(cards.id, args.cardId))
+      .where(and(eq(cards.id, lockedCard.id), isNull(cards.deletedAt)))
       .returning({
         id: cards.id,
         listId: cards.listId,
@@ -1060,6 +1170,15 @@ export const softDelete = async (
 
     if (!result)
       throw new Error(`Unable to soft delete card ID ${args.cardId}`);
+
+    await insertCardMutationActivitiesTx(tx, result.id, [
+      { type: "card.archived", createdBy: args.deletedBy },
+    ]);
+
+    await invalidateCardAlerts(tx, {
+      cardId: result.id,
+      invalidatedAt: args.deletedAt,
+    });
 
     await tx.execute(sql`
       UPDATE card
