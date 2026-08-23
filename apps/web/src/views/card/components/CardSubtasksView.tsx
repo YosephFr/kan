@@ -248,6 +248,25 @@ export function CardSubtasksView({
     );
   };
 
+  const openCanvasFrame = async (framePublicId: string) => {
+    const nextQuery: Record<string, string | string[] | undefined> = {
+      ...router.query,
+      vista: getCardWorkspaceQueryValue("whiteboard"),
+      frame: framePublicId,
+    };
+    delete nextQuery.view;
+    delete nextQuery.subtask;
+    delete nextQuery.recurso;
+    await router.replace(
+      {
+        pathname: router.pathname,
+        query: nextQuery,
+      },
+      undefined,
+      { shallow: true },
+    );
+  };
+
   const selectMobileStage = (stagePublicId: string) => {
     setActiveMobileStageId(stagePublicId);
   };
@@ -683,6 +702,9 @@ export function CardSubtasksView({
           deleteChecklistItem.mutate({ checklistItemPublicId })
         }
         onOpenResource={openResource}
+        onOpenCanvasFrame={(framePublicId) =>
+          void openCanvasFrame(framePublicId)
+        }
         onDelete={() => {
           if (!selectedSubtask) return;
           deleteSubtask.mutate({

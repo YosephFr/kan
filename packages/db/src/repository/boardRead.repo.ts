@@ -5,6 +5,7 @@ import { boards } from "@kan/db/schema";
 
 import type { BoardReadFilters, BoardSlugReadFilters } from "./board.repo";
 import { queryByPublicId, queryBySlug } from "./board.repo";
+import { getPresenceByCardPublicIds as getCanvasPresenceByCardPublicIds } from "./cardCanvas.repo";
 import { getSummariesByCardPublicIds } from "./cardPipeline.repo";
 import { getSummariesByCardPublicIds as getResourceSummariesByCardPublicIds } from "./cardResource.repo";
 import {
@@ -44,11 +45,12 @@ export const getByPublicIdGuarded = async (
     const cardPublicIds = board.lists.flatMap((list) =>
       list.cards.map((card) => card.publicId),
     );
-    const [summaries, resourceSummaries] = await Promise.all([
+    const [summaries, resourceSummaries, canvasPresence] = await Promise.all([
       getSummariesByCardPublicIds(tx, cardPublicIds),
       getResourceSummariesByCardPublicIds(tx, cardPublicIds),
+      getCanvasPresenceByCardPublicIds(tx, cardPublicIds),
     ]);
-    return { board, summaries, resourceSummaries };
+    return { board, summaries, resourceSummaries, canvasPresence };
   });
 
 export const getBySlugGuarded = async (
@@ -85,9 +87,10 @@ export const getBySlugGuarded = async (
     const cardPublicIds = board.lists.flatMap((list) =>
       list.cards.map((card) => card.publicId),
     );
-    const [summaries, resourceSummaries] = await Promise.all([
+    const [summaries, resourceSummaries, canvasPresence] = await Promise.all([
       getSummariesByCardPublicIds(tx, cardPublicIds),
       getResourceSummariesByCardPublicIds(tx, cardPublicIds),
+      getCanvasPresenceByCardPublicIds(tx, cardPublicIds),
     ]);
-    return { board, summaries, resourceSummaries };
+    return { board, summaries, resourceSummaries, canvasPresence };
   });

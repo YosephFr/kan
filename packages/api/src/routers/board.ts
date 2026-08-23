@@ -162,6 +162,7 @@ export const boardRouter = createTRPCRouter({
         board: result,
         summaries,
         resourceSummaries,
+        canvasPresence,
       } = await boardReadRepo
         .getByPublicIdGuarded(ctx.db, {
           boardPublicId: input.boardPublicId,
@@ -238,6 +239,7 @@ export const boardRouter = createTRPCRouter({
               uploads: 0,
               driveLinks: 0,
             },
+            hasCanvas: canvasPresence.get(card.publicId) ?? false,
           })),
         })),
         workspace: workspaceWithAvatarUrls,
@@ -321,7 +323,12 @@ export const boardRouter = createTRPCRouter({
         });
 
       if (!snapshot) return null;
-      const { board: result, summaries, resourceSummaries } = snapshot;
+      const {
+        board: result,
+        summaries,
+        resourceSummaries,
+        canvasPresence,
+      } = snapshot;
 
       return {
         ...result,
@@ -340,6 +347,7 @@ export const boardRouter = createTRPCRouter({
               uploads: 0,
               driveLinks: 0,
             },
+            hasCanvas: canvasPresence.get(card.publicId) ?? false,
           })),
         })),
       };

@@ -47,6 +47,18 @@ export {
 } from "./card-resource";
 
 export {
+  cardCanvasCasResultSchema,
+  cardCanvasConflictSchema,
+  cardCanvasConvertFrameInputSchema,
+  cardCanvasConvertFrameResultSchema,
+  cardCanvasFrameSchema,
+  cardCanvasPublicIdSchema,
+  cardCanvasRevisionSchema,
+  cardCanvasSceneSchema,
+  cardCanvasSnapshotSchema,
+} from "./card-canvas";
+
+export {
   cardPipelineSchema,
   cardPipelineStageSchema,
   legacyCardSubtaskAttachmentResourceSchema,

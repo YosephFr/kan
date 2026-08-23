@@ -4,6 +4,7 @@ export * from "./auth";
 export * from "./cards";
 export * from "./card-resources";
 export * from "./card-pipeline";
+export * from "./card-canvas";
 export * from "./checklists";
 export * from "./feedback";
 export * from "./imports";

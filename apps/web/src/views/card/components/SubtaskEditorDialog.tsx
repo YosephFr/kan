@@ -3,6 +3,7 @@ import { t } from "@lingui/core/macro";
 import { Fragment, useEffect, useRef, useState } from "react";
 import {
   HiOutlineCalendarDays,
+  HiOutlinePencilSquare,
   HiOutlineTrash,
   HiPlusSmall,
   HiXMark,
@@ -49,6 +50,7 @@ interface SubtaskEditorDialogProps {
   ) => void;
   onDeleteChecklistItem: (checklistItemPublicId: string) => void;
   onOpenResource: (resourcePublicId: string) => void;
+  onOpenCanvasFrame: (framePublicId: string) => void;
   onDelete: () => void;
 }
 
@@ -118,6 +120,7 @@ export function SubtaskEditorDialog({
   onUpdateChecklistItem,
   onDeleteChecklistItem,
   onOpenResource,
+  onOpenCanvasFrame,
   onDelete,
 }: SubtaskEditorDialogProps) {
   const [title, setTitle] = useState(subtask?.title ?? "");
@@ -186,6 +189,7 @@ export function SubtaskEditorDialog({
         (completedChecklistItems / subtask.checklistItems.length) * 100,
       )
     : 0;
+  const canvasFramePublicId = subtask?.canvasFrame?.publicId ?? null;
 
   return (
     <Transition.Root show={subtask !== null} as={Fragment}>
@@ -242,14 +246,30 @@ export function SubtaskEditorDialog({
                           </span>
                         )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={onClose}
-                        className="flex h-8 w-8 items-center justify-center rounded-md text-light-800 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:text-dark-800 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800"
-                        aria-label={t`Close subtask`}
-                      >
-                        <HiXMark className="h-5 w-5" />
-                      </button>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {canvasFramePublicId && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onOpenCanvasFrame(canvasFramePublicId)
+                            }
+                            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-light-800 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:text-dark-800 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800"
+                          >
+                            <HiOutlinePencilSquare className="h-4 w-4" />
+                            <span className="hidden sm:inline">
+                              {t`View on whiteboard`}
+                            </span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={onClose}
+                          className="flex h-8 w-8 items-center justify-center rounded-md text-light-800 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:text-dark-800 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800"
+                          aria-label={t`Close subtask`}
+                        >
+                          <HiXMark className="h-5 w-5" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="flex-1 overflow-y-auto px-5 py-5 md:px-7">

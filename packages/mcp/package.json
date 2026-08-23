@@ -1,6 +1,6 @@
 {
   "name": "@kan/mcp",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "MCP server for Kan — control workspaces, boards, lists, and cards via AI",
   "type": "module",
   "bin": {

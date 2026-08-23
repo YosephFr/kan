@@ -647,6 +647,7 @@ export const cardRouter = createTRPCRouter({
         card: result,
         subtaskSummary,
         resourceSummary,
+        hasCanvas,
       } = await cardReadRepo
         .getDetailSnapshot(ctx.db, {
           cardPublicId: input.cardPublicId,
@@ -680,6 +681,7 @@ export const cardRouter = createTRPCRouter({
         ...result,
         subtaskSummary,
         resourceSummary,
+        hasCanvas,
         list: {
           ...result.list,
           board: {

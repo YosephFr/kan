@@ -7,6 +7,7 @@ import { registerPrompts } from "./prompts.js";
 import { registerAttachmentTools } from "./tools/attachment.js";
 import { registerAutomationTools } from "./tools/automation.js";
 import { registerBoardTools } from "./tools/board.js";
+import { registerCardCanvasTools } from "./tools/card-canvas.js";
 import { registerCardPipelineTools } from "./tools/card-pipeline.js";
 import { registerCardResourceTools } from "./tools/card-resource.js";
 import { registerCardTools } from "./tools/card.js";
@@ -27,7 +28,7 @@ const server = new McpServer(
   },
   {
     instructions:
-      "Inspect workspaces, boards, members, current cards, and card resources before writing. Never guess a target workspace, board, assignee, due date, or destructive action. For meeting imports, resolve ambiguities with the user, run ensure_workspace_board and sync_board_cards in plan mode, present the plan, then apply only after confirmation. These batch tools are idempotent by name/title and do not delete unspecified content. Upload only file paths the user explicitly supplied. Confirm removal of in-use resources only after reviewing their references. Prefer public IDs returned by read tools.",
+      "Inspect workspaces, boards, members, current cards, card resources, and whiteboard frames before writing. Never guess a target workspace, board, assignee, due date, or destructive action. For meeting imports, resolve ambiguities with the user, run ensure_workspace_board and sync_board_cards in plan mode, present the plan, then apply only after confirmation. These batch tools are idempotent by name/title and do not delete unspecified content. Upload only file paths the user explicitly supplied. Confirm removal of in-use resources only after reviewing their references. Convert only persisted whiteboard frames and never submit arbitrary canvas scenes. Prefer public IDs returned by read tools.",
   },
 );
 
@@ -35,6 +36,7 @@ registerWorkspaceTools(server);
 registerBoardTools(server);
 registerListTools(server);
 registerCardTools(server);
+registerCardCanvasTools(server);
 registerCardPipelineTools(server);
 registerCardResourceTools(server);
 registerChecklistTools(server);

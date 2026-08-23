@@ -15,6 +15,7 @@ import {
 import { generateUID } from "@kan/shared/utils";
 
 import type { WorkspaceBoundaryTransaction } from "./workspace-boundary";
+import { cloneCardCanvasHeadTx } from "./cardCanvasClone.repo";
 import { clonePipelineForCardTx } from "./cardPipeline.repo";
 import { cloneCardResourcesTx } from "./cardResourceClone.repo";
 import {
@@ -380,6 +381,21 @@ export const createFromSnapshot = async (
                 : undefined,
           });
           skippedResourceCount += clonedResources.skippedUploadCount;
+          await cloneCardCanvasHeadTx(tx, {
+            sourceCardId,
+            destinationCardId: createdCard.id,
+            createdBy: args.createdBy,
+            subtaskBySourceId:
+              cloneResult.status === "cloned"
+                ? cloneResult.subtaskBySourceId
+                : undefined,
+            subtaskPublicIdBySourcePublicId:
+              cloneResult.status === "cloned"
+                ? cloneResult.subtaskPublicIdBySourcePublicId
+                : undefined,
+            resourcePublicIdBySourcePublicId:
+              clonedResources.resourcePublicIdBySourcePublicId,
+          });
         }
 
         await tx.insert(cardActivities).values({

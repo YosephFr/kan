@@ -4,6 +4,7 @@ import type { dbClient } from "@kan/db/client";
 import { cards } from "@kan/db/schema";
 
 import { getWithListAndMembersByPublicId } from "./card.repo";
+import { getPresenceByCardIds as getCanvasPresenceByCardIds } from "./cardCanvas.repo";
 import { getSummaryByCardId } from "./cardPipeline.repo";
 import { getSummaryByCardId as getResourceSummaryByCardId } from "./cardResource.repo";
 import {
@@ -40,9 +41,17 @@ export const getDetailSnapshot = async (
 
     const card = await getWithListAndMembersByPublicId(tx, args.cardPublicId);
     if (!card) throw new WorkspaceChangedError();
-    const [subtaskSummary, resourceSummary] = await Promise.all([
-      getSummaryByCardId(tx, lockedCard.id),
-      getResourceSummaryByCardId(tx, lockedCard.id),
-    ]);
-    return { card, subtaskSummary, resourceSummary };
+    const [subtaskSummary, resourceSummary, canvasPresence] = await Promise.all(
+      [
+        getSummaryByCardId(tx, lockedCard.id),
+        getResourceSummaryByCardId(tx, lockedCard.id),
+        getCanvasPresenceByCardIds(tx, [lockedCard.id]),
+      ],
+    );
+    return {
+      card,
+      subtaskSummary,
+      resourceSummary,
+      hasCanvas: canvasPresence.get(lockedCard.id) ?? false,
+    };
   });

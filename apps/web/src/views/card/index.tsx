@@ -37,7 +37,6 @@ import {
 } from "./components/CardFieldSelectors";
 import { CardResourceSummary } from "./components/CardResourceSummary";
 import { CardSubtasksView } from "./components/CardSubtasksView";
-import { CardWorkspaceComingSoon } from "./components/CardWorkspaceComingSoon";
 import { CardWorkspaceTabs } from "./components/CardWorkspaceTabs";
 import Checklists from "./components/Checklists";
 import { DeleteCardConfirmation } from "./components/DeleteCardConfirmation";
@@ -70,6 +69,19 @@ const CardFilesView = dynamic(
   },
 );
 
+const CardWhiteboardView = dynamic(
+  () =>
+    import("./components/CardWhiteboardView").then(
+      (module) => module.CardWhiteboardView,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-full min-h-[24rem] animate-pulse bg-light-200 dark:bg-dark-200" />
+    ),
+  },
+);
+
 interface FormValues {
   cardId: string;
   title: string;
@@ -84,6 +96,10 @@ export function CardRightPanel({ isTemplate }: { isTemplate?: boolean }) {
   const cardId = Array.isArray(router.query.cardId)
     ? router.query.cardId[0]
     : router.query.cardId;
+  const activeView = getCardWorkspaceView(
+    router.query.vista,
+    router.query.view,
+  );
 
   const { data: card } = api.card.byId.useQuery(
     { cardPublicId: cardId ?? "" },
@@ -153,6 +169,8 @@ export function CardRightPanel({ isTemplate }: { isTemplate?: boolean }) {
         ),
       };
     }) ?? [];
+
+  if (activeView === "whiteboard") return null;
 
   return (
     <div className="h-full w-full border-l-[1px] border-light-300 bg-light-50 p-4 text-light-900 dark:border-dark-300 dark:bg-dark-50 dark:text-dark-900 sm:p-8 md:w-[360px]">
@@ -516,6 +534,7 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
                 activeView={activeView}
                 developmentCount={card.subtaskSummary.total}
                 resourceCount={card.resourceSummary.total}
+                hasCanvas={card.hasCanvas}
               />
             </div>
           )}
@@ -658,8 +677,30 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
         )}
 
         {activeView === "whiteboard" && (
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <CardWorkspaceComingSoon />
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <CardWhiteboardView
+              cardPublicId={cardId}
+              cardTitle={card?.title ?? t`Card`}
+              members={
+                canEdit
+                  ? (workspaceMembers ?? [])
+                      .filter((member) => member.status === "active")
+                      .map((member) => ({
+                        publicId: member.publicId,
+                        email: member.email,
+                        user: member.user
+                          ? {
+                              name: member.user.name ?? null,
+                              email: member.user.email,
+                              image: member.user.image ?? null,
+                            }
+                          : null,
+                      }))
+                  : []
+              }
+              canEdit={canEdit}
+              isPublicBoard={board?.visibility === "public"}
+            />
           </div>
         )}
 

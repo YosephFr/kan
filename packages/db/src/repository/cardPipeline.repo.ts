@@ -6,6 +6,7 @@ import {
   boards,
   cardActivities,
   cardAttachments,
+  cardCanvasFrames,
   cardPipelineStages,
   cardPipelineStageStatuses,
   cardResources,
@@ -256,6 +257,23 @@ const queryByCardPublicId = async (
             asc(cardSubtaskResources.createdAt),
             asc(cardSubtaskResources.publicId),
           );
+  const canvasFrames =
+    subtaskIds.length === 0
+      ? []
+      : await db
+          .select({
+            subtaskId: cardCanvasFrames.subtaskId,
+            publicId: cardCanvasFrames.publicId,
+            name: cardCanvasFrames.name,
+          })
+          .from(cardCanvasFrames)
+          .where(
+            and(
+              inArray(cardCanvasFrames.subtaskId, subtaskIds),
+              eq(cardCanvasFrames.present, true),
+            ),
+          )
+          .orderBy(asc(cardCanvasFrames.id));
 
   const checklistBySubtask = new Map<number, typeof checklistItems>();
   for (const item of checklistItems) {
@@ -269,6 +287,18 @@ const queryByCardPublicId = async (
     items.push(resource);
     resourcesBySubtask.set(resource.subtaskId, items);
   }
+  const canvasFrameBySubtask = new Map(
+    canvasFrames.flatMap((frame) =>
+      frame.subtaskId === null
+        ? []
+        : [
+            [
+              frame.subtaskId,
+              { publicId: frame.publicId, name: frame.name },
+            ] as const,
+          ],
+    ),
+  );
   const subtasksByStage = new Map<number, typeof subtasks>();
   for (const subtask of subtasks) {
     const items = subtasksByStage.get(subtask.stageId) ?? [];
@@ -305,6 +335,7 @@ const queryByCardPublicId = async (
           resources: (resourcesBySubtask.get(subtaskId) ?? []).map(
             ({ subtaskId: _subtaskId, ...resource }) => resource,
           ),
+          canvasFrame: canvasFrameBySubtask.get(subtaskId) ?? null,
         }),
       ),
     })),

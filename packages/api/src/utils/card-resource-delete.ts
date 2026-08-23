@@ -15,6 +15,8 @@ export async function deleteCardResource(
     userId: string;
     resourcePublicId: string;
     removeReferences: boolean;
+    canvasAction?: "replace" | "remove";
+    expectedCanvasVersion?: number;
   },
 ) {
   const context = await cardResourceRepo.getContextByPublicId(
@@ -28,9 +30,17 @@ export async function deleteCardResource(
     expectedWorkspaceId: context.workspaceId,
     deletedBy: input.userId,
     removeReferences: input.removeReferences,
+    canvasAction: input.canvasAction,
+    expectedCanvasVersion: input.expectedCanvasVersion,
   });
   if (result.status === "in_use") {
     throw new TRPCError({ code: "CONFLICT", message: "RESOURCE_IN_USE" });
+  }
+  if (result.status === "canvas_version_conflict") {
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: "CANVAS_VERSION_CONFLICT",
+    });
   }
   if (result.status !== "deleted") {
     throw new TRPCError({

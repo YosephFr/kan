@@ -124,6 +124,7 @@ export async function loadCardPipeline(
           completed: item.completed,
           index: item.index,
         })),
+        canvasFrame: subtask.canvasFrame ?? null,
         resources: subtask.resources.map((resource) => {
           if (resource.kind === "drive") {
             if (!resource.driveType || !resource.driveFileId) {

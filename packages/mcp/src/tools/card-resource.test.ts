@@ -121,4 +121,18 @@ describe("card resource MCP tools", () => {
       "/resources/resource0001?removeReferences=true",
     );
   });
+
+  it("passes a whiteboard deletion strategy with its CAS version", async () => {
+    await tools.get("delete_card_resource")?.handler({
+      resourcePublicId: "resource0001",
+      confirmUsageRemoval: true,
+      canvasAction: "remove",
+      expectedCanvasVersion: 7,
+    });
+
+    expect(kanRequest).toHaveBeenCalledWith(
+      "DELETE",
+      "/resources/resource0001?removeReferences=true&canvasAction=remove&expectedCanvasVersion=7",
+    );
+  });
 });

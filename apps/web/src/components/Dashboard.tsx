@@ -18,6 +18,7 @@ import { NotificationsProvider } from "~/providers/notifications";
 import { usePopup } from "~/providers/popup";
 import { useWorkspace, WorkspaceProvider } from "~/providers/workspace";
 import { api } from "~/utils/api";
+import { getCardWorkspaceView } from "~/utils/card-workspace";
 import { ChangePasswordFormConfirmation } from "~/views/settings/components/ChangePasswordConfirmation";
 import { DeleteWorkspaceConfirmation } from "~/views/settings/components/DeleteWorkspaceConfirmation";
 import Button from "./Button";
@@ -57,6 +58,12 @@ export default function Dashboard({
   const { showPopup } = usePopup();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const showRightPanel =
+    hasRightPanel &&
+    getCardWorkspaceView(
+      searchParams.get("vista") ?? undefined,
+      searchParams.get("view") ?? undefined,
+    ) !== "whiteboard";
 
   const { data: session, isPending: sessionLoading } = authClient.useSession();
   const { data: user, isLoading: userLoading } = api.user.getUser.useQuery(
@@ -206,7 +213,7 @@ export default function Dashboard({
 
           <div className="flex items-center gap-1">
             <NotificationCenter placement="mobile" />
-            {hasRightPanel && (
+            {showRightPanel && (
               <button
                 ref={rightPanelButtonRef}
                 onClick={toggleRightPanel}
@@ -249,7 +256,7 @@ export default function Dashboard({
               <div className="h-full w-full overflow-y-auto">{children}</div>
 
               {/* Mobile Right Panel */}
-              {hasRightPanel && rightPanel && (
+              {showRightPanel && rightPanel && (
                 <div
                   ref={rightPanelRef}
                   className={`fixed right-0 top-12 z-40 h-[calc(100dvh-3rem)] w-80 transform border-l border-light-300 bg-light-200 transition-transform duration-300 ease-in-out dark:border-dark-300 dark:bg-dark-100 md:hidden ${
@@ -261,7 +268,7 @@ export default function Dashboard({
               )}
 
               {/* Desktop Right Panel */}
-              {hasRightPanel && rightPanel && (
+              {showRightPanel && rightPanel && (
                 <div className="hidden md:block">{rightPanel}</div>
               )}
             </div>

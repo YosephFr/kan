@@ -73,6 +73,7 @@ export function CardWorkspaceTabs({
     };
     delete nextQuery.view;
     if (view !== "subtasks") delete nextQuery.subtask;
+    if (view !== "whiteboard") delete nextQuery.frame;
     if (view !== "files") delete nextQuery.recurso;
     await router.replace(
       { pathname: router.pathname, query: nextQuery },

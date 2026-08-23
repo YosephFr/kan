@@ -5,6 +5,7 @@ import {
   HiOutlineCalendarDays,
   HiOutlineCheckCircle,
   HiOutlineListBullet,
+  HiOutlinePencilSquare,
 } from "react-icons/hi2";
 import { twMerge } from "tailwind-merge";
 
@@ -87,6 +88,15 @@ export function SubtaskCard({
                 <HiOutlineListBullet className="h-3.5 w-3.5" />
               )}
               {completedItems}/{subtask.checklistItems.length}
+            </span>
+          )}
+          {subtask.canvasFrame && (
+            <span
+              className="flex items-center gap-1 whitespace-nowrap"
+              title={t`Linked to a whiteboard zone`}
+            >
+              <HiOutlinePencilSquare className="h-3.5 w-3.5" />
+              <span className="sr-only">{t`Linked to a whiteboard zone`}</span>
             </span>
           )}
         </div>

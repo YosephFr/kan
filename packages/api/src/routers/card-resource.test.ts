@@ -143,7 +143,50 @@ describe("cardResource router access", () => {
       userId: "user-1",
       resourcePublicId: "resource0001",
       removeReferences: true,
+      canvasAction: undefined,
+      expectedCanvasVersion: undefined,
     });
+  });
+
+  it("passes an explicit canvas deletion strategy and safe CAS version", async () => {
+    const { cardResourceRouter } = await import("./card-resource");
+    const caller = cardResourceRouter.createCaller({
+      db,
+      user: { id: "user-1" },
+    } as never);
+
+    await caller.delete({
+      resourcePublicId: "resource0001",
+      removeReferences: "true",
+      canvasAction: "replace",
+      expectedCanvasVersion: "12",
+    });
+
+    expect(deleteCardResource).toHaveBeenCalledWith(db, {
+      userId: "user-1",
+      resourcePublicId: "resource0001",
+      removeReferences: true,
+      canvasAction: "replace",
+      expectedCanvasVersion: 12,
+    });
+  });
+
+  it("rejects ambiguous or invalid canvas versions", async () => {
+    const { cardResourceRouter } = await import("./card-resource");
+    const caller = cardResourceRouter.createCaller({
+      db,
+      user: { id: "user-1" },
+    } as never);
+
+    await expect(
+      caller.delete({
+        resourcePublicId: "resource0001",
+        removeReferences: "true",
+        canvasAction: "remove",
+        expectedCanvasVersion: "1e2",
+      } as never),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(deleteCardResource).not.toHaveBeenCalled();
   });
 
   it("returns only public Drive fields and maps public acknowledgement", async () => {

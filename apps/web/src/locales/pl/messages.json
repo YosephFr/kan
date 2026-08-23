@@ -34,7 +34,7 @@
     "comments": [],
     "origin": [
       ["src/views/boards/index.tsx", 51],
-      ["src/views/card/index.tsx", 437]
+      ["src/views/card/index.tsx", 455]
     ],
     "translation": "{0} | {1}"
   },
@@ -172,7 +172,7 @@
       "0": ["labelPublicIds.length"]
     },
     "comments": [],
-    "origin": [["src/views/board/components/NewCardForm.tsx", 546]],
+    "origin": [["src/views/board/components/NewCardForm.tsx", 547]],
     "translation": "{0} etykiety"
   },
   "HeK8S5": {
@@ -219,7 +219,7 @@
       "0": ["resourceSummary?.total ?? 0"]
     },
     "comments": [],
-    "origin": [["src/views/board/components/Card.tsx", 196]],
+    "origin": [["src/views/board/components/Card.tsx", 200]],
     "translation": ""
   },
   "U2lHCx": {
@@ -247,7 +247,7 @@
       "completedItems": ["completedItems"]
     },
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskCard.tsx", 82]],
+    "origin": [["src/views/card/components/SubtaskCard.tsx", 83]],
     "translation": ""
   },
   "rjGSvb": {
@@ -525,12 +525,33 @@
     "origin": [["src/pages/404.tsx", 11]],
     "translation": "404 - Strona nie znaleziona | kan.bn"
   },
+  "+MpjsA": {
+    "translation": "",
+    "message": "A checkpoint is created automatically as the whiteboard changes.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasHistoryDrawer.tsx", 73]]
+  },
+  "ER05nj": {
+    "translation": "",
+    "message": "A loose selection will be wrapped in a new zone before conversion.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 345]]
+  },
   "/rn4RE": {
     "message": "A powerful, flexible kanban app that helps you organise work, track progress, and deliver results—all in one place.",
     "placeholders": {},
     "comments": [],
     "origin": [["src/views/home/index.tsx", 71]],
     "translation": "Potężna, elastyczna aplikacja kanban, która pomaga organizować pracę, śledzić postępy i osiągać rezultaty — wszystko w jednym miejscu."
+  },
+  "Tf96y2": {
+    "translation": "",
+    "message": "A subtask cannot span elements from several zones.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 344]]
   },
   "N44dbu": {
     "message": "A zero may mean that no stage change was recorded, not necessarily that no work happened. Coverage will improve as the team uses the boards.",
@@ -615,8 +636,8 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/card/index.tsx", 608],
-      ["src/views/public/board/CardModal.tsx", 265]
+      ["src/views/card/index.tsx", 627],
+      ["src/views/public/board/CardModal.tsx", 279]
     ],
     "translation": "Aktywność"
   },
@@ -635,6 +656,15 @@
     "comments": [],
     "origin": [["src/views/home/components/Features.tsx", 110]],
     "translation": "Dzienniki aktywności"
+  },
+  "viyL/V": {
+    "translation": "",
+    "message": "Add {0} to whiteboard",
+    "placeholders": {
+      "0": ["resource.title"]
+    },
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasResourceDrawer.tsx", 147]]
   },
   "UGCIzB": {
     "message": "Add / edit label",
@@ -661,7 +691,7 @@
     "message": "Add a step…",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 500]],
+    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 520]],
     "translation": ""
   },
   "qtE5nt": {
@@ -682,7 +712,7 @@
     "message": "Add checklist item",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 508]],
+    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 528]],
     "translation": ""
   },
   "ngBZOd": {
@@ -713,8 +743,15 @@
     "message": "Add Drive link",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 287]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 327]],
     "translation": ""
+  },
+  "GW6iyS": {
+    "translation": "",
+    "message": "Add files from the Files view, then return here.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasResourceDrawer.tsx", 112]]
   },
   "lyqwgn": {
     "message": "Add label",
@@ -757,7 +794,7 @@
     "message": "Add the context needed to complete this subtask…",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 407]],
+    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 427]],
     "translation": ""
   },
   "pBsoKL": {
@@ -1117,11 +1154,22 @@
     "origin": [["src/views/onboarding/select-plan/index.tsx", 65]],
     "translation": "Rocznie"
   },
+  "I/MTqS": {
+    "translation": "",
+    "message": "Anyone who can open this public board will be able to preview {filename}. The image must be stored as a card resource before it can appear safely on the whiteboard.",
+    "placeholders": {
+      "filename": ["filename"]
+    },
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/CardCanvasPasteUploadDialog.tsx", 41]
+    ]
+  },
   "foc+Hl": {
     "message": "Anyone with access to the public board can preview these resources. I understand and want to continue.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 304]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 344]],
     "translation": ""
   },
   "V4L4tK": {
@@ -1216,7 +1264,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/components/NewCardForm.tsx", 619],
+      ["src/views/board/components/NewCardForm.tsx", 620],
       ["src/views/card/components/DueDateSelector.tsx", 220]
     ],
     "translation": "Apply"
@@ -1401,6 +1449,13 @@
     ],
     "translation": ""
   },
+  "0Z17tQ": {
+    "translation": "",
+    "message": "Automatic checkpoint",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasHistoryDrawer.tsx", 87]]
+  },
   "wRUG4H": {
     "message": "Automatic refresh every 15 seconds",
     "placeholders": {},
@@ -1452,6 +1507,13 @@
     "comments": [],
     "origin": [["src/views/boards/components/TemplateBoards.tsx", 28]],
     "translation": "Podstawowy Roadmap"
+  },
+  "dSecwM": {
+    "translation": "",
+    "message": "Before restoration",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasHistoryDrawer.tsx", 86]]
   },
   "Cd4sTD": {
     "message": "Best for individuals and solo creators getting started",
@@ -1526,6 +1588,9 @@
     "comments": [],
     "origin": [
       ["src/views/board/components/ListSettingsDialog.tsx", 45],
+      ["src/views/card/components/CardCanvasConvertDialog.tsx", 30],
+      ["src/views/card/components/CardCanvasFrameOverlays.tsx", 19],
+      ["src/views/card/components/CardCanvasZonesDrawer.tsx", 14],
       ["src/views/card/components/PipelineStageColumn.tsx", 49],
       ["src/views/pulse/components/AttentionList.tsx", 36],
       ["src/views/pulse/components/FlowOverview.tsx", 26],
@@ -1566,8 +1631,8 @@
       ],
       ["src/views/board/components/CardContextMoveBoardModal.tsx", 184],
       ["src/views/board/index.tsx", 697],
-      ["src/views/card/index.tsx", 437],
-      ["src/views/public/board/index.tsx", 125]
+      ["src/views/card/index.tsx", 455],
+      ["src/views/public/board/index.tsx", 130]
     ],
     "translation": "Tablica"
   },
@@ -1612,7 +1677,7 @@
     "message": "Board not found",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/public/board/index.tsx", 181]],
+    "origin": [["src/views/public/board/index.tsx", 186]],
     "translation": "Nie znaleziono tablicy"
   },
   "XNxYxq": {
@@ -1651,7 +1716,7 @@
     "comments": [],
     "origin": [
       ["src/views/board/components/UpdateBoardSlugButton.tsx", 82],
-      ["src/views/public/board/index.tsx", 79]
+      ["src/views/public/board/index.tsx", 80]
     ],
     "translation": "Adres URL tablicy skopiowany do schowka"
   },
@@ -2023,9 +2088,11 @@
       ["src/views/board/components/DeleteBoardConfirmation.tsx", 44],
       ["src/views/board/components/ListSettingsDialog.tsx", 244],
       ["src/views/board/components/MoveBoardForm.tsx", 99],
-      ["src/views/board/components/NewCardForm.tsx", 612],
+      ["src/views/board/components/NewCardForm.tsx", 613],
+      ["src/views/card/components/CardCanvasConvertDialog.tsx", 231],
+      ["src/views/card/components/CardCanvasPasteUploadDialog.tsx", 50],
       ["src/views/card/components/CardDriveLinkDialog.tsx", 185],
-      ["src/views/card/components/CardFilesView.tsx", 431],
+      ["src/views/card/components/CardFilesView.tsx", 493],
       ["src/views/card/components/Comment.tsx", 195],
       ["src/views/card/components/DeleteCardConfirmation.tsx", 86],
       ["src/views/card/components/DeleteChecklistConfirmation.tsx", 64],
@@ -2033,7 +2100,7 @@
       ["src/views/card/components/DueDateSelector.tsx", 213],
       ["src/views/card/components/DuplicateCardConfirmationDialog.tsx", 82],
       ["src/views/card/components/PipelineStageColumn.tsx", 269],
-      ["src/views/card/components/SubtaskEditorDialog.tsx", 537],
+      ["src/views/card/components/SubtaskEditorDialog.tsx", 557],
       ["src/views/members/components/DeleteMemberConfirmation.tsx", 55],
       ["src/views/onboarding/select-plan/index.tsx", 237],
       ["src/views/settings/components/Avatar.tsx", 287],
@@ -2072,11 +2139,22 @@
     "origin": [["src/views/card/components/CardResourceUploadQueue.tsx", 312]],
     "translation": ""
   },
+  "vul0MH": {
+    "translation": "",
+    "message": "Cannot save",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 32]]
+  },
   "kryGs+": {
     "message": "Card",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/index.tsx", 437]],
+    "origin": [
+      ["src/views/card/index.tsx", 455],
+      ["src/views/card/index.tsx", 683],
+      ["src/views/public/board/CardModal.tsx", 315]
+    ],
     "translation": "Karta"
   },
   "Vb5FmB": {
@@ -2090,7 +2168,7 @@
     "message": "Card details",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/public/board/CardModal.tsx", 127]],
+    "origin": [["src/views/public/board/CardModal.tsx", 139]],
     "translation": ""
   },
   "sU2uWc": {
@@ -2150,8 +2228,8 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/card/index.tsx", 509],
-      ["src/views/card/index.tsx", 563]
+      ["src/views/card/index.tsx", 527],
+      ["src/views/card/index.tsx", 582]
     ],
     "translation": "Nie znaleziono karty"
   },
@@ -2159,14 +2237,20 @@
     "message": "Card resource",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskResourceSection.tsx", 167]],
+    "origin": [
+      ["src/views/card/components/CardWhiteboardCanvas.tsx", 510],
+      ["src/views/card/components/SubtaskResourceSection.tsx", 167]
+    ],
     "translation": ""
   },
   "1tJuMr": {
     "message": "Card resources",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 324]],
+    "origin": [
+      ["src/views/card/components/CardCanvasResourceDrawer.tsx", 58],
+      ["src/views/card/components/CardFilesView.tsx", 364]
+    ],
     "translation": ""
   },
   "YYhYc6": {
@@ -2183,11 +2267,18 @@
     "origin": [["src/views/board/components/card-selection-toolbar.tsx", 25]],
     "translation": ""
   },
+  "/X49nZ": {
+    "translation": "",
+    "message": "Card subtask",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 510]]
+  },
   "ZH7TVS": {
     "message": "Card title",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/components/NewCardForm.tsx", 412]],
+    "origin": [["src/views/board/components/NewCardForm.tsx", 413]],
     "translation": "Tytuł karty"
   },
   "rQXTmd": {
@@ -2197,7 +2288,7 @@
     "origin": [
       ["src/views/board/index.tsx", 418],
       ["src/views/card/components/Dropdown.tsx", 112],
-      ["src/views/public/board/CardModal.tsx", 65]
+      ["src/views/public/board/CardModal.tsx", 77]
     ],
     "translation": "Adres URL karty skopiowany do schowka"
   },
@@ -2205,7 +2296,7 @@
     "message": "Card workspace views",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardWorkspaceTabs.tsx", 104]],
+    "origin": [["src/views/card/components/CardWorkspaceTabs.tsx", 105]],
     "translation": ""
   },
   "tpfeCP": {
@@ -2371,11 +2462,18 @@
     ],
     "translation": "Sprawdź swoją skrzynkę odbiorczą"
   },
+  "mxCT6F": {
+    "translation": "",
+    "message": "Checking where this resource is used before deleting it safely…",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 472]]
+  },
   "iAN0ef": {
     "message": "Checklist item title",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 499]],
+    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 519]],
     "translation": ""
   },
   "lv40jy": {
@@ -2384,7 +2482,7 @@
       "0": ["item.title"]
     },
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 97]],
+    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 99]],
     "translation": ""
   },
   "GnRmu4": {
@@ -2399,7 +2497,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/card/components/SubtaskEditorDialog.tsx", 430],
+      ["src/views/card/components/SubtaskEditorDialog.tsx", 450],
       ["src/views/pulse/components/FlowOverview.tsx", 120]
     ],
     "translation": ""
@@ -2527,16 +2625,24 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/components/Dashboard.tsx", 294],
+      ["src/components/Dashboard.tsx", 301],
       ["src/views/board/components/NewTemplateForm.tsx", 110],
       ["src/views/boards/components/NewBoardForm.tsx", 132],
+      ["src/views/card/components/CardCanvasConvertDialog.tsx", 118],
       ["src/views/card/components/CardDriveLinkDialog.tsx", 118],
-      ["src/views/card/index.tsx", 500],
+      ["src/views/card/index.tsx", 518],
       ["src/views/members/components/EditMemberPermissionsModal.tsx", 172],
-      ["src/views/public/board/CardModal.tsx", 189],
+      ["src/views/public/board/CardModal.tsx", 202],
       ["src/views/settings/components/NewApiKeyModal.tsx", 136]
     ],
     "translation": "Zamknij"
+  },
+  "R8aB59": {
+    "translation": "",
+    "message": "Close history",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasHistoryDrawer.tsx", 47]]
   },
   "fJGhA7": {
     "message": "Close preview",
@@ -2545,11 +2651,18 @@
     "origin": [["src/views/card/components/CardResourceViewer.tsx", 87]],
     "translation": ""
   },
+  "NFSo1X": {
+    "translation": "",
+    "message": "Close resources",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasResourceDrawer.tsx", 81]]
+  },
   "wZjRHq": {
     "message": "Close subtask",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 249]],
+    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 268]],
     "translation": ""
   },
   "bxsfjH": {
@@ -2558,6 +2671,13 @@
     "comments": [],
     "origin": [["src/components/NotificationCenter.tsx", 300]],
     "translation": "Close this panel and try again."
+  },
+  "E/KtnE": {
+    "translation": "",
+    "message": "Close zones",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasZonesDrawer.tsx", 72]]
   },
   "TcXcmk": {
     "message": "Code Review",
@@ -2586,7 +2706,7 @@
     "message": "Colour",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/index.tsx", 201]],
+    "origin": [["src/views/card/index.tsx", 219]],
     "translation": "Colour"
   },
   "AUYALh": {
@@ -2767,6 +2887,13 @@
     ],
     "translation": "Potwierdź nowe hasło"
   },
+  "IInnZo": {
+    "translation": "",
+    "message": "Conflict",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 31]]
+  },
   "iSLIjg": {
     "message": "Connect",
     "placeholders": {},
@@ -2877,12 +3004,26 @@
     "origin": [["src/views/home/components/Features.tsx", 86]],
     "translation": "Kontroluj, kto może wyświetlać i edytować twoje tablice."
   },
+  "hvZwVx": {
+    "translation": "",
+    "message": "Convert",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 103]]
+  },
   "zQPhSa": {
     "message": "Convert to link",
     "placeholders": {},
     "comments": [],
     "origin": [["src/components/YouTubeEmbed/YouTubeDropdown.tsx", 47]],
     "translation": "Konwertuj na link"
+  },
+  "2rF6/W": {
+    "translation": "",
+    "message": "Convert zone to subtask",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasConvertDialog.tsx", 107]]
   },
   "5RkSzq": {
     "message": "Copy board link",
@@ -2963,7 +3104,7 @@
     "comments": [],
     "origin": [
       ["src/components/LabelForm.tsx", 213],
-      ["src/views/board/components/NewCardForm.tsx", 657],
+      ["src/views/board/components/NewCardForm.tsx", 658],
       ["src/views/board/components/NewListForm.tsx", 143]
     ],
     "translation": "Utwórz kolejną"
@@ -2979,7 +3120,7 @@
     "message": "Create card",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/components/NewCardForm.tsx", 667]],
+    "origin": [["src/views/board/components/NewCardForm.tsx", 668]],
     "translation": "Utwórz kartę"
   },
   "d33Usy": {
@@ -3034,7 +3175,7 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/board/components/NewCardForm.tsx", 508],
+      ["src/views/board/components/NewCardForm.tsx", 509],
       ["src/views/card/components/LabelSelector.tsx", 101]
     ],
     "translation": "Utwórz nową etykietę"
@@ -3048,6 +3189,13 @@
       ["src/views/board/index.tsx", 785]
     ],
     "translation": "Utwórz nową listę"
+  },
+  "e2PnFL": {
+    "translation": "",
+    "message": "Create subtask",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasConvertDialog.tsx", 242]]
   },
   "A5hiCy": {
     "message": "Create template",
@@ -3330,7 +3478,7 @@
       ["src/components/LabelForm.tsx", 228],
       ["src/components/YouTubeEmbed/YouTubeDropdown.tsx", 52],
       ["src/views/board/components/DeleteBoardConfirmation.tsx", 47],
-      ["src/views/card/components/CardFilesView.tsx", 438],
+      ["src/views/card/components/CardFilesView.tsx", 540],
       ["src/views/card/components/DeleteCardConfirmation.tsx", 92],
       ["src/views/card/components/DeleteChecklistConfirmation.tsx", 67],
       ["src/views/card/components/DeleteCommentConfirmation.tsx", 83],
@@ -3345,7 +3493,7 @@
       "0": ["resource.title"]
     },
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 154]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 157]],
     "translation": ""
   },
   "NlPnb6": {
@@ -3369,11 +3517,18 @@
     ],
     "translation": "Usuń konto"
   },
+  "Iq2A61": {
+    "translation": "",
+    "message": "Delete and leave placeholders",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 510]]
+  },
   "h7PfnF": {
     "message": "Delete and unlink",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 438]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 531]],
     "translation": ""
   },
   "tmpW+w": {
@@ -3397,7 +3552,7 @@
     "message": "Delete checklist item",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 477]],
+    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 497]],
     "translation": ""
   },
   "njJFtc": {
@@ -3427,8 +3582,8 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/card/components/SubtaskEditorDialog.tsx", 544],
-      ["src/views/card/components/SubtaskEditorDialog.tsx", 555]
+      ["src/views/card/components/SubtaskEditorDialog.tsx", 564],
+      ["src/views/card/components/SubtaskEditorDialog.tsx", 575]
     ],
     "translation": ""
   },
@@ -3443,14 +3598,14 @@
     "message": "Delete this resource?",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 419]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 464]],
     "translation": ""
   },
   "9kLV4x": {
     "message": "Delete this subtask and its checklist?",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 529]],
+    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 549]],
     "translation": ""
   },
   "snMaH4": {
@@ -3461,6 +3616,13 @@
       ["src/views/settings/components/DeleteWebhookConfirmation.tsx", 55]
     ],
     "translation": "Usuń webhook"
+  },
+  "M1l/ZO": {
+    "translation": "",
+    "message": "Delete whiteboard items",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 518]]
   },
   "kYu0eF": {
     "message": "Delete workspace",
@@ -3565,7 +3727,10 @@
     "message": "Description",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 395]],
+    "origin": [
+      ["src/views/card/components/CardCanvasConvertDialog.tsx", 138],
+      ["src/views/card/components/SubtaskEditorDialog.tsx", 415]
+    ],
     "translation": ""
   },
   "f8fH8W": {
@@ -3759,17 +3924,27 @@
       ["src/views/boards/components/TemplateBoards.tsx", 35],
       ["src/views/boards/components/TemplateBoards.tsx", 48],
       ["src/views/boards/components/TemplateBoards.tsx", 61],
+      ["src/views/card/components/CardCanvasConvertDialog.tsx", 31],
+      ["src/views/card/components/CardCanvasFrameOverlays.tsx", 20],
+      ["src/views/card/components/CardCanvasZonesDrawer.tsx", 15],
       ["src/views/card/components/PipelineStageColumn.tsx", 51],
       ["src/views/pulse/components/FlowOverview.tsx", 27],
       ["src/views/pulse/details.tsx", 43]
     ],
     "translation": "Gotowe"
   },
+  "Z8B6FO": {
+    "translation": "",
+    "message": "Double-click to open",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 516]]
+  },
   "mzI/c+": {
     "message": "Download",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 135]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 138]],
     "translation": ""
   },
   "BjitBo": {
@@ -3814,6 +3989,13 @@
     "translation": "Pobierz obraz",
     "obsolete": true
   },
+  "NZvGji": {
+    "translation": "",
+    "message": "Download local copy",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasConflictDialog.tsx", 74]]
+  },
   "xlyIHp": {
     "message": "Drag workspace",
     "placeholders": {},
@@ -3848,8 +4030,8 @@
     "comments": [],
     "origin": [
       ["src/views/board/components/Filters.tsx", 199],
-      ["src/views/board/components/NewCardForm.tsx", 576],
-      ["src/views/card/index.tsx", 212]
+      ["src/views/board/components/NewCardForm.tsx", 577],
+      ["src/views/card/index.tsx", 230]
     ],
     "translation": "Termin wykonania"
   },
@@ -3857,7 +4039,10 @@
     "message": "Due date and time",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 369]],
+    "origin": [
+      ["src/views/card/components/CardCanvasConvertDialog.tsx", 214],
+      ["src/views/card/components/SubtaskEditorDialog.tsx", 389]
+    ],
     "translation": ""
   },
   "wLuEOH": {
@@ -4004,6 +4189,13 @@
     "comments": [],
     "origin": [["src/views/boards/components/TemplateBoards.tsx", 44]],
     "translation": "Edycja"
+  },
+  "UJChY0": {
+    "translation": "",
+    "message": "elements",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasHistoryDrawer.tsx", 95]]
   },
   "b/LfJo": {
     "message": "email",
@@ -4334,6 +4526,13 @@
     "origin": [["src/views/boards/components/TemplateBoards.tsx", 91]],
     "translation": "Wykonanie"
   },
+  "GS+Mus": {
+    "translation": "",
+    "message": "Export",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 118]]
+  },
   "GwNIE2": {
     "message": "Extended Roadmap",
     "placeholders": {},
@@ -4524,14 +4723,14 @@
     "message": "Files and references",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 275]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 315]],
     "translation": ""
   },
   "cUcjlU": {
     "message": "Files and references will appear here when they are added.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 366]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 406]],
     "translation": ""
   },
   "o7J4JM": {
@@ -4547,6 +4746,13 @@
     "comments": [],
     "origin": [["src/views/home/components/Faqs.tsx", 150]],
     "translation": "Znajdź odpowiedzi na najczęstsze pytania dotyczące Kan. Nie możesz znaleźć tego, czego szukasz? Śmiało <0>skontaktuj się z nami</0>."
+  },
+  "NvamEt": {
+    "translation": "",
+    "message": "Finish saving or resolve the conflict before restoring a revision.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasHistoryDrawer.tsx", 54]]
   },
   "q3il6U": {
     "message": "Font size",
@@ -4819,14 +5025,21 @@
     "message": "Google Docs",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 43]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 46]],
     "translation": ""
+  },
+  "w9Xmw/": {
+    "translation": "",
+    "message": "Google Drive",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasResourceDrawer.tsx", 130]]
   },
   "rnnjqB": {
     "message": "Google Drive file",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 46]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 49]],
     "translation": ""
   },
   "ptgzG8": {
@@ -4840,14 +5053,14 @@
     "message": "Google Sheets",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 44]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 47]],
     "translation": ""
   },
   "6f5BQJ": {
     "message": "Google Slides",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 45]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 48]],
     "translation": ""
   },
   "cdyS7J": {
@@ -4888,14 +5101,24 @@
     "message": "Has content",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardWorkspaceTabs.tsx", 150]],
+    "origin": [["src/views/card/components/CardWorkspaceTabs.tsx", 151]],
     "translation": ""
+  },
+  "60ctBd": {
+    "translation": "",
+    "message": "Has whiteboard",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/board/components/Card.tsx", 210]]
   },
   "yx/fMc": {
     "message": "High",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/PrioritySelector.tsx", 32]],
+    "origin": [
+      ["src/components/PrioritySelector.tsx", 32],
+      ["src/views/card/components/CardCanvasConvertDialog.tsx", 186]
+    ],
     "translation": "High"
   },
   "CB/NpV": {
@@ -4911,6 +5134,16 @@
     "comments": [],
     "origin": [["src/views/boards/components/TemplateBoards.tsx", 80]],
     "translation": "Zatrudniony"
+  },
+  "0caMy7": {
+    "translation": "",
+    "message": "History",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/CardCanvasHistoryDrawer.tsx", 40],
+      ["src/views/card/components/CardCanvasToolbar.tsx", 110]
+    ]
   },
   "0FwMge": {
     "message": "History coverage: {coverage}% of cards have recorded list transitions. Cycle time only uses complete transitions.",
@@ -5003,6 +5236,15 @@
     "origin": [["src/views/card/components/CardDriveLinkDialog.tsx", 144]],
     "translation": ""
   },
+  "8kN7Qi": {
+    "translation": "",
+    "message": "I understand, upload",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/CardCanvasPasteUploadDialog.tsx", 57]
+    ]
+  },
   "VOwhhz": {
     "message": "ID copied",
     "placeholders": {},
@@ -5031,12 +5273,44 @@
     "origin": [["src/views/card/components/CardResourceViewer.tsx", 127]],
     "translation": ""
   },
+  "hG89Ed": {
+    "translation": "",
+    "message": "Image",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 701]]
+  },
+  "unQeuX": {
+    "translation": "",
+    "message": "Image could not be added",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/use-card-canvas-image-paste.ts", 110]
+    ]
+  },
+  "ypi3FP": {
+    "translation": "",
+    "message": "Image not added while offline",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-image-paste.ts", 66]]
+  },
   "12fNS3": {
     "message": "Image to crop",
     "placeholders": {},
     "comments": [],
     "origin": [["src/components/SquareImageCropModal.tsx", 164]],
     "translation": ""
+  },
+  "rAyDtJ": {
+    "translation": "",
+    "message": "Images copied from another scene must be uploaded as card resources first.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/use-card-canvas-image-paste.ts", 170]
+    ]
   },
   "l3s5ri": {
     "message": "Import",
@@ -5115,6 +5389,9 @@
     "comments": [],
     "origin": [
       ["src/views/board/components/ListSettingsDialog.tsx", 43],
+      ["src/views/card/components/CardCanvasConvertDialog.tsx", 29],
+      ["src/views/card/components/CardCanvasFrameOverlays.tsx", 18],
+      ["src/views/card/components/CardCanvasZonesDrawer.tsx", 13],
       ["src/views/card/components/PipelineStageColumn.tsx", 47],
       ["src/views/pulse/components/FlowOverview.tsx", 25],
       ["src/views/pulse/details.tsx", 41]
@@ -5145,7 +5422,7 @@
     "message": "Inactive member",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 327]],
+    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 347]],
     "translation": ""
   },
   "6mbe4b": {
@@ -5262,7 +5539,7 @@
     "message": "It will appear here when an editor starts planning the work.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardSubtasksView.tsx", 501]],
+    "origin": [["src/views/card/components/CardSubtasksView.tsx", 520]],
     "translation": ""
   },
   "c9AJhn": {
@@ -5324,7 +5601,7 @@
     "message": "Keep source material, documents and visual references with the work.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 276]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 316]],
     "translation": ""
   },
   "o0ET/A": {
@@ -5357,8 +5634,8 @@
     "origin": [
       ["src/views/board/components/CardContextLabelsModal.tsx", 31],
       ["src/views/board/components/Filters.tsx", 177],
-      ["src/views/board/components/NewCardForm.tsx", 512],
-      ["src/views/card/index.tsx", 170]
+      ["src/views/board/components/NewCardForm.tsx", 513],
+      ["src/views/card/index.tsx", 188]
     ],
     "translation": "Etykiety"
   },
@@ -5461,6 +5738,13 @@
     "origin": [["src/views/settings/WhitelabelSettings.tsx", 247]],
     "translation": ""
   },
+  "Bw0wfa": {
+    "translation": "",
+    "message": "Leave whiteboard",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 84]]
+  },
   "vifyyw": {
     "message": "Legal",
     "placeholders": {},
@@ -5486,14 +5770,14 @@
     "message": "License activated",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/Dashboard.tsx", 119]],
+    "origin": [["src/components/Dashboard.tsx", 126]],
     "translation": "Licencja aktywowana"
   },
   "K3LUJr": {
     "message": "License activation failed",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/Dashboard.tsx", 133]],
+    "origin": [["src/components/Dashboard.tsx", 140]],
     "translation": "Aktywacja licencji nie powiodła się"
   },
   "1njn7W": {
@@ -5527,8 +5811,8 @@
       ["src/views/board/components/UpdateBoardSlugButton.tsx", 80],
       ["src/views/board/index.tsx", 416],
       ["src/views/card/components/Dropdown.tsx", 110],
-      ["src/views/public/board/CardModal.tsx", 63],
-      ["src/views/public/board/index.tsx", 77]
+      ["src/views/public/board/CardModal.tsx", 75],
+      ["src/views/public/board/index.tsx", 78]
     ],
     "translation": "Link skopiowany"
   },
@@ -5538,6 +5822,16 @@
     "comments": [],
     "origin": [["src/views/card/components/ActivityList.tsx", 159]],
     "translation": ""
+  },
+  "oo9R8p": {
+    "translation": "",
+    "message": "Linked to a whiteboard zone",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/SubtaskCard.tsx", 96],
+      ["src/views/card/components/SubtaskCard.tsx", 99]
+    ]
   },
   "2BBAbc": {
     "message": "List",
@@ -5550,7 +5844,7 @@
       ],
       ["src/views/board/components/CardContextDuplicateModal.tsx", 139],
       ["src/views/board/components/CardContextMoveBoardModal.tsx", 211],
-      ["src/views/card/index.tsx", 160]
+      ["src/views/card/index.tsx", 178]
     ],
     "translation": "Lista"
   },
@@ -5613,6 +5907,13 @@
     "origin": [["src/views/card/components/ActivityList.tsx", 752]],
     "translation": "Załaduj więcej aktywności"
   },
+  "FM97i0": {
+    "translation": "",
+    "message": "Load remote version",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasConflictDialog.tsx", 82]]
+  },
   "9ipVLx": {
     "message": "Loading card resources…",
     "placeholders": {},
@@ -5658,6 +5959,20 @@
     ],
     "translation": "Ładowanie uprawnień..."
   },
+  "zsxW0I": {
+    "translation": "",
+    "message": "Loading the remote version removes this device's local draft. Download it first if you want to keep it.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasConflictDialog.tsx", 86]]
+  },
+  "AUqO/e": {
+    "translation": "",
+    "message": "Loading whiteboard…",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardView.tsx", 63]]
+  },
   "Z3FXyt": {
     "message": "Loading...",
     "placeholders": {},
@@ -5676,7 +5991,10 @@
     "message": "Loading…",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/NotificationCenter.tsx", 337]],
+    "origin": [
+      ["src/components/NotificationCenter.tsx", 337],
+      ["src/views/card/components/CardCanvasToolbar.tsx", 27]
+    ],
     "translation": "Loading…"
   },
   "nZW6P0": {
@@ -5726,7 +6044,10 @@
     "message": "Low",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/PrioritySelector.tsx", 44]],
+    "origin": [
+      ["src/components/PrioritySelector.tsx", 44],
+      ["src/views/card/components/CardCanvasConvertDialog.tsx", 184]
+    ],
     "translation": "Low"
   },
   "O9jVbx": {
@@ -5810,7 +6131,8 @@
     "comments": [],
     "origin": [
       ["src/components/FontSizeSelector.tsx", 8],
-      ["src/components/PrioritySelector.tsx", 38]
+      ["src/components/PrioritySelector.tsx", 38],
+      ["src/views/card/components/CardCanvasConvertDialog.tsx", 185]
     ],
     "translation": "Średni"
   },
@@ -5835,8 +6157,8 @@
     "origin": [
       ["src/views/card/components/ActivityList.tsx", 64],
       ["src/views/card/components/ActivityList.tsx", 101],
-      ["src/views/card/components/SubtaskEditorDialog.tsx", 326],
-      ["src/views/card/components/SubtaskEditorDialog.tsx", 356],
+      ["src/views/card/components/SubtaskEditorDialog.tsx", 346],
+      ["src/views/card/components/SubtaskEditorDialog.tsx", 376],
       ["src/views/members/index.tsx", 221]
     ],
     "translation": "Członek"
@@ -5855,8 +6177,8 @@
     "origin": [
       ["src/components/SideNavigation.tsx", 147],
       ["src/views/board/components/Filters.tsx", 169],
-      ["src/views/board/components/NewCardForm.tsx", 470],
-      ["src/views/card/index.tsx", 180],
+      ["src/views/board/components/NewCardForm.tsx", 471],
+      ["src/views/card/index.tsx", 198],
       ["src/views/members/index.tsx", 282],
       ["src/views/pricing/components/FeatureComparisonTable.tsx", 81]
     ],
@@ -5879,6 +6201,15 @@
       ["src/views/pricing/components/FeatureComparisonTable.tsx", 183]
     ],
     "translation": "Wzmianki"
+  },
+  "9g6hfu": {
+    "translation": "",
+    "message": "Mermaid is not available here",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/use-card-canvas-image-paste.ts", 192]
+    ]
   },
   "hty0d5": {
     "message": "Monday",
@@ -6147,7 +6478,7 @@
     "message": "New card",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/components/NewCardForm.tsx", 395]],
+    "origin": [["src/views/board/components/NewCardForm.tsx", 396]],
     "translation": "Nowa karta"
   },
   "cWcxrL": {
@@ -6323,6 +6654,13 @@
     ],
     "translation": ""
   },
+  "EhR8Hg": {
+    "translation": "",
+    "message": "No checkpoints yet",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasHistoryDrawer.tsx", 70]]
+  },
   "07xRBp": {
     "message": "No colour",
     "placeholders": {},
@@ -6380,7 +6718,7 @@
     "message": "No license key was provided. Please try activating again.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/Dashboard.tsx", 130]],
+    "origin": [["src/components/Dashboard.tsx", 137]],
     "translation": "Nie podano klucza licencyjnego. Spróbuj aktywować ponownie."
   },
   "hXMFoN": {
@@ -6396,6 +6734,20 @@
     "comments": [],
     "origin": [["src/views/board/index.tsx", 771]],
     "translation": "Nie utworzono jeszcze żadnych list"
+  },
+  "QTvI9X": {
+    "translation": "",
+    "message": "No matching resources",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasResourceDrawer.tsx", 109]]
+  },
+  "qWa3IO": {
+    "translation": "",
+    "message": "No matching zones",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasZonesDrawer.tsx", 100]]
   },
   "HbXReU": {
     "message": "No notifications yet",
@@ -6415,7 +6767,10 @@
     "message": "No priority",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/PrioritySelector.tsx", 50]],
+    "origin": [
+      ["src/components/PrioritySelector.tsx", 50],
+      ["src/views/card/components/CardCanvasConvertDialog.tsx", 183]
+    ],
     "translation": "No priority"
   },
   "i30J2U": {
@@ -6436,7 +6791,10 @@
     "message": "No resources yet",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 362]],
+    "origin": [
+      ["src/views/card/components/CardCanvasResourceDrawer.tsx", 109],
+      ["src/views/card/components/CardFilesView.tsx", 402]
+    ],
     "translation": ""
   },
   "ERpq2P": {
@@ -6466,7 +6824,7 @@
     "message": "No stages were created. Check your connection and try again.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardSubtasksView.tsx", 469]],
+    "origin": [["src/views/card/components/CardSubtasksView.tsx", 488]],
     "translation": ""
   },
   "ZVQil2": {
@@ -6490,12 +6848,33 @@
     "origin": [["src/views/settings/components/WebhookList.tsx", 196]],
     "translation": "Brak skonfigurowanych webhooków. Dodaj webhook, aby otrzymywać powiadomienia."
   },
+  "ULHONt": {
+    "translation": "",
+    "message": "No zones yet",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasZonesDrawer.tsx", 100]]
+  },
   "JGwBQ0": {
     "message": "Not classified",
     "placeholders": {},
     "comments": [],
     "origin": [["src/views/board/components/ListSettingsDialog.tsx", 52]],
     "translation": "Not classified"
+  },
+  "/6eE9Y": {
+    "translation": "",
+    "message": "Not converted to a subtask",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasZonesDrawer.tsx", 147]]
+  },
+  "+snX+6": {
+    "translation": "",
+    "message": "Nothing was created. Review the fields and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 400]]
   },
   "iDNBZe": {
     "message": "Notifications",
@@ -6534,8 +6913,15 @@
     "message": "Offline — changes are paused",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardSubtasksView.tsx", 530]],
+    "origin": [["src/views/card/components/CardSubtasksView.tsx", 549]],
     "translation": ""
+  },
+  "J7VnMA": {
+    "translation": "",
+    "message": "Offline · saved locally",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 30]]
   },
   "+1LTay": {
     "message": "On track",
@@ -6590,6 +6976,15 @@
     ],
     "translation": ""
   },
+  "kScc6v": {
+    "translation": "",
+    "message": "Online image could not be imported",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/use-card-canvas-image-paste.ts", 183]
+    ]
+  },
   "gGwWif": {
     "message": "Only open cards",
     "placeholders": {},
@@ -6607,6 +7002,15 @@
       ["src/views/pulse/components/PortfolioKpiStrip.tsx", 49]
     ],
     "translation": ""
+  },
+  "HWAICJ": {
+    "translation": "",
+    "message": "Open {0}",
+    "placeholders": {
+      "0": ["resource.title"]
+    },
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasResourceDrawer.tsx", 138]]
   },
   "DMm3K1": {
     "message": "Open {0} in Drive",
@@ -6635,8 +7039,15 @@
     "message": "Open in Drive",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 146]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 149]],
     "translation": ""
+  },
+  "Cnt06f": {
+    "translation": "",
+    "message": "Open it from Files to verify it is still available.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 327]]
   },
   "cFQEU/": {
     "message": "Open keyboard shortcuts",
@@ -6667,6 +7078,20 @@
     "comments": [],
     "origin": [["src/views/oss-friends/index.tsx", 58]],
     "translation": "Przyjaciele Open Source"
+  },
+  "ZU4pB4": {
+    "translation": "",
+    "message": "Open subtask",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasFrameOverlays.tsx", 101]]
+  },
+  "h7Tmks": {
+    "translation": "",
+    "message": "Opening whiteboard…",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 551]]
   },
   "BzEFor": {
     "message": "or",
@@ -6753,7 +7178,10 @@
     "message": "Owner",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 306]],
+    "origin": [
+      ["src/views/card/components/CardCanvasConvertDialog.tsx", 192],
+      ["src/views/card/components/SubtaskEditorDialog.tsx", 326]
+    ],
     "translation": ""
   },
   "h8AO0f": {
@@ -6784,7 +7212,7 @@
     "message": "Password already set",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/Dashboard.tsx", 284]],
+    "origin": [["src/components/Dashboard.tsx", 291]],
     "translation": "Hasło już ustawione"
   },
   "IrZaAn": {
@@ -6836,6 +7264,15 @@
       ["src/views/settings/components/ChangePasswordConfirmation.tsx", 30]
     ],
     "translation": "Hasła nie są zgodne"
+  },
+  "IMaf6s": {
+    "translation": "",
+    "message": "Paste the source image instead",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/use-card-canvas-image-paste.ts", 169]
+    ]
   },
   "URAE3q": {
     "message": "Paused",
@@ -6955,7 +7392,7 @@
     "message": "Pipeline stages",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardSubtasksView.tsx", 543]],
+    "origin": [["src/views/card/components/CardSubtasksView.tsx", 562]],
     "translation": ""
   },
   "GdgCoi": {
@@ -6973,6 +7410,9 @@
       ["src/views/board/components/ListSettingsDialog.tsx", 41],
       ["src/views/boards/components/TemplateBoards.tsx", 29],
       ["src/views/boards/components/TemplateBoards.tsx", 35],
+      ["src/views/card/components/CardCanvasConvertDialog.tsx", 28],
+      ["src/views/card/components/CardCanvasFrameOverlays.tsx", 21],
+      ["src/views/card/components/CardCanvasZonesDrawer.tsx", 16],
       ["src/views/card/components/PipelineStageColumn.tsx", 53],
       ["src/views/pulse/components/FlowOverview.tsx", 24],
       ["src/views/pulse/details.tsx", 40]
@@ -7059,7 +7499,7 @@
       ["src/components/NewWorkspaceForm.tsx", 154],
       ["src/views/board/components/BoardDropdown.tsx", 69],
       ["src/views/board/components/ListSettingsDialog.tsx", 99],
-      ["src/views/board/components/NewCardForm.tsx", 273],
+      ["src/views/board/components/NewCardForm.tsx", 274],
       ["src/views/board/components/NewListForm.tsx", 81],
       ["src/views/board/components/NewTemplateForm.tsx", 78],
       ["src/views/board/components/UpdateBoardSlugForm.tsx", 73],
@@ -7085,8 +7525,8 @@
       ["src/views/card/components/NewChecklistForm.tsx", 71],
       ["src/views/card/components/NewChecklistItemForm.tsx", 90],
       ["src/views/card/components/NewCommentForm.tsx", 38],
-      ["src/views/card/index.tsx", 342],
-      ["src/views/card/index.tsx", 355],
+      ["src/views/card/index.tsx", 360],
+      ["src/views/card/index.tsx", 373],
       ["src/views/members/components/DeleteMemberConfirmation.tsx", 28],
       ["src/views/members/components/EditMemberPermissionsModal.tsx", 42],
       ["src/views/members/components/EditMemberPermissionsModal.tsx", 65],
@@ -7135,8 +7575,8 @@
       ["src/views/card/components/Dropdown.tsx", 79],
       ["src/views/card/components/Dropdown.tsx", 119],
       ["src/views/card/components/Dropdown.tsx", 138],
-      ["src/views/public/board/CardModal.tsx", 72],
-      ["src/views/public/board/index.tsx", 86],
+      ["src/views/public/board/CardModal.tsx", 84],
+      ["src/views/public/board/index.tsx", 87],
       ["src/views/settings/WhitelabelSettings.tsx", 110],
       ["src/views/settings/WhitelabelSettings.tsx", 133]
     ],
@@ -7167,7 +7607,7 @@
     "message": "Please try again. Your resource is still safe.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 255]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 295]],
     "translation": ""
   },
   "EsSrMh": {
@@ -7249,8 +7689,9 @@
     "comments": [],
     "origin": [
       ["src/views/board/components/Filters.tsx", 193],
-      ["src/views/card/components/SubtaskEditorDialog.tsx", 296],
-      ["src/views/card/index.tsx", 191]
+      ["src/views/card/components/CardCanvasConvertDialog.tsx", 171],
+      ["src/views/card/components/SubtaskEditorDialog.tsx", 316],
+      ["src/views/card/index.tsx", 209]
     ],
     "translation": "Priority"
   },
@@ -7438,12 +7879,28 @@
     "origin": [["src/views/board/components/VisibilityButton.tsx", 126]],
     "translation": ""
   },
+  "SfTHIi": {
+    "translation": "",
+    "message": "Reload whiteboard status",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 500]]
+  },
   "qlAIQ1": {
     "message": "Remote",
     "placeholders": {},
     "comments": [],
     "origin": [["src/views/boards/components/TemplateBoards.tsx", 82]],
     "translation": "Zdalnie"
+  },
+  "Ln16kN": {
+    "translation": "",
+    "message": "Remote version: {remoteVersion}",
+    "placeholders": {
+      "remoteVersion": ["remoteVersion"]
+    },
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasConflictDialog.tsx", 64]]
   },
   "t/YqKh": {
     "message": "Remove",
@@ -7640,18 +8097,25 @@
     "origin": [["src/views/boards/components/TemplateBoards.tsx", 60]],
     "translation": "Rozwiązanie"
   },
+  "JgrjRb": {
+    "translation": "",
+    "message": "Resource could not be placed",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 326]]
+  },
   "KC2nS5": {
     "message": "Resource deleted",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 244]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 273]],
     "translation": ""
   },
   "TJNzE/": {
     "message": "Resource is in use",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 418]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 463]],
     "translation": ""
   },
   "s+MGs7": {
@@ -7659,6 +8123,8 @@
     "placeholders": {},
     "comments": [],
     "origin": [
+      ["src/views/card/components/CardCanvasResourceDrawer.tsx", 69],
+      ["src/views/card/components/CardCanvasToolbar.tsx", 97],
       ["src/views/card/components/SubtaskResourceSection.tsx", 108],
       ["src/views/home/components/Footer.tsx", 114]
     ],
@@ -7668,7 +8134,7 @@
     "message": "Resources could not be loaded",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 344]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 384]],
     "translation": ""
   },
   "xg1ryx": {
@@ -7677,6 +8143,13 @@
     "comments": [],
     "origin": [["src/components/PublicResourceVisibilityNotice.tsx", 25]],
     "translation": ""
+  },
+  "yKu/3Y": {
+    "translation": "",
+    "message": "Restore",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasHistoryDrawer.tsx", 107]]
   },
   "XUH9K1": {
     "message": "Retry {0}",
@@ -7709,6 +8182,20 @@
       ["src/views/card/components/DuplicateCardConfirmationDialog.tsx", 62]
     ],
     "translation": ""
+  },
+  "YmfZMP": {
+    "translation": "",
+    "message": "Revision could not be restored",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 430]]
+  },
+  "u70qCw": {
+    "translation": "",
+    "message": "Revision restored",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 424]]
   },
   "/gaSVU": {
     "message": "Roadmap",
@@ -7790,6 +8277,13 @@
     ],
     "translation": "Zapisz zmiany"
   },
+  "gla9Gg": {
+    "translation": "",
+    "message": "Save failed",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 33]]
+  },
   "uKAEhd": {
     "message": "Save image",
     "placeholders": {},
@@ -7806,11 +8300,28 @@
     "origin": [["src/views/home/components/Features.tsx", 116]],
     "translation": "Oszczędzaj czas dzięki szablonom tablic do wielokrotnego użytku."
   },
+  "idD8Ev": {
+    "translation": "",
+    "message": "Saved",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 34]]
+  },
+  "te1LLn": {
+    "translation": "",
+    "message": "Saved locally",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 29]]
+  },
   "K/F6pa": {
     "message": "Saving…",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 241]],
+    "origin": [
+      ["src/views/card/components/CardCanvasToolbar.tsx", 28],
+      ["src/views/card/components/SubtaskEditorDialog.tsx", 245]
+    ],
     "translation": ""
   },
   "cOh+MI": {
@@ -7833,6 +8344,34 @@
     "comments": [],
     "origin": [["src/components/CommandPallette.tsx", 105]],
     "translation": "Wyszukaj tablice i karty..."
+  },
+  "JcJIeb": {
+    "translation": "",
+    "message": "Search resources",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasResourceDrawer.tsx", 88]]
+  },
+  "lRV22H": {
+    "translation": "",
+    "message": "Search resources…",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasResourceDrawer.tsx", 92]]
+  },
+  "QGl7ZG": {
+    "translation": "",
+    "message": "Search zones",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasZonesDrawer.tsx", 79]]
+  },
+  "12WXkv": {
+    "translation": "",
+    "message": "Search zones…",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasZonesDrawer.tsx", 83]]
   },
   "66Jmqh": {
     "message": "Seat limit reached",
@@ -7930,6 +8469,13 @@
     "origin": [["src/views/board/components/MoveBoardForm.tsx", 84]],
     "translation": "Wybierz obszar roboczy"
   },
+  "ua4WBd": {
+    "translation": "",
+    "message": "Select a zone or some elements",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 341]]
+  },
   "wgNoIs": {
     "message": "Select all",
     "placeholders": {},
@@ -7947,6 +8493,13 @@
     "origin": [["src/views/settings/components/NewWebhookModal.tsx", 32]],
     "translation": "Wybierz co najmniej jedno zdarzenie"
   },
+  "42avnk": {
+    "translation": "",
+    "message": "Select at least one visible element and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 483]]
+  },
   "bLbLju": {
     "message": "Select cards",
     "placeholders": {},
@@ -7956,6 +8509,13 @@
       ["src/views/board/components/board-header-actions.tsx", 111]
     ],
     "translation": ""
+  },
+  "pTFU8J": {
+    "translation": "",
+    "message": "Select only one zone",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 340]]
   },
   "rYUZIe": {
     "message": "Select source",
@@ -8037,7 +8597,7 @@
     "origin": [
       ["src/views/board/components/CardContextDueDateModal.tsx", 20],
       ["src/views/board/components/CardContextMenu.tsx", 83],
-      ["src/views/board/components/NewCardForm.tsx", 589],
+      ["src/views/board/components/NewCardForm.tsx", 590],
       ["src/views/card/components/DueDateSelector.tsx", 181],
       ["src/views/card/components/DueDateSelector.tsx", 192]
     ],
@@ -8310,6 +8870,13 @@
     "origin": [["src/views/onboarding/select-plan/index.tsx", 78]],
     "translation": "Solo"
   },
+  "SqZkv0": {
+    "translation": "",
+    "message": "Some images could not be loaded",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 230]]
+  },
   "J9+zIR": {
     "message": "Something went wrong during activation. Please try again.",
     "placeholders": {},
@@ -8321,7 +8888,7 @@
     "message": "Something went wrong during license activation.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/Dashboard.tsx", 136]],
+    "origin": [["src/components/Dashboard.tsx", 143]],
     "translation": "Coś poszło nie tak podczas aktywacji licencji."
   },
   "vnS6Rf": {
@@ -8337,7 +8904,10 @@
     "message": "Stage",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 276]],
+    "origin": [
+      ["src/views/card/components/CardCanvasConvertDialog.tsx", 151],
+      ["src/views/card/components/SubtaskEditorDialog.tsx", 296]
+    ],
     "translation": ""
   },
   "6qTnZd": {
@@ -8416,7 +8986,7 @@
     "message": "Steps to complete",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 416]],
+    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 436]],
     "translation": ""
   },
   "hQRttt": {
@@ -8437,7 +9007,7 @@
     "message": "Subtask",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 237]],
+    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 241]],
     "translation": ""
   },
   "ymFlkK": {
@@ -8447,11 +9017,18 @@
     "origin": [["src/components/NotificationCenter.tsx", 46]],
     "translation": ""
   },
+  "3RbUh1": {
+    "translation": "",
+    "message": "Subtask created",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 393]]
+  },
   "mCzI0P": {
     "message": "Subtask details",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 220]],
+    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 224]],
     "translation": ""
   },
   "P3qRVV": {
@@ -8474,7 +9051,7 @@
     "comments": [],
     "origin": [
       ["src/views/card/components/PipelineStageColumn.tsx", 252],
-      ["src/views/card/components/SubtaskEditorDialog.tsx", 269]
+      ["src/views/card/components/SubtaskEditorDialog.tsx", 289]
     ],
     "translation": ""
   },
@@ -8489,7 +9066,7 @@
     "message": "Subtasks could not be loaded",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardSubtasksView.tsx", 437]],
+    "origin": [["src/views/card/components/CardSubtasksView.tsx", 456]],
     "translation": ""
   },
   "zzDlyQ": {
@@ -8714,6 +9291,13 @@
     "origin": [["src/views/home/components/Testimonials.tsx", 232]],
     "translation": "Referencje"
   },
+  "d3Ru9o": {
+    "translation": "",
+    "message": "Text and shapes remain available offline. Images need secure card storage first.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-image-paste.ts", 67]]
+  },
   "nhMhRr": {
     "message": "Thank you for your feedback!",
     "placeholders": {},
@@ -8725,7 +9309,7 @@
     "message": "That license key could not be found. Please contact support.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/Dashboard.tsx", 128]],
+    "origin": [["src/components/Dashboard.tsx", 135]],
     "translation": "Nie można znaleźć tego klucza licencyjnego. Skontaktuj się z pomocą techniczną."
   },
   "NcFrgC": {
@@ -8810,6 +9394,20 @@
     ],
     "translation": "Wprowadzone obecne hasło jest nieprawidłowe."
   },
+  "iUPojf": {
+    "translation": "",
+    "message": "The current version was refreshed. Review the deletion choice and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 288]]
+  },
+  "uK+pni": {
+    "translation": "",
+    "message": "The current whiteboard was not changed.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 431]]
+  },
   "PKHPRR": {
     "message": "The document is now available from this card.",
     "placeholders": {},
@@ -8860,6 +9458,15 @@
     "origin": [["src/views/card/components/CardResourceUploadQueue.tsx", 315]],
     "translation": ""
   },
+  "Cml1cv": {
+    "translation": "",
+    "message": "The image host did not allow a safe browser download. Save it and upload it from Files.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/use-card-canvas-image-paste.ts", 184]
+    ]
+  },
   "lkz85l": {
     "message": "The main difference between Kan and Trello is that Kan is open source, allowing anyone to view, modify, and contribute to our code. Our cloud offering also offers no restrictions on features for individual use, whereas Trello locks basic features such as the number of boards you can create behind a paywall.",
     "placeholders": {},
@@ -8905,18 +9512,25 @@
     "origin": [["src/pages/404.tsx", 29]],
     "translation": "Strona, której szukasz, nie istnieje lub została przeniesiona."
   },
+  "GdkNt8": {
+    "translation": "",
+    "message": "The previous head was preserved as a checkpoint.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 425]]
+  },
   "FqIcxR": {
     "message": "The resource was removed from this card.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 245]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 274]],
     "translation": ""
   },
   "4DpJXz": {
     "message": "The resource will be removed from this card. Uploaded files cannot be recovered here.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 424]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 473]],
     "translation": ""
   },
   "T0SblI": {
@@ -8937,7 +9551,7 @@
     "message": "The subtask pipeline could not be started",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardSubtasksView.tsx", 466]],
+    "origin": [["src/views/card/components/CardSubtasksView.tsx", 485]],
     "translation": ""
   },
   "q1fzvO": {
@@ -8956,6 +9570,29 @@
     "origin": [["src/views/board/components/VisibilityButton.tsx", 64]],
     "translation": "Widoczność Twojej tablicy została ustawiona na {0}."
   },
+  "i8F8Uz": {
+    "translation": "",
+    "message": "The whiteboard changed in another tab. Its latest version is ready; choose again to delete safely.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 480]]
+  },
+  "s+S2Tj": {
+    "translation": "",
+    "message": "The whiteboard is safe. Open Files to verify the affected resource.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 231]]
+  },
+  "ytwo8l": {
+    "translation": "",
+    "message": "The whiteboard was not changed. Try again or upload the image from Files.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/use-card-canvas-image-paste.ts", 111]
+    ]
+  },
   "o6c6bT": {
     "message": "The workspace image is now visible to its members.",
     "placeholders": {},
@@ -8973,6 +9610,20 @@
       ["src/views/settings/components/UpdateWorkspaceLogoForm.tsx", 87]
     ],
     "translation": ""
+  },
+  "nN+b6D": {
+    "translation": "",
+    "message": "The zone now keeps the subtask's live status and progress.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 394]]
+  },
+  "pL7l4X": {
+    "translation": "",
+    "message": "The zone stays on the whiteboard and gains a live link to its subtask.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasConvertDialog.tsx", 110]]
   },
   "FEr96N": {
     "message": "Theme",
@@ -9104,14 +9755,14 @@
     "message": "This board is private or does not exist",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/public/board/index.tsx", 184]],
+    "origin": [["src/views/public/board/index.tsx", 189]],
     "translation": "Ta tablica jest prywatna lub nie istnieje"
   },
   "yrdAch": {
     "message": "This board is public",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 303]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 343]],
     "translation": ""
   },
   "wY+6Ye": {
@@ -9125,7 +9776,7 @@
     "message": "This card does not have a subtask pipeline yet",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardSubtasksView.tsx", 498]],
+    "origin": [["src/views/card/components/CardSubtasksView.tsx", 517]],
     "translation": ""
   },
   "3Wd2/8": {
@@ -9195,8 +9846,22 @@
     "message": "This resource is linked to one or more subtasks. Deleting it will also remove those links.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 423]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 471]],
     "translation": ""
+  },
+  "UmduoV": {
+    "translation": "",
+    "message": "This resource is linked to subtasks or appears on the whiteboard. Its subtask links will be removed. Choose what should happen to its whiteboard items.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 469]]
+  },
+  "cZ1Nwd": {
+    "translation": "",
+    "message": "This scene contains unsupported or unsafe content and cannot be saved.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 678]]
   },
   "ydW7TJ": {
     "message": "This subtask is approaching its due time.",
@@ -9247,6 +9912,13 @@
     "origin": [["src/views/card/components/CardWorkspaceComingSoon.tsx", 26]],
     "translation": "",
     "obsolete": true
+  },
+  "DofD1e": {
+    "translation": "",
+    "message": "This whiteboard changed elsewhere",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasConflictDialog.tsx", 57]]
   },
   "OAYToL": {
     "message": "This will remove all custom member permissions in this workspace. Members will inherit permissions only from their roles.",
@@ -9333,7 +10005,10 @@
     "message": "Title",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/YouTubeEmbed/EditYouTubeModal.tsx", 127]],
+    "origin": [
+      ["src/components/YouTubeEmbed/EditYouTubeModal.tsx", 127],
+      ["src/views/card/components/CardCanvasConvertDialog.tsx", 126]
+    ],
     "translation": "Tytuł"
   },
   "wK4OTM": {
@@ -9368,7 +10043,7 @@
       "0": ["item.title"]
     },
     "comments": [],
-    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 457]],
+    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 477]],
     "translation": ""
   },
   "4gAX8s": {
@@ -9442,9 +10117,10 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/card/components/CardFilesView.tsx", 351],
-      ["src/views/card/components/CardSubtasksView.tsx", 448],
-      ["src/views/card/components/CardSubtasksView.tsx", 481],
+      ["src/views/card/components/CardFilesView.tsx", 391],
+      ["src/views/card/components/CardSubtasksView.tsx", 467],
+      ["src/views/card/components/CardSubtasksView.tsx", 500],
+      ["src/views/card/components/CardWhiteboardCanvas.tsx", 536],
       ["src/views/pulse/index.tsx", 166]
     ],
     "translation": ""
@@ -9467,7 +10143,7 @@
     "message": "Unable to add label",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/index.tsx", 354]],
+    "origin": [["src/views/card/index.tsx", 372]],
     "translation": "Nie można dodać etykiety"
   },
   "Z6teSk": {
@@ -9498,8 +10174,8 @@
     "origin": [
       ["src/views/board/index.tsx", 423],
       ["src/views/card/components/Dropdown.tsx", 117],
-      ["src/views/public/board/CardModal.tsx", 70],
-      ["src/views/public/board/index.tsx", 84]
+      ["src/views/public/board/CardModal.tsx", 82],
+      ["src/views/public/board/index.tsx", 85]
     ],
     "translation": "Nie można skopiować linku"
   },
@@ -9507,7 +10183,7 @@
     "message": "Unable to create card",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/board/components/NewCardForm.tsx", 270]],
+    "origin": [["src/views/board/components/NewCardForm.tsx", 271]],
     "translation": "Nie można utworzyć karty"
   },
   "mHhffx": {
@@ -9614,7 +10290,7 @@
     "message": "Unable to delete resource",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 254]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 294]],
     "translation": ""
   },
   "8gfG/0": {
@@ -9830,7 +10506,7 @@
     "comments": [],
     "origin": [
       ["src/views/board/index.tsx", 353],
-      ["src/views/card/index.tsx", 341]
+      ["src/views/card/index.tsx", 359]
     ],
     "translation": "Nie można zaktualizować karty"
   },
@@ -9990,8 +10666,9 @@
     "placeholders": {},
     "comments": [],
     "origin": [
-      ["src/views/card/components/SubtaskEditorDialog.tsx", 316],
-      ["src/views/card/components/SubtaskEditorDialog.tsx", 360],
+      ["src/views/card/components/CardCanvasConvertDialog.tsx", 201],
+      ["src/views/card/components/SubtaskEditorDialog.tsx", 336],
+      ["src/views/card/components/SubtaskEditorDialog.tsx", 380],
       ["src/views/pulse/components/AttentionList.tsx", 61],
       ["src/views/pulse/components/FlowOverview.tsx", 43],
       ["src/views/pulse/components/WorkloadList.tsx", 33]
@@ -10013,6 +10690,13 @@
     "comments": [],
     "origin": [["src/views/card/components/ActivityList.tsx", 239]],
     "translation": "Użytkownik odpiął się od karty"
+  },
+  "IFLWhx": {
+    "translation": "",
+    "message": "Unavailable item",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 513]]
   },
   "9Xigls": {
     "message": "Under Review",
@@ -10310,7 +10994,7 @@
     "message": "Updating…",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardSubtasksView.tsx", 533]],
+    "origin": [["src/views/card/components/CardSubtasksView.tsx", 552]],
     "translation": ""
   },
   "kwkhPe": {
@@ -10338,6 +11022,13 @@
     "comments": [],
     "origin": [["src/views/onboarding/workspace-details/index.tsx", 265]],
     "translation": "Ulepsz do Pro (29 $/miesiąc)"
+  },
+  "ONWvwQ": {
+    "translation": "",
+    "message": "Upload",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasResourceDrawer.tsx", 130]]
   },
   "VHmXZm": {
     "message": "Upload attachment",
@@ -10371,6 +11062,15 @@
     "origin": [["src/components/WorkspaceLogoPicker.tsx", 88]],
     "translation": ""
   },
+  "AEzRnT": {
+    "translation": "",
+    "message": "Upload image to a public board?",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/CardCanvasPasteUploadDialog.tsx", 38]
+    ]
+  },
   "QfiWpJ": {
     "message": "Upload logo",
     "placeholders": {},
@@ -10391,7 +11091,7 @@
     "message": "Upload source files or add a Drive document to start developing this card.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardFilesView.tsx", 365]],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 405]],
     "translation": ""
   },
   "3wG7HI": {
@@ -10446,7 +11146,8 @@
     "origin": [
       ["src/components/PrioritySelector.tsx", 26],
       ["src/views/boards/components/TemplateBoards.tsx", 50],
-      ["src/views/boards/components/TemplateBoards.tsx", 67]
+      ["src/views/boards/components/TemplateBoards.tsx", 67],
+      ["src/views/card/components/CardCanvasConvertDialog.tsx", 187]
     ],
     "translation": "Pilne"
   },
@@ -10528,6 +11229,22 @@
     "origin": [["src/views/boards/components/NewBoardForm.tsx", 176]],
     "translation": "Użyj szablonu"
   },
+  "R2FdAF": {
+    "translation": "",
+    "message": "Use the frame tool to organise the whiteboard.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasZonesDrawer.tsx", 104]]
+  },
+  "+XHkIH": {
+    "translation": "",
+    "message": "Use the native shapes, text and arrows on this whiteboard.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/use-card-canvas-image-paste.ts", 193]
+    ]
+  },
   "23LmLO": {
     "message": "Used in the main navigation and on the sign-in page.",
     "placeholders": {},
@@ -10601,11 +11318,18 @@
     "origin": [["src/views/pricing/components/Pricing.tsx", 67]],
     "translation": "Zobacz dokumentację"
   },
+  "D1qzeO": {
+    "translation": "",
+    "message": "View on whiteboard",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/SubtaskEditorDialog.tsx", 260]]
+  },
   "F8DaWi": {
     "message": "View only",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/public/board/index.tsx", 153]],
+    "origin": [["src/views/public/board/index.tsx", 158]],
     "translation": "Tylko podgląd"
   },
   "fSf2ee": {
@@ -10619,7 +11343,7 @@
     "message": "View workspace",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/public/board/index.tsx", 187]],
+    "origin": [["src/views/public/board/index.tsx", 192]],
     "translation": "Zobacz przestrzeń roboczą"
   },
   "2q/Q7x": {
@@ -10826,12 +11550,47 @@
     "origin": [["src/views/card/components/CardWorkspaceTabs.tsx", 57]],
     "translation": ""
   },
+  "UXoEyr": {
+    "translation": "",
+    "message": "Whiteboard changed",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 287]]
+  },
+  "oD/Qmv": {
+    "translation": "",
+    "message": "Whiteboard could not be exported",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 482]]
+  },
+  "lojtbd": {
+    "translation": "",
+    "message": "Whiteboard could not be loaded",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 529]]
+  },
+  "ogFX9l": {
+    "translation": "",
+    "message": "Whiteboard history",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasHistoryDrawer.tsx", 29]]
+  },
   "b3BFsk": {
     "message": "Whiteboard is the next phase",
     "placeholders": {},
     "comments": [],
     "origin": [["src/views/card/components/CardWorkspaceComingSoon.tsx", 17]],
     "translation": ""
+  },
+  "vG/9ZE": {
+    "translation": "",
+    "message": "Whiteboard zones",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasZonesDrawer.tsx", 49]]
   },
   "rT7VuT": {
     "message": "Whitelabel",
@@ -10899,7 +11658,7 @@
       ["src/components/WorkspaceLogoPicker.tsx", 67],
       ["src/components/WorkspaceMenu.tsx", 301],
       ["src/components/WorkspaceMenu.tsx", 304],
-      ["src/views/public/board/index.tsx", 125],
+      ["src/views/public/board/index.tsx", 130],
       ["src/views/public/boards/index.tsx", 75]
     ],
     "translation": "Przestrzeń robocza"
@@ -11329,7 +12088,7 @@
     "message": "Your account already has a password. You can change it from your account settings.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/Dashboard.tsx", 286]],
+    "origin": [["src/components/Dashboard.tsx", 293]],
     "translation": "Twoje konto ma już ustawione hasło. Możesz je zmienić w ustawieniach konta."
   },
   "GoDLB9": {
@@ -11359,7 +12118,7 @@
     "message": "Your card is safe. Check your connection and try again.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/views/card/components/CardSubtasksView.tsx", 440]],
+    "origin": [["src/views/card/components/CardSubtasksView.tsx", 459]],
     "translation": ""
   },
   "LqWW5F": {
@@ -11402,15 +12161,22 @@
     "message": "Your license has been activated successfully.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/Dashboard.tsx", 120]],
+    "origin": [["src/components/Dashboard.tsx", 127]],
     "translation": "Twoja licencja została pomyślnie aktywowana."
   },
   "+A6Wuq": {
     "message": "Your license is not active. Please check your account.",
     "placeholders": {},
     "comments": [],
-    "origin": [["src/components/Dashboard.tsx", 129]],
+    "origin": [["src/components/Dashboard.tsx", 136]],
     "translation": "Twoja licencja nie jest aktywna. Sprawdź swoje konto."
+  },
+  "m6l80u": {
+    "translation": "",
+    "message": "Your local work is still visible and saved on this device. Automatic server saving has stopped so neither version is overwritten.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasConflictDialog.tsx", 60]]
   },
   "Ozt2vv": {
     "message": "Your password has been changed.",
@@ -11538,5 +12304,22 @@
     "comments": [],
     "origin": [["src/components/YouTubeEmbed/EditYouTubeModal.tsx", 147]],
     "translation": "Adres URL YouTube"
+  },
+  "G3vLQC": {
+    "translation": "",
+    "message": "Zone could not be converted",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 399]]
+  },
+  "kgZ1k4": {
+    "translation": "",
+    "message": "Zones",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/CardCanvasToolbar.tsx", 92],
+      ["src/views/card/components/CardCanvasZonesDrawer.tsx", 60]
+    ]
   }
 }

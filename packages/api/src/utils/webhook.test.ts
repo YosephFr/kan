@@ -586,13 +586,15 @@ describe("webhook utilities", () => {
       expect(global.fetch).toHaveBeenCalledTimes(2);
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: "https://example.com/webhook1",
+          errorCode: "WEBHOOK_DELIVERY_FAILED",
+          webhookPublicId: "wh-1",
           event: "card.created",
-          error: "500 Error",
           statusCode: 500,
         }),
         "Webhook delivery failed",
       );
+      const logs = JSON.stringify(mockLogger.error.mock.calls);
+      expect(logs).not.toContain("https://example.com/webhook1");
     });
 
     it("handles empty webhook list", async () => {
@@ -605,7 +607,7 @@ describe("webhook utilities", () => {
 
     it("catches and logs DB errors without throwing", async () => {
       mockGetActiveByWorkspaceId.mockRejectedValueOnce(
-        new Error("DB connection failed"),
+        new Error("PRIVATE_WEBHOOK_ERROR"),
       );
 
       // Should not throw — the try/catch absorbs the error
@@ -615,8 +617,12 @@ describe("webhook utilities", () => {
 
       const [context, message] = mockLogger.error.mock.calls[0] ?? [];
 
-      expect(context?.err).toBeInstanceOf(Error);
+      expect(context?.errorCode).toBe("WEBHOOK_DISPATCH_FAILED");
       expect(context?.workspaceId).toBe(1);
+      expect(context?.event).toBe("card.created");
+      expect(JSON.stringify(mockLogger.error.mock.calls)).not.toContain(
+        "PRIVATE_WEBHOOK_ERROR",
+      );
       expect(message).toBe("Failed to send webhooks for workspace");
     });
   });

@@ -15,7 +15,6 @@ import { getCardWorkspaceView } from "~/utils/card-workspace";
 import ActivityList from "~/views/card/components/ActivityList";
 import { CardResourceSummary } from "~/views/card/components/CardResourceSummary";
 import { CardSubtasksView } from "~/views/card/components/CardSubtasksView";
-import { CardWorkspaceComingSoon } from "~/views/card/components/CardWorkspaceComingSoon";
 import { CardWorkspaceTabs } from "~/views/card/components/CardWorkspaceTabs";
 import Checklists from "~/views/card/components/Checklists";
 import { DevelopmentProgress } from "~/views/card/components/DevelopmentProgress";
@@ -36,6 +35,19 @@ const CardFilesView = dynamic(
           />
         ))}
       </div>
+    ),
+  },
+);
+
+const CardWhiteboardView = dynamic(
+  () =>
+    import("~/views/card/components/CardWhiteboardView").then(
+      (module) => module.CardWhiteboardView,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-full min-h-[24rem] animate-pulse bg-light-200 dark:bg-dark-200" />
     ),
   },
 );
@@ -172,6 +184,7 @@ export function CardModal({
                       delete nextQuery.vista;
                       delete nextQuery.subtask;
                       delete nextQuery.recurso;
+                      delete nextQuery.frame;
                       void router.replace(
                         {
                           pathname: router.pathname,
@@ -212,6 +225,7 @@ export function CardModal({
                   activeView={activeView}
                   developmentCount={data.subtaskSummary.total}
                   resourceCount={data.resourceSummary.total}
+                  hasCanvas={data.hasCanvas}
                   compact
                 />
               </div>
@@ -295,8 +309,15 @@ export function CardModal({
             </div>
           )}
           {activeView === "whiteboard" && (
-            <div className="max-h-[32rem] overflow-y-auto">
-              <CardWorkspaceComingSoon />
+            <div className="h-[100dvh] overflow-hidden">
+              <CardWhiteboardView
+                cardPublicId={cardPublicId ?? ""}
+                cardTitle={data?.title ?? t`Card`}
+                members={[]}
+                canEdit={false}
+                isPublicBoard
+                compact
+              />
             </div>
           )}
           {activeView === "files" && (

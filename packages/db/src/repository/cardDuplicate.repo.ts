@@ -17,6 +17,7 @@ import {
 } from "@kan/db/schema";
 import { generateUID } from "@kan/shared/utils";
 
+import { cloneCardCanvasHeadTx } from "./cardCanvasClone.repo";
 import { clonePipelineForCardTx } from "./cardPipelineClone.repo";
 import { cloneCardResourcesTx } from "./cardResourceClone.repo";
 import {
@@ -373,6 +374,7 @@ export const duplicateCard = async (
     let subtaskBySourceId:
       | Map<number, { id: number; publicId: string }>
       | undefined;
+    let subtaskPublicIdBySourcePublicId: Map<string, string> | undefined;
     if (input.copyPipeline) {
       const cloneResult = await clonePipelineForCardTx(tx, {
         sourceCardId: sourceCard.id,
@@ -389,6 +391,8 @@ export const duplicateCard = async (
       }
       if (cloneResult.status === "cloned") {
         subtaskBySourceId = cloneResult.subtaskBySourceId;
+        subtaskPublicIdBySourcePublicId =
+          cloneResult.subtaskPublicIdBySourcePublicId;
       }
     }
 
@@ -397,6 +401,15 @@ export const duplicateCard = async (
       destinationCardId: createdCard.id,
       createdBy: input.createdBy,
       subtaskBySourceId,
+    });
+    await cloneCardCanvasHeadTx(tx, {
+      sourceCardId: sourceCard.id,
+      destinationCardId: createdCard.id,
+      createdBy: input.createdBy,
+      subtaskBySourceId,
+      subtaskPublicIdBySourcePublicId,
+      resourcePublicIdBySourcePublicId:
+        clonedResources.resourcePublicIdBySourcePublicId,
     });
 
     return {

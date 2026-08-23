@@ -14,10 +14,19 @@ import {
   lists,
   workspaces,
 } from "@kan/db/schema";
+import {
+  extractCardCanvasReferences,
+  removeCardCanvasResourceElements,
+} from "@kan/shared";
 import { generateUID } from "@kan/shared/utils";
 
 import type { DbTransaction } from "./cardPipeline.internal";
 import { hasValidAttachmentStorageOwnership } from "./cardAttachment.repo";
+import {
+  applyNormalizedCanvasTx,
+  getCanvasHeadForUpdateTx,
+  prepareCardCanvasScene,
+} from "./cardCanvas.internal";
 import {
   lockCardsInWorkspace,
   WorkspaceChangedError,
@@ -317,6 +326,8 @@ export const softDeleteWithWorkspaceGuard = async (
     expectedWorkspaceId: number;
     deletedBy: string;
     removeReferences: boolean;
+    canvasAction?: "replace" | "remove";
+    expectedCanvasVersion?: number;
   },
 ) =>
   db.transaction(async (tx) => {
@@ -338,6 +349,12 @@ export const softDeleteWithWorkspaceGuard = async (
       { cardLock: "update" },
     );
     if (!card) return { status: "workspace_changed" as const };
+    const canvasHead = await getCanvasHeadForUpdateTx(tx, card.id);
+    const canvasReferenceCount = canvasHead
+      ? extractCardCanvasReferences(canvasHead.scene).resources.filter(
+          (reference) => reference.publicId === input.resourcePublicId,
+        ).length
+      : 0;
 
     const [row] = await tx
       .select({
@@ -405,7 +422,18 @@ export const softDeleteWithWorkspaceGuard = async (
         ),
       );
     const referenceCount = usage?.count ?? 0;
-    if (referenceCount > 0 && !input.removeReferences) {
+    if (
+      (referenceCount > 0 && !input.removeReferences) ||
+      (canvasReferenceCount > 0 && !input.canvasAction)
+    ) {
+      if (canvasReferenceCount > 0 && canvasHead) {
+        return {
+          status: "in_use" as const,
+          referenceCount,
+          canvasReferenceCount,
+          canvasVersion: canvasHead.version,
+        };
+      }
       return { status: "in_use" as const, referenceCount };
     }
 
@@ -444,6 +472,36 @@ export const softDeleteWithWorkspaceGuard = async (
         return { status: "invalid_storage" as const };
       }
       uploadAttachmentId = row.attachmentId;
+    }
+
+    if (canvasHead && canvasReferenceCount > 0 && input.canvasAction) {
+      if (input.expectedCanvasVersion === undefined) {
+        return {
+          status: "in_use" as const,
+          referenceCount,
+          canvasReferenceCount,
+          canvasVersion: canvasHead.version,
+        };
+      }
+      const scene = removeCardCanvasResourceElements(
+        canvasHead.scene,
+        input.resourcePublicId,
+        input.canvasAction === "replace" ? "placeholder" : "remove",
+      );
+      const prepared = await prepareCardCanvasScene(scene);
+      const canvasResult = await applyNormalizedCanvasTx(tx, {
+        cardId: card.id,
+        expectedVersion: input.expectedCanvasVersion,
+        prepared,
+        actorId: input.deletedBy,
+        checkpoint: "automatic",
+      });
+      if (canvasResult.status === "conflict") {
+        return {
+          status: "canvas_version_conflict" as const,
+          remoteVersion: canvasResult.remoteVersion,
+        };
+      }
     }
 
     const deletedAt = new Date();

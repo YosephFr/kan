@@ -2,9 +2,10 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createNextApiHandler } from "@trpc/server/adapters/next";
 
 import { appRouter } from "@kan/api/root";
-import { createTRPCContext } from "@kan/api/trpc";
-import { env } from "~/env";
+import { createTRPCContext, getSafeProcedureErrorMessage } from "@kan/api/trpc";
 import { withRateLimit } from "@kan/api/utils/rateLimit";
+
+import { env } from "~/env";
 
 const nextApiHandler = createNextApiHandler({
   router: appRouter,
@@ -13,11 +14,19 @@ const nextApiHandler = createNextApiHandler({
     env.NODE_ENV === "development"
       ? ({ path, error }) => {
           console.error(
-            `❌ tRPC failed on ${path ?? "<no-path>"}: ${error.message}`,
+            `❌ tRPC failed on ${path ?? "<no-path>"}: ${getSafeProcedureErrorMessage(path, error)}`,
           );
         }
       : undefined,
 });
+
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "6mb",
+    },
+  },
+};
 
 export default withRateLimit(
   { points: 100, duration: 60 },

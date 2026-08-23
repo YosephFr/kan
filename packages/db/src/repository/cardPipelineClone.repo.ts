@@ -104,6 +104,7 @@ export const clonePipelineForCardTx = async (
   const sourceSubtasks = await tx
     .select({
       id: cardSubtasks.id,
+      publicId: cardSubtasks.publicId,
       title: cardSubtasks.title,
       description: cardSubtasks.description,
       priority: cardSubtasks.priority,
@@ -127,6 +128,7 @@ export const clonePipelineForCardTx = async (
     );
   const preparedSubtasks = sourceSubtasks.map((subtask, index) => ({
     sourceSubtaskId: subtask.id,
+    sourceSubtaskPublicId: subtask.publicId,
     values: {
       publicId: generateUID(),
       cardId: input.destinationCardId,
@@ -165,6 +167,17 @@ export const clonePipelineForCardTx = async (
   );
   if (destinationBySourceSubtaskId.size !== sourceSubtasks.length) {
     throw new Error("Failed to map cloned subtasks");
+  }
+  const subtaskPublicIdBySourcePublicId = new Map(
+    preparedSubtasks.flatMap((source) => {
+      const destination = insertedByPublicId.get(source.values.publicId);
+      return destination
+        ? [[source.sourceSubtaskPublicId, destination.publicId] as const]
+        : [];
+    }),
+  );
+  if (subtaskPublicIdBySourcePublicId.size !== sourceSubtasks.length) {
+    throw new Error("Failed to map cloned subtask public IDs");
   }
 
   if (sourceSubtasks.length > 0) {
@@ -239,5 +252,6 @@ export const clonePipelineForCardTx = async (
     stages: insertedStages.map(({ id: _id, ...stage }) => stage),
     subtaskPublicIds: insertedSubtasks.map((subtask) => subtask.publicId),
     subtaskBySourceId: destinationBySourceSubtaskId,
+    subtaskPublicIdBySourcePublicId,
   };
 };

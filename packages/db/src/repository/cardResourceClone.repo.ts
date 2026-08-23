@@ -28,6 +28,7 @@ export async function cloneCardResourcesTx(
   const sourceResources = await tx
     .select({
       id: cardResources.id,
+      publicId: cardResources.publicId,
       kind: cardResources.kind,
       title: cardResources.title,
       driveType: cardResources.driveType,
@@ -59,6 +60,7 @@ export async function cloneCardResourcesTx(
   );
   const prepared = driveResources.map((resource) => ({
     sourceId: resource.id,
+    sourcePublicId: resource.publicId,
     values: {
       publicId: generateUID(),
       cardId: input.destinationCardId,
@@ -91,6 +93,17 @@ export async function cloneCardResourcesTx(
   );
   if (resourceBySourceId.size !== driveResources.length) {
     throw new Error("Failed to map cloned card resources");
+  }
+  const resourcePublicIdBySourcePublicId = new Map(
+    prepared.flatMap((resource) => {
+      const target = insertedByPublicId.get(resource.values.publicId);
+      return target
+        ? [[resource.sourcePublicId, target.publicId] as const]
+        : [];
+    }),
+  );
+  if (resourcePublicIdBySourcePublicId.size !== driveResources.length) {
+    throw new Error("Failed to map cloned card resource public IDs");
   }
 
   const subtaskBySourceId = input.subtaskBySourceId;
@@ -178,5 +191,6 @@ export async function cloneCardResourcesTx(
     ).length,
     clonedDriveCount: inserted.length,
     clonedRelationCount: clonedRelations.length,
+    resourcePublicIdBySourcePublicId,
   };
 }

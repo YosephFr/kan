@@ -68,6 +68,12 @@ export const cardSubtaskSchema = z.object({
   owner: cardSubtaskOwnerSchema.nullable(),
   checklistItems: z.array(cardSubtaskChecklistItemSchema),
   resources: z.array(cardSubtaskResourceSchema),
+  canvasFrame: z
+    .object({
+      publicId: z.string().length(12),
+      name: z.string(),
+    })
+    .nullable(),
 });
 
 export const cardPipelineStageSchema = z.object({

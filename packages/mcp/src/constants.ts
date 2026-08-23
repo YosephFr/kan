@@ -1,4 +1,4 @@
-export const mcpVersion = "0.5.0";
+export const mcpVersion = "0.6.0";
 
 export const accentColourCodes = [
   "#0d9488",

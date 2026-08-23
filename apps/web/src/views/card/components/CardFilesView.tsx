@@ -23,6 +23,7 @@ import Button from "~/components/Button";
 import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
 import { invalidateCard } from "~/utils/cardInvalidation";
+import { isCardResourceUsedOnCanvas } from "./card-resource-canvas-usage";
 import { CardDriveLinkDialog } from "./CardDriveLinkDialog";
 import { CardPdfThumbnail } from "./CardPdfPreview";
 import { CardResourceUploadQueue } from "./CardResourceUploadQueue";
@@ -38,6 +39,8 @@ interface CardFilesViewProps {
 
 const isResourceInUseError = (error: unknown) =>
   error instanceof Error && error.message.includes("RESOURCE_IN_USE");
+const isCanvasVersionConflictError = (error: unknown) =>
+  error instanceof Error && error.message.includes("CANVAS_VERSION_CONFLICT");
 
 function getDriveTypeLabel(resource: Extract<CardResource, { kind: "drive" }>) {
   if (resource.driveType === "document") return t`Google Docs`;
@@ -182,9 +185,17 @@ export function CardFilesView({
     null,
   );
   const [deleteMustUnlink, setDeleteMustUnlink] = useState(false);
+  const [deleteCanvasConflict, setDeleteCanvasConflict] = useState(false);
   const resourceQuery = api.cardResource.list.useQuery(
     { cardPublicId },
     { enabled: cardPublicId.length >= 12, retry: 1 },
+  );
+  const canvasHeadQuery = api.cardCanvas.get.useQuery(
+    { cardPublicId },
+    {
+      enabled: deleteMustUnlink && resourceToDelete !== null,
+      retry: 1,
+    },
   );
   const deleteResource = api.cardResource.delete.useMutation();
   const routerResourcePublicId = Array.isArray(router.query.recurso)
@@ -200,6 +211,13 @@ export function CardFilesView({
     resources.find(
       (resource) => resource.publicId === selectedResourcePublicId,
     ) ?? null;
+  const resourceUsedOnCanvas =
+    resourceToDelete !== null &&
+    canvasHeadQuery.data !== undefined &&
+    isCardResourceUsedOnCanvas(
+      canvasHeadQuery.data.scene,
+      resourceToDelete.publicId,
+    );
   const needsVisibilityAcknowledgement =
     isPublicBoard || serverRequiresAcknowledgement;
   const mutationAcknowledgement =
@@ -222,22 +240,33 @@ export function CardFilesView({
     setSelectedResourcePublicId(resourcePublicId);
   };
 
-  const confirmDelete = async () => {
+  const confirmDelete = async (canvasAction?: "replace" | "remove") => {
     if (!resourceToDelete) return;
+    const canvasVersion = canvasAction
+      ? canvasHeadQuery.data?.version
+      : undefined;
+    if (canvasAction && canvasVersion === undefined) return;
     try {
       await deleteResource.mutateAsync({
         resourcePublicId: resourceToDelete.publicId,
         removeReferences: deleteMustUnlink ? "true" : undefined,
+        canvasAction,
+        expectedCanvasVersion:
+          canvasVersion !== undefined ? String(canvasVersion) : undefined,
       });
       if (selectedResourcePublicId === resourceToDelete.publicId) {
         setResourceInUrl(null);
       }
       setResourceToDelete(null);
       setDeleteMustUnlink(false);
+      setDeleteCanvasConflict(false);
       await Promise.all([
         resourceQuery.refetch(),
         invalidateCard(utils, cardPublicId),
         utils.cardPipeline.get.invalidate({ cardPublicId }),
+        utils.cardCanvas.get.invalidate({ cardPublicId }),
+        utils.cardCanvas.listFrames.invalidate({ cardPublicId }),
+        utils.cardCanvas.listRevisions.invalidate({ cardPublicId }),
         utils.board.byId.invalidate(),
       ]);
       showPopup({
@@ -248,6 +277,17 @@ export function CardFilesView({
     } catch (error) {
       if (isResourceInUseError(error)) {
         setDeleteMustUnlink(true);
+        setDeleteCanvasConflict(false);
+        return;
+      }
+      if (isCanvasVersionConflictError(error)) {
+        setDeleteCanvasConflict(true);
+        await canvasHeadQuery.refetch();
+        showPopup({
+          header: t`Whiteboard changed`,
+          message: t`The current version was refreshed. Review the deletion choice and try again.`,
+          icon: "error",
+        });
         return;
       }
       showPopup({
@@ -378,6 +418,7 @@ export function CardFilesView({
                 onOpen={() => setResourceInUrl(resource.publicId)}
                 onDelete={() => {
                   setDeleteMustUnlink(false);
+                  setDeleteCanvasConflict(false);
                   setResourceToDelete(resource);
                 }}
               />
@@ -406,7 +447,11 @@ export function CardFilesView({
           as="div"
           className="relative z-[160]"
           onClose={() => {
-            if (!deleteResource.isPending) setResourceToDelete(null);
+            if (!deleteResource.isPending) {
+              setResourceToDelete(null);
+              setDeleteMustUnlink(false);
+              setDeleteCanvasConflict(false);
+            }
           }}
         >
           <div className="fixed inset-0 bg-black/30" />
@@ -420,23 +465,81 @@ export function CardFilesView({
                 </Dialog.Title>
                 <p className="mt-2 text-xs leading-5 text-light-700 dark:text-dark-700">
                   {deleteMustUnlink
-                    ? t`This resource is linked to one or more subtasks. Deleting it will also remove those links.`
+                    ? resourceUsedOnCanvas
+                      ? t`This resource is linked to subtasks or appears on the whiteboard. Its subtask links will be removed. Choose what should happen to its whiteboard items.`
+                      : canvasHeadQuery.data
+                        ? t`This resource is linked to one or more subtasks. Deleting it will also remove those links.`
+                        : t`Checking where this resource is used before deleting it safely…`
                     : t`The resource will be removed from this card. Uploaded files cannot be recovered here.`}
                 </p>
-                <div className="mt-5 flex justify-end gap-2">
+                {deleteCanvasConflict && (
+                  <p
+                    role="alert"
+                    className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200"
+                  >
+                    {t`The whiteboard changed in another tab. Its latest version is ready; choose again to delete safely.`}
+                  </p>
+                )}
+                <div className="mt-5 flex flex-wrap justify-end gap-2">
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => setResourceToDelete(null)}
+                    disabled={deleteResource.isPending}
+                    onClick={() => {
+                      setResourceToDelete(null);
+                      setDeleteMustUnlink(false);
+                      setDeleteCanvasConflict(false);
+                    }}
                   >{t`Cancel`}</Button>
-                  <Button
-                    type="button"
-                    variant="danger"
-                    isLoading={deleteResource.isPending}
-                    onClick={() => void confirmDelete()}
-                  >
-                    {deleteMustUnlink ? t`Delete and unlink` : t`Delete`}
-                  </Button>
+                  {deleteMustUnlink && canvasHeadQuery.isError ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => void canvasHeadQuery.refetch()}
+                    >
+                      {t`Reload whiteboard status`}
+                    </Button>
+                  ) : deleteMustUnlink && resourceUsedOnCanvas ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        disabled={deleteResource.isPending}
+                        onClick={() => void confirmDelete("replace")}
+                      >
+                        {t`Delete and leave placeholders`}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="danger"
+                        isLoading={deleteResource.isPending}
+                        onClick={() => void confirmDelete("remove")}
+                      >
+                        {t`Delete whiteboard items`}
+                      </Button>
+                    </>
+                  ) : deleteMustUnlink ? (
+                    <Button
+                      type="button"
+                      variant="danger"
+                      disabled={!canvasHeadQuery.data}
+                      isLoading={
+                        deleteResource.isPending || canvasHeadQuery.isLoading
+                      }
+                      onClick={() => void confirmDelete()}
+                    >
+                      {t`Delete and unlink`}
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="danger"
+                      isLoading={deleteResource.isPending}
+                      onClick={() => void confirmDelete()}
+                    >
+                      {t`Delete`}
+                    </Button>
+                  )}
                 </div>
               </Dialog.Panel>
             </div>

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { kanRequest } from "../client.js";
 import { jsonResult } from "../result.js";
 
-const publicId = z.string().length(12);
+const publicId = z.string().regex(/^[a-z0-9]{12}$/);
 
 const resourcePaths = {
   card: (cardPublicId: string) => `/cards/${cardPublicId}/resources`,
@@ -114,10 +114,12 @@ export function registerCardResourceTools(server: McpServer): void {
     "delete_card_resource",
     {
       description:
-        "Soft-delete a card resource. Set confirmUsageRemoval only after reviewing RESOURCE_IN_USE because it also removes subtask references.",
+        "Soft-delete a card resource. Confirm subtask references explicitly; when the resource is used on the whiteboard, also choose replace or remove with the current canvas version.",
       inputSchema: {
         resourcePublicId: publicId,
         confirmUsageRemoval: z.boolean().optional(),
+        canvasAction: z.enum(["replace", "remove"]).optional(),
+        expectedCanvasVersion: z.number().int().min(1).optional(),
       },
       annotations: {
         readOnlyHint: false,
@@ -126,14 +128,25 @@ export function registerCardResourceTools(server: McpServer): void {
         openWorldHint: false,
       },
     },
-    async ({ resourcePublicId, confirmUsageRemoval }) =>
-      jsonResult(
+    async ({
+      resourcePublicId,
+      confirmUsageRemoval,
+      canvasAction,
+      expectedCanvasVersion,
+    }) => {
+      const params = new URLSearchParams();
+      if (confirmUsageRemoval) params.set("removeReferences", "true");
+      if (canvasAction) params.set("canvasAction", canvasAction);
+      if (expectedCanvasVersion !== undefined) {
+        params.set("expectedCanvasVersion", String(expectedCanvasVersion));
+      }
+      const query = params.toString();
+      return jsonResult(
         await kanRequest(
           "DELETE",
-          `${resourcePaths.resource(resourcePublicId)}${
-            confirmUsageRemoval ? "?removeReferences=true" : ""
-          }`,
+          `${resourcePaths.resource(resourcePublicId)}${query ? `?${query}` : ""}`,
         ),
-      ),
+      );
+    },
   );
 }

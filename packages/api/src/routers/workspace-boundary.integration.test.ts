@@ -6,6 +6,7 @@ import * as boardCreateRepo from "@kan/db/repository/boardCreate.repo";
 import * as boardReadRepo from "@kan/db/repository/boardRead.repo";
 import * as cardRepo from "@kan/db/repository/card.repo";
 import * as cardActivityRepo from "@kan/db/repository/cardActivity.repo";
+import * as cardCanvasRepo from "@kan/db/repository/cardCanvas.repo";
 import * as cardDuplicateRepo from "@kan/db/repository/cardDuplicate.repo";
 import * as cardPipelineRepo from "@kan/db/repository/cardPipeline.repo";
 import * as cardReadRepo from "@kan/db/repository/cardRead.repo";
@@ -446,6 +447,20 @@ describe("workspace transaction boundaries", () => {
     ).rejects.toBeInstanceOf(expected);
     await expect(
       cardPipelineRepo.getByCardPublicIdGuarded(db, {
+        cardPublicId: seeded.card.publicId,
+        expectedWorkspaceId: seeded.workspace.id,
+        requirePublic: true,
+      }),
+    ).rejects.toBeInstanceOf(expected);
+    await expect(
+      cardCanvasRepo.getSnapshot(db, {
+        cardPublicId: seeded.card.publicId,
+        expectedWorkspaceId: seeded.workspace.id,
+        requirePublic: true,
+      }),
+    ).rejects.toBeInstanceOf(expected);
+    await expect(
+      cardCanvasRepo.listFrames(db, {
         cardPublicId: seeded.card.publicId,
         expectedWorkspaceId: seeded.workspace.id,
         requirePublic: true,

@@ -309,6 +309,13 @@
       "when": 1787341954105,
       "tag": "20260821195234_CardResources",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1787352223478,
+      "tag": "20260821224343_CardCanvas",
+      "breakpoints": true
     }
   ]
 }

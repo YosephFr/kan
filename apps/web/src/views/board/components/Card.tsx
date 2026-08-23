@@ -6,6 +6,7 @@ import {
   HiChatBubbleLeft,
   HiCheck,
   HiOutlineClock,
+  HiOutlinePencilSquare,
 } from "react-icons/hi2";
 import { twMerge } from "tailwind-merge";
 
@@ -34,6 +35,7 @@ const Card = ({
   priority = "none",
   colourCode,
   subtaskSummary,
+  hasCanvas = false,
   isSelectionMode = false,
   isSelected = false,
 }: {
@@ -73,6 +75,7 @@ const Card = ({
     blocked: number;
     progressPercent: number;
   };
+  hasCanvas?: boolean;
   isSelectionMode?: boolean;
   isSelected?: boolean;
 }) => {
@@ -136,6 +139,7 @@ const Card = ({
       comments.length > 0 ||
       hasDueDate ||
       hasResources ||
+      hasCanvas ||
       (subtaskSummary?.total ?? 0) > 0 ? (
         <div className="mt-2 flex flex-col justify-end">
           <div className="space-x-0.5">
@@ -199,6 +203,15 @@ const Card = ({
                   <span className="text-[11px] tabular-nums" aria-hidden="true">
                     {resourceSummary?.total}
                   </span>
+                </div>
+              )}
+              {hasCanvas && (
+                <div className="flex items-center gap-1 text-light-700 dark:text-dark-800">
+                  <span className="sr-only">{t`Has whiteboard`}</span>
+                  <HiOutlinePencilSquare
+                    className="h-4 w-4"
+                    aria-hidden="true"
+                  />
                 </div>
               )}
             </div>

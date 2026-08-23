@@ -57,6 +57,7 @@ const boardDetailCardSchema = z.object({
   comments: z.array(z.object({ publicId: z.string() })),
   subtaskSummary: subtaskSummarySchema,
   resourceSummary: resourceSummarySchema,
+  hasCanvas: z.boolean(),
 });
 
 // ─── board.byId ──────────────────────────────────────────────
@@ -109,6 +110,7 @@ const boardSlugCardSchema = z.object({
   comments: z.array(z.object({ publicId: z.string() })),
   subtaskSummary: subtaskSummarySchema,
   resourceSummary: resourceSummarySchema,
+  hasCanvas: z.boolean(),
 });
 
 // ─── board.bySlug ────────────────────────────────────────────

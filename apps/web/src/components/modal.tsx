@@ -5,7 +5,7 @@ import { useModal } from "~/providers/modal";
 
 interface Props {
   children: React.ReactNode;
-  modalSize?: "sm" | "md" | "lg";
+  modalSize?: "sm" | "md" | "lg" | "full";
   positionFromTop?: "sm" | "md" | "lg";
   isVisible?: boolean;
   closeOnClickOutside?: boolean;
@@ -34,6 +34,7 @@ const Modal: React.FC<Props> = ({
     sm: "max-w-[400px]",
     md: "max-w-[550px]",
     lg: "max-w-[800px]",
+    full: "h-[100dvh] max-w-none rounded-none border-0",
   };
 
   const positionFromTopMap = {
@@ -62,7 +63,9 @@ const Modal: React.FC<Props> = ({
         </Transition.Child>
 
         <div className="fixed inset-0 z-50 w-screen overflow-y-auto">
-          <div className={`flex min-h-full justify-center p-4 text-center sm:p-0 ${centered ? "items-center" : "items-start sm:items-start"}`}>
+          <div
+            className={`flex min-h-full justify-center text-center ${modalSize === "full" ? "p-0" : "p-4 sm:p-0"} ${centered ? "items-center" : "items-start sm:items-start"}`}
+          >
             <Transition.Child
               as={Fragment}
               enter="ease-out duration-300"
@@ -73,7 +76,7 @@ const Modal: React.FC<Props> = ({
               leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
             >
               <Dialog.Panel
-                className={`relative ${centered ? "" : positionFromTopMap[positionFromTop]} w-full transform rounded-lg border border-light-600 bg-white/90 text-left shadow-3xl-light backdrop-blur-[6px] transition-all dark:border-dark-600 dark:bg-dark-100/90 dark:shadow-3xl-dark ${modalSizeMap[modalSize]}`}
+                className={`relative ${centered || modalSize === "full" ? "" : positionFromTopMap[positionFromTop]} w-full transform border border-light-600 bg-white/90 text-left shadow-3xl-light backdrop-blur-[6px] transition-all dark:border-dark-600 dark:bg-dark-100/90 dark:shadow-3xl-dark ${modalSize === "full" ? "rounded-none" : "rounded-lg"} ${modalSizeMap[modalSize]}`}
               >
                 {children}
               </Dialog.Panel>

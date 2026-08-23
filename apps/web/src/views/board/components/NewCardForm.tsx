@@ -231,6 +231,7 @@ export function NewCardForm({
                 uploads: 0,
                 driveLinks: 0,
               },
+              hasCanvas: false,
               cardNumber: null,
               comments: [],
               checklists: [],

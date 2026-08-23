@@ -231,9 +231,9 @@ export async function sendWebhooksForWorkspace(
           if (!result.success) {
             log.error(
               {
-                url: webhook.url,
+                errorCode: "WEBHOOK_DELIVERY_FAILED",
+                webhookPublicId: webhook.publicId,
                 event: payload.event,
-                error: result.error,
                 statusCode: result.statusCode,
               },
               "Webhook delivery failed",
@@ -241,7 +241,7 @@ export async function sendWebhooksForWorkspace(
           } else {
             log.info(
               {
-                url: webhook.url,
+                webhookPublicId: webhook.publicId,
                 event: payload.event,
                 statusCode: result.statusCode,
               },
@@ -254,9 +254,13 @@ export async function sendWebhooksForWorkspace(
 
     // Wait for all to complete but don't block on failures
     await Promise.allSettled(promises);
-  } catch (error) {
+  } catch {
     log.error(
-      { err: error, workspaceId },
+      {
+        errorCode: "WEBHOOK_DISPATCH_FAILED",
+        workspaceId,
+        event: payload.event,
+      },
       "Failed to send webhooks for workspace",
     );
   }

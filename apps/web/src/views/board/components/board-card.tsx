@@ -60,6 +60,7 @@ export function BoardCard({
       priority={card.priority}
       colourCode={card.colourCode}
       subtaskSummary={card.subtaskSummary}
+      hasCanvas={card.hasCanvas}
       isSelectionMode={isSelectionMode}
       isSelected={isSelected}
     />

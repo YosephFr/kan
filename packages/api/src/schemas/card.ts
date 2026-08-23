@@ -102,6 +102,7 @@ export const cardDetailSchema = z.object({
   members: z.array(cardMemberSchema),
   subtaskSummary: subtaskSummarySchema,
   resourceSummary: resourceSummarySchema,
+  hasCanvas: z.boolean(),
   activities: z.array(
     z.object({
       publicId: z.string(),
