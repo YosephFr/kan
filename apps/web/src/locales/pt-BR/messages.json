@@ -7271,6 +7271,13 @@
     ],
     "translation": "As senhas não coincidem"
   },
+  "HzVv6g": {
+    "translation": "",
+    "message": "Paste",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 156]]
+  },
   "IMaf6s": {
     "translation": "",
     "message": "Paste the source image instead",

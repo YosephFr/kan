@@ -7271,6 +7271,13 @@
     ],
     "translation": "Passwords do not match"
   },
+  "HzVv6g": {
+    "translation": "Paste",
+    "message": "Paste",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 156]]
+  },
   "IMaf6s": {
     "translation": "Paste the source image instead",
     "message": "Paste the source image instead",
