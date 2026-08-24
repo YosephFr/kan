@@ -6,6 +6,30 @@ import {
 } from "./card-canvas-document-change";
 
 describe("hasCardCanvasDocumentChanged", () => {
+  it("ignores Excalidraw's first empty callback after mounting a blank canvas", () => {
+    const loadedElements: readonly unknown[] = [];
+    const mountedElements: readonly unknown[] = [];
+    const appState = {
+      viewBackgroundColor: "#ffffff",
+      gridSize: 20,
+      gridStep: 5,
+      gridModeEnabled: false,
+      objectsSnapModeEnabled: false,
+    };
+    const snapshot = captureCardCanvasDocument(loadedElements, appState);
+
+    expect(
+      hasCardCanvasDocumentChanged(snapshot, mountedElements, appState),
+    ).toBe(false);
+    expect(
+      hasCardCanvasDocumentChanged(
+        snapshot,
+        [{ id: "first-shape", version: 1 }],
+        appState,
+      ),
+    ).toBe(true);
+  });
+
   it("ignores camera and selection changes when elements are unchanged", () => {
     const elements = [{ id: "shape-1", version: 1 }];
     const initialAppState = {

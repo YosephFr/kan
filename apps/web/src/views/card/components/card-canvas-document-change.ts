@@ -28,7 +28,8 @@ export const hasCardCanvasDocumentChanged = (
   appState: CardCanvasDocumentAppState,
 ) =>
   previous === null ||
-  previous.elements !== elements ||
+  (previous.elements !== elements &&
+    (previous.elements.length > 0 || elements.length > 0)) ||
   previous.viewBackgroundColor !== appState.viewBackgroundColor ||
   previous.gridSize !== appState.gridSize ||
   previous.gridStep !== appState.gridStep ||
