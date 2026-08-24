@@ -12321,5 +12321,110 @@
       ["src/views/card/components/CardCanvasToolbar.tsx", 92],
       ["src/views/card/components/CardCanvasZonesDrawer.tsx", 60]
     ]
+  },
+  "wVU9zW": {
+    "translation": "{blocked} bloqueadas",
+    "message": "{blocked} blocked",
+    "placeholders": {
+      "blocked": ["blocked"]
+    },
+    "comments": [],
+    "origin": [["src/views/card/components/CardWorkspaceDocument.tsx", 136]]
+  },
+  "Ij0B06": {
+    "translation": "Activar subtareas",
+    "message": "Activate subtasks",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWorkspaceDocument.tsx", 310]]
+  },
+  "YXN4NP": {
+    "translation": "Activa el pipeline cuando quieras dividir el trabajo.",
+    "message": "Activate the pipeline when you are ready to break down the work.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWorkspaceDocument.tsx", 304]]
+  },
+  "od5OYm": {
+    "translation": "Salir del enfoque",
+    "message": "Exit focus",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 155]]
+  },
+  "tzHTy3": {
+    "translation": "Enfocar pizarra",
+    "message": "Focus whiteboard",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 155]]
+  },
+  "vLyv1R": {
+    "translation": "Ocultar",
+    "message": "Hide",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/CardWorkspaceDocument.tsx", 308],
+      ["src/views/card/components/CardWorkspaceDocument.tsx", 406]
+    ]
+  },
+  "ypgObn": {
+    "translation": "Abre un lienzo en blanco; no se creará nada hasta que hagas el primer cambio.",
+    "message": "Open a blank canvas without creating anything until your first change.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWorkspaceDocument.tsx", 315]]
+  },
+  "neNtPt": {
+    "translation": "Abrir pizarra",
+    "message": "Open whiteboard",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWorkspaceDocument.tsx", 406]]
+  },
+  "EWsXz7": {
+    "translation": "Vista previa de {0}",
+    "message": "Preview {0}",
+    "placeholders": {
+      "0": ["resource.title"]
+    },
+    "comments": [],
+    "origin": [["src/views/card/components/CardResourceViewer.tsx", 137]]
+  },
+  "8vETh9": {
+    "translation": "Mostrar",
+    "message": "Show",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWorkspaceDocument.tsx", 311]]
+  },
+  "L+GOIL": {
+    "translation": "El espacio visual tiene contenido.",
+    "message": "The visual workspace has content.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWorkspaceDocument.tsx", 313]]
+  },
+  "y3rs2c": {
+    "translation": "Esta tarjeta todavía no tiene una pizarra.",
+    "message": "This card does not have a whiteboard yet.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWorkspaceDocument.tsx", 316]]
+  },
+  "hG0giK": {
+    "translation": "Esta tarjeta todavía no tiene subtareas.",
+    "message": "This card does not have subtasks yet.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWorkspaceDocument.tsx", 305]]
+  },
+  "+8B5pR": {
+    "translation": "Lienzo de la pizarra",
+    "message": "Whiteboard canvas",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 593]]
   }
 }

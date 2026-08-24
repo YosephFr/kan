@@ -1,6 +1,7 @@
 import dynamic from "next/dynamic";
 import { t } from "@lingui/core/macro";
 import { useEffect, useState } from "react";
+import { twMerge } from "tailwind-merge";
 
 import type { WorkspaceMemberOption } from "./subtask-types";
 
@@ -25,10 +26,17 @@ interface CardWhiteboardViewProps {
   canEdit: boolean;
   isPublicBoard: boolean;
   compact?: boolean;
+  embedded?: boolean;
+  isVisible?: boolean;
+  onCanvasCreated?: () => void;
   onClose?: () => void;
 }
 
-export function CardWhiteboardView(props: CardWhiteboardViewProps) {
+export function CardWhiteboardView({
+  embedded = false,
+  isVisible = true,
+  ...props
+}: CardWhiteboardViewProps) {
   const [assetsReady, setAssetsReady] = useState(false);
 
   useEffect(() => {
@@ -55,7 +63,11 @@ export function CardWhiteboardView(props: CardWhiteboardViewProps) {
   if (!assetsReady) {
     return (
       <div
-        className="flex h-full min-h-[24rem] items-center justify-center bg-light-100 dark:bg-dark-50"
+        className={twMerge(
+          "flex min-h-[24rem] items-center justify-center bg-light-100 dark:bg-dark-50",
+          embedded ? "h-[68dvh] max-h-[52rem] w-full" : "h-full",
+          !isVisible && "hidden",
+        )}
         role="status"
       >
         <div className="flex items-center gap-2 text-sm text-light-700 dark:text-dark-700">
@@ -66,5 +78,11 @@ export function CardWhiteboardView(props: CardWhiteboardViewProps) {
     );
   }
 
-  return <CardWhiteboardCanvas {...props} />;
+  return (
+    <CardWhiteboardCanvas
+      {...props}
+      embedded={embedded}
+      isVisible={isVisible}
+    />
+  );
 }

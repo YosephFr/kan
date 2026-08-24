@@ -18,7 +18,6 @@ import { NotificationsProvider } from "~/providers/notifications";
 import { usePopup } from "~/providers/popup";
 import { useWorkspace, WorkspaceProvider } from "~/providers/workspace";
 import { api } from "~/utils/api";
-import { getCardWorkspaceView } from "~/utils/card-workspace";
 import { ChangePasswordFormConfirmation } from "~/views/settings/components/ChangePasswordConfirmation";
 import { DeleteWorkspaceConfirmation } from "~/views/settings/components/DeleteWorkspaceConfirmation";
 import Button from "./Button";
@@ -58,12 +57,7 @@ export default function Dashboard({
   const { showPopup } = usePopup();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const showRightPanel =
-    hasRightPanel &&
-    getCardWorkspaceView(
-      searchParams.get("vista") ?? undefined,
-      searchParams.get("view") ?? undefined,
-    ) !== "whiteboard";
+  const showRightPanel = hasRightPanel;
 
   const { data: session, isPending: sessionLoading } = authClient.useSession();
   const { data: user, isLoading: userLoading } = api.user.getUser.useQuery(

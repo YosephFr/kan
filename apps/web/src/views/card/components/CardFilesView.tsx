@@ -2,7 +2,7 @@ import Image from "next/image";
 import { useRouter } from "next/router";
 import { Dialog, Transition } from "@headlessui/react";
 import { t } from "@lingui/core/macro";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   HiArrowDownTray,
   HiArrowPath,
@@ -22,12 +22,16 @@ import type { CardResource } from "./card-resource-types";
 import Button from "~/components/Button";
 import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
+import { getCardWorkspaceNavigationQuery } from "~/utils/card-workspace";
 import { invalidateCard } from "~/utils/cardInvalidation";
 import { isCardResourceUsedOnCanvas } from "./card-resource-canvas-usage";
 import { CardDriveLinkDialog } from "./CardDriveLinkDialog";
 import { CardPdfThumbnail } from "./CardPdfPreview";
 import { CardResourceUploadQueue } from "./CardResourceUploadQueue";
-import { CardResourceViewer } from "./CardResourceViewer";
+import {
+  CardResourceInlinePreview,
+  CardResourceViewer,
+} from "./CardResourceViewer";
 import { formatResourceSize } from "./resource-upload-queue";
 
 interface CardFilesViewProps {
@@ -35,6 +39,7 @@ interface CardFilesViewProps {
   canEdit: boolean;
   isPublicBoard: boolean;
   compact?: boolean;
+  embedded?: boolean;
 }
 
 const isResourceInUseError = (error: unknown) =>
@@ -71,11 +76,17 @@ function ResourceTypeIcon({ resource }: { resource: CardResource }) {
 function ResourceCard({
   resource,
   canEdit,
+  isSelected,
+  previewId,
+  triggerId,
   onOpen,
   onDelete,
 }: {
   resource: CardResource;
   canEdit: boolean;
+  isSelected?: boolean;
+  previewId: string;
+  triggerId: string;
   onOpen: () => void;
   onDelete: () => void;
 }) {
@@ -93,10 +104,19 @@ function ResourceCard({
       : null;
 
   return (
-    <article className="group min-w-0 overflow-hidden rounded-lg border border-light-300 bg-light-50 transition-colors hover:border-light-500 dark:border-dark-400 dark:bg-dark-100 dark:hover:border-dark-600">
+    <article
+      className={`group min-w-0 overflow-hidden rounded-lg border bg-light-50 transition-colors dark:bg-dark-100 ${
+        isSelected
+          ? "border-light-800 dark:border-dark-800"
+          : "border-light-300 hover:border-light-500 dark:border-dark-400 dark:hover:border-dark-600"
+      }`}
+    >
       <button
+        id={triggerId}
         type="button"
         onClick={onOpen}
+        aria-expanded={isSelected}
+        aria-controls={isSelected ? previewId : undefined}
         className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-light-800 dark:focus-visible:ring-dark-800"
       >
         {imageUrl ? (
@@ -169,6 +189,7 @@ export function CardFilesView({
   canEdit,
   isPublicBoard,
   compact = false,
+  embedded = false,
 }: CardFilesViewProps) {
   const router = useRouter();
   const utils = api.useUtils();
@@ -186,6 +207,7 @@ export function CardFilesView({
   );
   const [deleteMustUnlink, setDeleteMustUnlink] = useState(false);
   const [deleteCanvasConflict, setDeleteCanvasConflict] = useState(false);
+  const inlinePreviewRef = useRef<HTMLDivElement | null>(null);
   const resourceQuery = api.cardResource.list.useQuery(
     { cardPublicId },
     { enabled: cardPublicId.length >= 12, retry: 1 },
@@ -227,17 +249,38 @@ export function CardFilesView({
   const controlsDisabled =
     !canEdit ||
     (needsVisibilityAcknowledgement && !acknowledgedPublicVisibility);
+  const inlinePreviewId = `card-resource-preview-${cardPublicId}`;
+
+  useEffect(() => {
+    if (!embedded || !selectedResource) return;
+    const preview = inlinePreviewRef.current;
+    if (!preview) return;
+    preview.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [embedded, selectedResource]);
 
   const setResourceInUrl = (resourcePublicId: string | null) => {
-    const nextQuery = { ...router.query };
-    if (resourcePublicId) nextQuery.recurso = resourcePublicId;
-    else delete nextQuery.recurso;
+    const nextQuery = getCardWorkspaceNavigationQuery(
+      router.query,
+      "files",
+      resourcePublicId ? { resource: resourcePublicId } : undefined,
+    );
     void router.replace(
       { pathname: router.pathname, query: nextQuery },
       undefined,
       { shallow: true },
     );
     setSelectedResourcePublicId(resourcePublicId);
+  };
+
+  const closeInlinePreview = () => {
+    const triggerId = selectedResource
+      ? `card-resource-trigger-${selectedResource.publicId}`
+      : null;
+    setResourceInUrl(null);
+    if (!triggerId) return;
+    window.requestAnimationFrame(() => {
+      document.getElementById(triggerId)?.focus();
+    });
   };
 
   const confirmDelete = async (canvasAction?: "replace" | "remove") => {
@@ -300,19 +343,26 @@ export function CardFilesView({
 
   return (
     <section
-      id="card-view-files"
-      role="tabpanel"
-      aria-labelledby="card-tab-files"
-      className="h-full overflow-y-auto"
+      id={embedded ? undefined : "card-view-files"}
+      role={embedded ? undefined : "tabpanel"}
+      aria-labelledby={embedded ? "card-files-heading" : "card-tab-files"}
+      className={embedded ? "min-w-0" : "h-full overflow-y-auto"}
     >
       <div
         className={
-          compact ? "p-1" : "mx-auto w-full max-w-6xl p-4 md:p-6 lg:p-8"
+          embedded
+            ? "w-full"
+            : compact
+              ? "p-1"
+              : "mx-auto w-full max-w-6xl p-4 md:p-6 lg:p-8"
         }
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-light-1000 dark:text-dark-1000">{t`Files and references`}</h2>
+            <h2
+              id="card-files-heading"
+              className="text-base font-semibold text-light-1000 dark:text-dark-1000"
+            >{t`Files and references`}</h2>
             <p className="mt-1 text-xs leading-5 text-light-700 dark:text-dark-700">{t`Keep source material, documents and visual references with the work.`}</p>
           </div>
           {canEdit && (
@@ -415,6 +465,13 @@ export function CardFilesView({
                 key={resource.publicId}
                 resource={resource}
                 canEdit={canEdit}
+                isSelected={
+                  embedded
+                    ? selectedResource?.publicId === resource.publicId
+                    : undefined
+                }
+                previewId={inlinePreviewId}
+                triggerId={`card-resource-trigger-${resource.publicId}`}
                 onOpen={() => setResourceInUrl(resource.publicId)}
                 onDelete={() => {
                   setDeleteMustUnlink(false);
@@ -423,6 +480,16 @@ export function CardFilesView({
                 }}
               />
             ))}
+          </div>
+        )}
+
+        {embedded && selectedResource && (
+          <div ref={inlinePreviewRef}>
+            <CardResourceInlinePreview
+              id={inlinePreviewId}
+              resource={selectedResource}
+              onClose={closeInlinePreview}
+            />
           </div>
         )}
       </div>
@@ -437,10 +504,12 @@ export function CardFilesView({
         }}
         onClose={() => setIsDriveDialogOpen(false)}
       />
-      <CardResourceViewer
-        resource={selectedResource}
-        onClose={() => setResourceInUrl(null)}
-      />
+      {!embedded && (
+        <CardResourceViewer
+          resource={selectedResource}
+          onClose={() => setResourceInUrl(null)}
+        />
+      )}
 
       <Transition.Root show={resourceToDelete !== null} as={Fragment}>
         <Dialog

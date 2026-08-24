@@ -16,7 +16,6 @@ import { useDragToScroll } from "~/hooks/useDragToScroll";
 import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
-import { getCardWorkspaceView } from "~/utils/card-workspace";
 import { formatToArray } from "~/utils/helpers";
 import Card from "~/views/board/components/Card";
 import Filters from "~/views/board/components/Filters";
@@ -103,11 +102,6 @@ export default function PublicBoardView() {
   const pathWithoutQuery = router.asPath.split("?")[0];
   const splitPath = pathWithoutQuery?.split("/") ?? [];
   const cardPublicId = splitPath.length > 3 ? splitPath[3] : null;
-  const activeCardView = getCardWorkspaceView(
-    router.query.vista,
-    router.query.view,
-  );
-
   useEffect(() => {
     if (!isRouteLoaded && router.isReady) {
       setIsRouteLoaded(true);
@@ -281,10 +275,7 @@ export default function PublicBoardView() {
         </div>
       </div>
       <Popup />
-      <Modal
-        modalSize={activeCardView === "whiteboard" ? "full" : "lg"}
-        positionFromTop={"sm"}
-      >
+      <Modal modalSize="lg" positionFromTop={"sm"}>
         <CardModal
           cardPublicId={cardPublicId}
           workspaceSlug={data?.workspace.slug}

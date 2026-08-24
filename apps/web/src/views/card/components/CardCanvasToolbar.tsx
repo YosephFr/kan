@@ -2,6 +2,8 @@ import { t } from "@lingui/core/macro";
 import {
   HiArrowDownTray,
   HiArrowLeft,
+  HiArrowsPointingIn,
+  HiArrowsPointingOut,
   HiOutlineClock,
   HiOutlineMap,
   HiOutlineQueueList,
@@ -12,7 +14,7 @@ import type { CardCanvasExportFormat } from "./card-canvas-export";
 import type { CardCanvasSaveState } from "./card-canvas-types";
 
 interface CardCanvasToolbarProps {
-  cardTitle: string;
+  cardTitle?: string;
   saveState: CardCanvasSaveState;
   canEdit: boolean;
   onToggleZones: () => void;
@@ -20,7 +22,9 @@ interface CardCanvasToolbarProps {
   onToggleHistory: () => void;
   onConvert: () => void;
   onExport: (format: CardCanvasExportFormat) => void;
-  onExit: () => void;
+  onExit?: () => void;
+  onToggleFocus?: () => void;
+  focusModeEnabled?: boolean;
 }
 
 const saveLabel = (state: CardCanvasSaveState) => {
@@ -38,16 +42,19 @@ const ToolbarButton = ({
   label,
   icon,
   onClick,
+  pressed,
 }: {
   label: string;
   icon: React.ReactNode;
   onClick: () => void;
+  pressed?: boolean;
 }) => (
   <button
     type="button"
     onClick={onClick}
     className="flex h-8 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-medium text-light-800 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:text-dark-800 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800"
     aria-label={label}
+    aria-pressed={pressed}
   >
     {icon}
     <span className="hidden lg:inline">{label}</span>
@@ -64,6 +71,8 @@ export function CardCanvasToolbar({
   onConvert,
   onExport,
   onExit,
+  onToggleFocus,
+  focusModeEnabled = false,
 }: CardCanvasToolbarProps) {
   const statusTone =
     saveState === "conflict" || saveState === "invalid" || saveState === "error"
@@ -77,17 +86,21 @@ export function CardCanvasToolbar({
   return (
     <div className="relative z-40 flex h-11 shrink-0 items-center justify-between gap-2 border-b border-light-300 bg-light-50 px-2 dark:border-dark-400 dark:bg-dark-100 sm:px-3">
       <div className="flex min-w-0 items-center gap-1">
-        <button
-          type="button"
-          onClick={onExit}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-light-800 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:text-dark-800 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800"
-          aria-label={t`Leave whiteboard`}
-        >
-          <HiArrowLeft className="h-4 w-4" />
-        </button>
-        <span className="hidden max-w-52 truncate text-xs font-semibold text-light-1000 dark:text-dark-1000 xl:block">
-          {cardTitle}
-        </span>
+        {onExit && (
+          <button
+            type="button"
+            onClick={onExit}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-light-800 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:text-dark-800 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800"
+            aria-label={t`Leave whiteboard`}
+          >
+            <HiArrowLeft className="h-4 w-4" />
+          </button>
+        )}
+        {cardTitle && (
+          <span className="hidden max-w-52 truncate text-xs font-semibold text-light-1000 dark:text-dark-1000 xl:block">
+            {cardTitle}
+          </span>
+        )}
         <ToolbarButton
           label={t`Zones`}
           icon={<HiOutlineMap className="h-4 w-4" />}
@@ -136,14 +149,30 @@ export function CardCanvasToolbar({
           </div>
         </details>
       </div>
-      <div
-        role="status"
-        className="flex shrink-0 items-center gap-1.5 text-[10px] text-light-700 dark:text-dark-700"
-      >
-        <span className={`h-1.5 w-1.5 rounded-full ${statusTone}`} />
-        <span className="hidden min-[360px]:inline">
-          {saveLabel(saveState)}
-        </span>
+      <div className="flex shrink-0 items-center gap-1">
+        {onToggleFocus && (
+          <ToolbarButton
+            label={focusModeEnabled ? t`Exit focus` : t`Focus whiteboard`}
+            icon={
+              focusModeEnabled ? (
+                <HiArrowsPointingIn className="h-4 w-4" />
+              ) : (
+                <HiArrowsPointingOut className="h-4 w-4" />
+              )
+            }
+            onClick={onToggleFocus}
+            pressed={focusModeEnabled}
+          />
+        )}
+        <div
+          role="status"
+          className="flex shrink-0 items-center gap-1.5 text-[10px] text-light-700 dark:text-dark-700"
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${statusTone}`} />
+          <span className="hidden min-[360px]:inline">
+            {saveLabel(saveState)}
+          </span>
+        </div>
       </div>
     </div>
   );

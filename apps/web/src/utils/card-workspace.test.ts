@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   fromLocalDateTimeInput,
+  getCardWorkspaceNavigationQuery,
   getCardWorkspaceQueryValue,
+  getCardWorkspaceTargetView,
   getCardWorkspaceView,
   getNextTabIndex,
   isCardWorkspaceAligned,
@@ -26,6 +28,78 @@ describe("getCardWorkspaceView", () => {
   it("falls back to summary for unknown values", () => {
     expect(getCardWorkspaceView("unknown")).toBe("summary");
     expect(getCardWorkspaceView(undefined)).toBe("summary");
+  });
+});
+
+describe("getCardWorkspaceTargetView", () => {
+  it("uses deep links as section targets before the legacy view", () => {
+    expect(
+      getCardWorkspaceTargetView({
+        value: "archivos",
+        subtask: "subtask0001",
+        frame: "frame0000001",
+        resource: "resource0001",
+      }),
+    ).toBe("subtasks");
+    expect(
+      getCardWorkspaceTargetView({
+        value: "resumen",
+        frame: "frame0000001",
+        resource: "resource0001",
+      }),
+    ).toBe("whiteboard");
+    expect(
+      getCardWorkspaceTargetView({
+        legacyValue: "summary",
+        resource: "resource0001",
+      }),
+    ).toBe("files");
+  });
+
+  it("returns null when the URL does not target a workspace section", () => {
+    expect(getCardWorkspaceTargetView({})).toBeNull();
+    expect(getCardWorkspaceTargetView({ value: "pizarra" })).toBe("whiteboard");
+  });
+});
+
+describe("getCardWorkspaceNavigationQuery", () => {
+  it("keeps only the deep-link parameter for the target section", () => {
+    const conflictingQuery = {
+      view: "summary",
+      vista: "resumen",
+      subtask: "old-subtask",
+      recurso: "old-resource",
+      frame: "old-frame",
+      filter: "mine",
+    };
+
+    expect(
+      getCardWorkspaceNavigationQuery(conflictingQuery, "subtasks", {
+        subtask: "next-subtask",
+      }),
+    ).toEqual({
+      vista: "subtareas",
+      subtask: "next-subtask",
+      filter: "mine",
+    });
+    expect(
+      getCardWorkspaceNavigationQuery(conflictingQuery, "whiteboard", {
+        frame: "next-frame",
+      }),
+    ).toEqual({
+      vista: "pizarra",
+      frame: "next-frame",
+      filter: "mine",
+    });
+    expect(
+      getCardWorkspaceNavigationQuery(conflictingQuery, "files", {
+        resource: "next-resource",
+      }),
+    ).toEqual({
+      vista: "archivos",
+      recurso: "next-resource",
+      filter: "mine",
+    });
   });
 });
 

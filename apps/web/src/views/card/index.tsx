@@ -1,4 +1,3 @@
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { t } from "@lingui/core/macro";
@@ -23,10 +22,7 @@ import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
 import { useWorkspace } from "~/providers/workspace";
 import { api } from "~/utils/api";
-import {
-  getCardWorkspaceView,
-  isCardWorkspaceAligned,
-} from "~/utils/card-workspace";
+import { isCardWorkspaceAligned } from "~/utils/card-workspace";
 import { invalidateCard } from "~/utils/cardInvalidation";
 import { formatMemberDisplayName, getAvatarUrl } from "~/utils/helpers";
 import { DeleteLabelConfirmation } from "../../components/DeleteLabelConfirmation";
@@ -35,14 +31,11 @@ import {
   CardColourSelector,
   CardPrioritySelector,
 } from "./components/CardFieldSelectors";
-import { CardResourceSummary } from "./components/CardResourceSummary";
-import { CardSubtasksView } from "./components/CardSubtasksView";
-import { CardWorkspaceTabs } from "./components/CardWorkspaceTabs";
+import { CardWorkspaceDocument } from "./components/CardWorkspaceDocument";
 import Checklists from "./components/Checklists";
 import { DeleteCardConfirmation } from "./components/DeleteCardConfirmation";
 import { DeleteChecklistConfirmation } from "./components/DeleteChecklistConfirmation";
 import { DeleteCommentConfirmation } from "./components/DeleteCommentConfirmation";
-import { DevelopmentProgress } from "./components/DevelopmentProgress";
 import Dropdown from "./components/Dropdown";
 import { DueDateSelector } from "./components/DueDateSelector";
 import LabelSelector from "./components/LabelSelector";
@@ -50,37 +43,6 @@ import ListSelector from "./components/ListSelector";
 import MemberSelector from "./components/MemberSelector";
 import { NewChecklistForm } from "./components/NewChecklistForm";
 import NewCommentForm from "./components/NewCommentForm";
-
-const CardFilesView = dynamic(
-  () =>
-    import("./components/CardFilesView").then((module) => module.CardFilesView),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-3 p-4 sm:grid-cols-2 md:p-6 lg:grid-cols-3 lg:p-8">
-        {[0, 1, 2].map((item) => (
-          <div
-            key={item}
-            className="h-56 animate-pulse rounded-lg bg-light-200 dark:bg-dark-200"
-          />
-        ))}
-      </div>
-    ),
-  },
-);
-
-const CardWhiteboardView = dynamic(
-  () =>
-    import("./components/CardWhiteboardView").then(
-      (module) => module.CardWhiteboardView,
-    ),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-full min-h-[24rem] animate-pulse bg-light-200 dark:bg-dark-200" />
-    ),
-  },
-);
 
 interface FormValues {
   cardId: string;
@@ -96,11 +58,6 @@ export function CardRightPanel({ isTemplate }: { isTemplate?: boolean }) {
   const cardId = Array.isArray(router.query.cardId)
     ? router.query.cardId[0]
     : router.query.cardId;
-  const activeView = getCardWorkspaceView(
-    router.query.vista,
-    router.query.view,
-  );
-
   const { data: card } = api.card.byId.useQuery(
     { cardPublicId: cardId ?? "" },
     { enabled: !!cardId && cardId.length >= 12 },
@@ -169,8 +126,6 @@ export function CardRightPanel({ isTemplate }: { isTemplate?: boolean }) {
         ),
       };
     }) ?? [];
-
-  if (activeView === "whiteboard") return null;
 
   return (
     <div className="h-full w-full border-l-[1px] border-light-300 bg-light-50 p-4 text-light-900 dark:border-dark-300 dark:bg-dark-50 dark:text-dark-900 sm:p-8 md:w-[360px]">
@@ -281,11 +236,6 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
   } = api.card.byId.useQuery(
     { cardPublicId: cardId ?? "" },
     { enabled: !!cardId && cardId.length >= 12 },
-  );
-
-  const activeView = getCardWorkspaceView(
-    router.query.vista,
-    router.query.view,
   );
 
   useEffect(() => {
@@ -528,159 +478,14 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
               </p>
             )}
           </div>
-          {card && (
-            <div className="px-2 pb-2 md:px-6">
-              <CardWorkspaceTabs
-                activeView={activeView}
-                developmentCount={card.subtaskSummary.total}
-                resourceCount={card.resourceSummary.total}
-                hasCanvas={card.hasCanvas}
-              />
-            </div>
-          )}
         </div>
 
-        {activeView === "summary" && (
-          <div
-            id="card-view-summary"
-            role="tabpanel"
-            aria-labelledby="card-tab-summary"
-            className="scrollbar-thumb-rounded-[4px] scrollbar-track-rounded-[4px] w-full flex-1 overflow-y-auto scrollbar scrollbar-track-light-200 scrollbar-thumb-light-400 hover:scrollbar-thumb-light-400 dark:scrollbar-track-dark-100 dark:scrollbar-thumb-dark-300 dark:hover:scrollbar-thumb-dark-300"
-          >
-            <div className="p-auto mx-auto flex h-full w-full max-w-[800px] flex-col">
-              <div className="p-6 md:p-8">
-                <div className="mb-8 md:mt-4">
-                  {!card && isLoading && (
-                    <div className="flex space-x-2">
-                      <div className="h-[2.3rem] w-[300px] animate-pulse rounded-[5px] bg-light-300 dark:bg-dark-300" />
-                    </div>
-                  )}
-                  {card && (
-                    <form
-                      onSubmit={handleSubmit(onSubmit)}
-                      className="w-full space-y-6"
-                    >
-                      <div>
-                        <textarea
-                          id="title"
-                          {...register("title")}
-                          onBlur={canEdit ? handleSubmit(onSubmit) : undefined}
-                          rows={1}
-                          disabled={!canEdit}
-                          className={`block w-full resize-none overflow-hidden border-0 bg-transparent p-0 py-0 font-bold leading-relaxed text-neutral-900 focus:ring-0 dark:text-dark-1000 sm:text-[1.2rem] ${!canEdit ? "cursor-default" : ""}`}
-                          onInput={(e) => {
-                            const target = e.target as HTMLTextAreaElement;
-                            target.style.height = "auto";
-                            target.style.height = `${target.scrollHeight}px`;
-                          }}
-                        />
-                      </div>
-                    </form>
-                  )}
-                  {!card && !isLoading && (
-                    <p className="block p-0 py-0 font-bold leading-[2.3rem] tracking-tight text-neutral-900 dark:text-dark-1000 sm:text-[1.2rem]">
-                      {t`Card not found`}
-                    </p>
-                  )}
-                </div>
-                {card && (
-                  <>
-                    <div className="mb-10 flex w-full max-w-2xl flex-col justify-between">
-                      <form
-                        onSubmit={handleSubmit(onSubmit)}
-                        className="w-full space-y-6"
-                      >
-                        <div className="mt-2">
-                          <Editor
-                            content={card.description}
-                            onChange={
-                              canEdit
-                                ? (e) => setValue("description", e)
-                                : undefined
-                            }
-                            onBlur={
-                              canEdit
-                                ? () => handleSubmit(onSubmit)()
-                                : undefined
-                            }
-                            workspaceMembers={workspaceMembers ?? []}
-                            readOnly={!canEdit}
-                          />
-                        </div>
-                      </form>
-                    </div>
-                    <div className="mb-8">
-                      <DevelopmentProgress summary={card.subtaskSummary} />
-                    </div>
-                    <div className="mb-8">
-                      <CardResourceSummary {...card.resourceSummary} />
-                    </div>
-                    <Checklists
-                      checklists={card.checklists}
-                      cardPublicId={cardId}
-                      activeChecklistForm={activeChecklistForm}
-                      setActiveChecklistForm={setActiveChecklistForm}
-                      viewOnly={!canEdit}
-                    />
-                    <div className="border-t-[1px] border-light-300 pt-12 dark:border-dark-300">
-                      <h2 className="text-md pb-4 font-medium text-light-1000 dark:text-dark-1000">
-                        {t`Activity`}
-                      </h2>
-                      <div>
-                        <ActivityList
-                          cardPublicId={cardId}
-                          isLoading={!card}
-                          isAdmin={workspace.role === "admin"}
-                        />
-                      </div>
-                      {!isTemplate && (
-                        <div className="mt-6">
-                          <NewCommentForm
-                            cardPublicId={cardId}
-                            workspaceMembers={editorWorkspaceMembers}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeView === "subtasks" && card && (
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <CardSubtasksView
+        <div className="scrollbar-thumb-rounded-[4px] scrollbar-track-rounded-[4px] w-full flex-1 overflow-y-auto scrollbar scrollbar-track-light-200 scrollbar-thumb-light-400 hover:scrollbar-thumb-light-400 dark:scrollbar-track-dark-100 dark:scrollbar-thumb-dark-300 dark:hover:scrollbar-thumb-dark-300">
+          {card ? (
+            <CardWorkspaceDocument
               key={cardId}
               cardPublicId={cardId}
-              members={
-                canEdit
-                  ? (workspaceMembers ?? [])
-                      .filter((member) => member.status === "active")
-                      .map((member) => ({
-                        publicId: member.publicId,
-                        email: member.email,
-                        user: member.user
-                          ? {
-                              name: member.user.name ?? null,
-                              email: member.user.email,
-                              image: member.user.image ?? null,
-                            }
-                          : null,
-                      }))
-                  : []
-              }
-              canEdit={canEdit}
-            />
-          </div>
-        )}
-
-        {activeView === "whiteboard" && (
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <CardWhiteboardView
-              cardPublicId={cardId}
-              cardTitle={card?.title ?? t`Card`}
+              cardTitle={card.title}
               members={
                 canEdit
                   ? (workspaceMembers ?? [])
@@ -700,19 +505,90 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
               }
               canEdit={canEdit}
               isPublicBoard={board?.visibility === "public"}
+              subtaskSummary={card.subtaskSummary}
+              resourceSummary={card.resourceSummary}
+              hasCanvas={card.hasCanvas}
+              preferenceScope={session?.user.id ?? "signed-in"}
+              summaryContent={
+                <>
+                  <form
+                    onSubmit={handleSubmit(onSubmit)}
+                    className="w-full space-y-6"
+                  >
+                    <textarea
+                      id="title"
+                      {...register("title")}
+                      onBlur={canEdit ? handleSubmit(onSubmit) : undefined}
+                      rows={1}
+                      disabled={!canEdit}
+                      className={`block w-full resize-none overflow-hidden border-0 bg-transparent p-0 font-bold leading-relaxed text-neutral-900 focus:ring-0 dark:text-dark-1000 sm:text-[1.2rem] ${!canEdit ? "cursor-default" : ""}`}
+                      onInput={(event) => {
+                        const target = event.target as HTMLTextAreaElement;
+                        target.style.height = "auto";
+                        target.style.height = `${target.scrollHeight}px`;
+                      }}
+                    />
+                  </form>
+                  <form
+                    onSubmit={handleSubmit(onSubmit)}
+                    className="mt-6 w-full"
+                  >
+                    <Editor
+                      content={card.description}
+                      onChange={
+                        canEdit
+                          ? (description) =>
+                              setValue("description", description)
+                          : undefined
+                      }
+                      onBlur={
+                        canEdit ? () => handleSubmit(onSubmit)() : undefined
+                      }
+                      workspaceMembers={workspaceMembers ?? []}
+                      readOnly={!canEdit}
+                    />
+                  </form>
+                  {card.checklists.length > 0 && (
+                    <div className="mt-10">
+                      <Checklists
+                        checklists={card.checklists}
+                        cardPublicId={cardId}
+                        activeChecklistForm={activeChecklistForm}
+                        setActiveChecklistForm={setActiveChecklistForm}
+                        viewOnly={!canEdit}
+                      />
+                    </div>
+                  )}
+                </>
+              }
+              activityContent={
+                <>
+                  <h2 className="text-md pb-4 font-medium text-light-1000 dark:text-dark-1000">
+                    {t`Activity`}
+                  </h2>
+                  <ActivityList
+                    cardPublicId={cardId}
+                    isLoading={false}
+                    isAdmin={workspace.role === "admin"}
+                  />
+                  {!isTemplate && (
+                    <div className="mt-6">
+                      <NewCommentForm
+                        cardPublicId={cardId}
+                        workspaceMembers={editorWorkspaceMembers}
+                      />
+                    </div>
+                  )}
+                </>
+              }
             />
-          </div>
-        )}
-
-        {activeView === "files" && (
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <CardFilesView
-              cardPublicId={cardId}
-              canEdit={canEdit}
-              isPublicBoard={board?.visibility === "public"}
-            />
-          </div>
-        )}
+          ) : isLoading ? (
+            <div className="mx-auto w-full max-w-6xl px-6 py-10 md:px-8">
+              <div className="h-8 w-72 animate-pulse rounded-md bg-light-300 dark:bg-dark-300" />
+              <div className="mt-8 h-28 max-w-3xl animate-pulse rounded-md bg-light-200 dark:bg-dark-200" />
+            </div>
+          ) : null}
+        </div>
 
         <>
           <Modal

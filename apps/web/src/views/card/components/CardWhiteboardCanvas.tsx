@@ -62,6 +62,9 @@ interface CardWhiteboardCanvasProps {
   canEdit: boolean;
   isPublicBoard: boolean;
   compact?: boolean;
+  embedded?: boolean;
+  isVisible?: boolean;
+  onCanvasCreated?: () => void;
   onClose?: () => void;
 }
 
@@ -89,6 +92,9 @@ export function CardWhiteboardCanvas({
   canEdit,
   isPublicBoard,
   compact = false,
+  embedded = false,
+  isVisible = true,
+  onCanvasCreated,
   onClose,
 }: CardWhiteboardCanvasProps) {
   const router = useRouter();
@@ -105,19 +111,29 @@ export function CardWhiteboardCanvas({
   const [zonesOpen, setZonesOpen] = useState(false);
   const [resourcesOpen, setResourcesOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [focusModeEnabled, setFocusModeEnabled] = useState(false);
   const [preparedConversion, setPreparedConversion] =
     useState<CardCanvasPreparedConversion | null>(null);
+  const canvasSectionRef = useRef<HTMLElement | null>(null);
   const applyingSceneRef = useRef(false);
   const documentSnapshotRef = useRef<ReturnType<
     typeof captureCardCanvasDocument
   > | null>(null);
   const focusedFrameRef = useRef<string | null>(null);
+  const reportedCanvasRef = useRef(false);
 
   const controller = useCardCanvas({
     cardPublicId,
     userId: session?.user.id ?? null,
     canEdit,
   });
+
+  useEffect(() => {
+    if (controller.version <= 0 || reportedCanvasRef.current) return;
+    reportedCanvasRef.current = true;
+    onCanvasCreated?.();
+    void utils.card.byId.invalidate({ cardPublicId });
+  }, [cardPublicId, controller.version, onCanvasCreated, utils.card.byId]);
   const effectiveCanEdit = !controller.viewModeEnabled;
   const resourceQuery = api.cardResource.list.useQuery(
     { cardPublicId },
@@ -166,6 +182,31 @@ export function CardWhiteboardCanvas({
     excalidrawApi,
     onResourceCreated: insertUploadedImage,
   });
+
+  useEffect(() => {
+    if (!embedded || isVisible) return;
+    setFocusModeEnabled(false);
+  }, [embedded, isVisible]);
+
+  useEffect(() => {
+    if (!embedded || !isVisible || !excalidrawApi) return;
+
+    const refreshCanvas = () => excalidrawApi.refresh();
+    const animationFrame = window.requestAnimationFrame(refreshCanvas);
+    const transitionTimer = window.setTimeout(refreshCanvas, 320);
+
+    if (focusModeEnabled) {
+      canvasSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.clearTimeout(transitionTimer);
+    };
+  }, [embedded, excalidrawApi, focusModeEnabled, isVisible]);
 
   const replaceWorkspaceQuery = useCallback(
     async (
@@ -556,18 +597,25 @@ export function CardWhiteboardCanvas({
 
   return (
     <section
-      id="card-view-whiteboard"
-      role="tabpanel"
-      aria-labelledby="card-tab-whiteboard"
+      ref={canvasSectionRef}
+      id={embedded ? undefined : "card-view-whiteboard"}
+      role={embedded ? "region" : "tabpanel"}
+      aria-label={embedded ? t`Whiteboard canvas` : undefined}
+      aria-labelledby={embedded ? undefined : "card-tab-whiteboard"}
       className={twMerge(
         "kan-card-canvas flex min-h-0 flex-col overflow-hidden bg-light-100 dark:bg-dark-50",
-        compact
-          ? "fixed inset-0 z-[130] h-[100dvh] w-screen"
-          : "fixed inset-0 z-[130] h-[100dvh] w-screen md:relative md:inset-auto md:z-auto md:h-full md:w-full",
+        embedded
+          ? focusModeEnabled
+            ? "relative h-[calc(100dvh-5rem)] min-h-[28rem] w-full scroll-mt-16 transition-[height] duration-300 ease-out"
+            : "relative h-[68dvh] max-h-[52rem] min-h-[24rem] w-full scroll-mt-16 transition-[height] duration-300 ease-out"
+          : compact
+            ? "fixed inset-0 z-[130] h-[100dvh] w-screen"
+            : "fixed inset-0 z-[130] h-[100dvh] w-screen md:relative md:inset-auto md:z-auto md:h-full md:w-full",
+        !isVisible && "hidden",
       )}
     >
       <CardCanvasToolbar
-        cardTitle={cardTitle}
+        cardTitle={embedded ? undefined : cardTitle}
         saveState={controller.saveState}
         canEdit={effectiveCanEdit}
         onToggleZones={() => {
@@ -587,7 +635,13 @@ export function CardWhiteboardCanvas({
         }}
         onConvert={beginConversion}
         onExport={(format) => void exportCanvas(format)}
-        onExit={leaveWhiteboard}
+        onExit={embedded ? undefined : leaveWhiteboard}
+        onToggleFocus={
+          embedded
+            ? () => setFocusModeEnabled((current) => !current)
+            : undefined
+        }
+        focusModeEnabled={focusModeEnabled}
       />
       <div
         ref={setCanvasContainer}
@@ -620,7 +674,7 @@ export function CardWhiteboardCanvas({
           aiEnabled={false}
           theme={resolvedTheme === "dark" ? "dark" : "light"}
           langCode={getExcalidrawLanguage(locale)}
-          autoFocus={!compact}
+          autoFocus={!compact && !embedded}
           detectScroll={false}
           UIOptions={{
             tools: { image: false },

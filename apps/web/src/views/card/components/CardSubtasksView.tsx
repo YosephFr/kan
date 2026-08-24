@@ -20,7 +20,7 @@ import { StrictModeDroppable as Droppable } from "~/components/StrictModeDroppab
 import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
 import {
-  getCardWorkspaceQueryValue,
+  getCardWorkspaceNavigationQuery,
   getNextTabIndex,
 } from "~/utils/card-workspace";
 import { DevelopmentProgress } from "./DevelopmentProgress";
@@ -31,9 +31,47 @@ interface CardSubtasksViewProps {
   cardPublicId: string;
   members: WorkspaceMemberOption[];
   canEdit: boolean;
+  embedded?: boolean;
   enabled?: boolean;
+  initializationRequested?: boolean;
+  onRequestInitialization?: () => void;
   singleStageLayout?: boolean;
 }
+
+type CardSubtasksViewContentProps = Omit<CardSubtasksViewProps, "enabled">;
+
+interface PipelineInitializationState {
+  canEdit: boolean;
+  initializationRequested: boolean;
+  isOnline: boolean;
+  browserIsOnline: boolean;
+  hasPipeline: boolean;
+  pipelineInitialized: boolean;
+  didInitializationFail: boolean;
+  initializationStarted: boolean;
+  initializationPending: boolean;
+}
+
+export const shouldInitializeCardPipeline = ({
+  canEdit,
+  initializationRequested,
+  isOnline,
+  browserIsOnline,
+  hasPipeline,
+  pipelineInitialized,
+  didInitializationFail,
+  initializationStarted,
+  initializationPending,
+}: PipelineInitializationState) =>
+  canEdit &&
+  initializationRequested &&
+  isOnline &&
+  browserIsOnline &&
+  hasPipeline &&
+  !pipelineInitialized &&
+  !didInitializationFail &&
+  !initializationStarted &&
+  !initializationPending;
 
 const cloneStages = (stages: CardPipelineStage[]) =>
   stages.map((stage) => ({
@@ -42,12 +80,22 @@ const cloneStages = (stages: CardPipelineStage[]) =>
   }));
 
 export function CardSubtasksView({
+  enabled = true,
+  ...props
+}: CardSubtasksViewProps) {
+  if (!enabled) return null;
+  return <CardSubtasksViewContent {...props} />;
+}
+
+function CardSubtasksViewContent({
   cardPublicId,
   members,
   canEdit,
-  enabled = true,
+  embedded = false,
+  initializationRequested = true,
+  onRequestInitialization,
   singleStageLayout = false,
-}: CardSubtasksViewProps) {
+}: CardSubtasksViewContentProps) {
   const router = useRouter();
   const utils = api.useUtils();
   const { showPopup } = usePopup();
@@ -65,7 +113,7 @@ export function CardSubtasksView({
 
   const pipelineQuery = api.cardPipeline.get.useQuery(
     { cardPublicId },
-    { enabled: enabled && cardPublicId.length >= 12, retry: 1 },
+    { enabled: cardPublicId.length >= 12, retry: 1 },
   );
   const pipeline: CardPipelineData | undefined = pipelineQuery.data;
 
@@ -177,17 +225,19 @@ export function CardSubtasksView({
   }, [pipeline]);
 
   useEffect(() => {
-    if (
-      !enabled ||
-      !canEdit ||
-      !isOnline ||
-      (typeof navigator !== "undefined" && !navigator.onLine) ||
-      !pipeline ||
-      pipeline.initialized ||
-      didInitializationFail ||
-      initializedRef.current ||
-      initialize.isPending
-    ) {
+    const shouldInitialize = shouldInitializeCardPipeline({
+      canEdit,
+      initializationRequested,
+      isOnline,
+      browserIsOnline:
+        typeof navigator === "undefined" ? true : navigator.onLine,
+      hasPipeline: pipeline !== undefined,
+      pipelineInitialized: pipeline?.initialized ?? false,
+      didInitializationFail,
+      initializationStarted: initializedRef.current,
+      initializationPending: initialize.isPending,
+    });
+    if (!shouldInitialize) {
       return;
     }
 
@@ -197,8 +247,8 @@ export function CardSubtasksView({
     canEdit,
     cardPublicId,
     didInitializationFail,
-    enabled,
     initialize,
+    initializationRequested,
     isOnline,
     pipeline,
   ]);
@@ -232,12 +282,11 @@ export function CardSubtasksView({
   }, [selectedSubtask]);
 
   const openSubtask = async (subtaskPublicId: string) => {
-    const nextQuery: Record<string, string | string[] | undefined> = {
-      ...router.query,
-      vista: getCardWorkspaceQueryValue("subtasks"),
-      subtask: subtaskPublicId,
-    };
-    delete nextQuery.view;
+    const nextQuery = getCardWorkspaceNavigationQuery(
+      router.query,
+      "subtasks",
+      { subtask: subtaskPublicId },
+    );
     await router.replace(
       {
         pathname: router.pathname,
@@ -249,14 +298,11 @@ export function CardSubtasksView({
   };
 
   const openCanvasFrame = async (framePublicId: string) => {
-    const nextQuery: Record<string, string | string[] | undefined> = {
-      ...router.query,
-      vista: getCardWorkspaceQueryValue("whiteboard"),
-      frame: framePublicId,
-    };
-    delete nextQuery.view;
-    delete nextQuery.subtask;
-    delete nextQuery.recurso;
+    const nextQuery = getCardWorkspaceNavigationQuery(
+      router.query,
+      "whiteboard",
+      { frame: framePublicId },
+    );
     await router.replace(
       {
         pathname: router.pathname,
@@ -290,8 +336,7 @@ export function CardSubtasksView({
   };
 
   const closeSubtask = () => {
-    const nextQuery = { ...router.query };
-    delete nextQuery.subtask;
+    const nextQuery = getCardWorkspaceNavigationQuery(router.query, "subtasks");
     void router.replace(
       { pathname: router.pathname, query: nextQuery },
       undefined,
@@ -300,13 +345,9 @@ export function CardSubtasksView({
   };
 
   const openResource = (resourcePublicId: string) => {
-    const nextQuery: Record<string, string | string[] | undefined> = {
-      ...router.query,
-      vista: getCardWorkspaceQueryValue("files"),
-      recurso: resourcePublicId,
-    };
-    delete nextQuery.view;
-    delete nextQuery.subtask;
+    const nextQuery = getCardWorkspaceNavigationQuery(router.query, "files", {
+      resource: resourcePublicId,
+    });
     void router.replace(
       { pathname: router.pathname, query: nextQuery },
       undefined,
@@ -414,15 +455,17 @@ export function CardSubtasksView({
   const displayedStages = singleStageLayout
     ? stages.filter((stage) => stage.publicId === activeMobileStageId)
     : stages;
+  const tabPanelProps = embedded
+    ? {}
+    : {
+        id: "card-view-subtasks",
+        role: "tabpanel" as const,
+        "aria-labelledby": "card-tab-subtasks",
+      };
 
   if (pipelineQuery.isLoading || initialize.isPending) {
     return (
-      <section
-        id="card-view-subtasks"
-        role="tabpanel"
-        aria-labelledby="card-tab-subtasks"
-        className="p-4 md:p-6"
-      >
+      <section {...tabPanelProps} className="p-4 md:p-6">
         <div className="mb-5 h-20 animate-pulse rounded-md bg-light-200 dark:bg-dark-200" />
         <div
           className={twMerge(
@@ -445,9 +488,7 @@ export function CardSubtasksView({
   if (pipelineQuery.isError) {
     return (
       <section
-        id="card-view-subtasks"
-        role="tabpanel"
-        aria-labelledby="card-tab-subtasks"
+        {...tabPanelProps}
         className="flex min-h-[28rem] items-center justify-center p-6"
       >
         <div className="max-w-sm text-center">
@@ -474,9 +515,7 @@ export function CardSubtasksView({
   if (!pipeline?.initialized && canEdit && didInitializationFail) {
     return (
       <section
-        id="card-view-subtasks"
-        role="tabpanel"
-        aria-labelledby="card-tab-subtasks"
+        {...tabPanelProps}
         className="flex min-h-[28rem] items-center justify-center p-6"
       >
         <div className="max-w-sm text-center">
@@ -504,12 +543,35 @@ export function CardSubtasksView({
     );
   }
 
+  if (!pipeline?.initialized && canEdit && !initializationRequested) {
+    return (
+      <section
+        {...tabPanelProps}
+        className="flex min-h-64 items-center justify-center p-6"
+      >
+        <div className="max-w-sm text-center">
+          <p className="text-sm font-medium text-light-1000 dark:text-dark-1000">
+            {t`This card does not have a subtask pipeline yet`}
+          </p>
+          <p className="mt-2 text-xs leading-5 text-light-700 dark:text-dark-700">
+            {t`Activate the pipeline when you are ready to break down the work.`}
+          </p>
+          <button
+            type="button"
+            onClick={onRequestInitialization}
+            className="mt-4 inline-flex items-center rounded-md border border-light-500 px-3 py-2 text-xs font-medium text-light-950 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:border-dark-500 dark:text-dark-950 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800"
+          >
+            {t`Activate subtasks`}
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   if (!pipeline?.initialized && !canEdit) {
     return (
       <section
-        id="card-view-subtasks"
-        role="tabpanel"
-        aria-labelledby="card-tab-subtasks"
+        {...tabPanelProps}
         className="flex min-h-[28rem] items-center justify-center p-6"
       >
         <div className="max-w-sm text-center">
@@ -533,15 +595,18 @@ export function CardSubtasksView({
 
   return (
     <section
-      id="card-view-subtasks"
-      role="tabpanel"
-      aria-labelledby="card-tab-subtasks"
-      className="flex h-full min-h-0 flex-col p-3 md:p-5"
+      {...tabPanelProps}
+      className={twMerge(
+        "flex min-h-0 flex-col p-3 md:p-5",
+        !embedded && "h-full",
+      )}
     >
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="max-w-xl flex-1">
-          <DevelopmentProgress summary={summary} interactive={false} />
-        </div>
+        {!embedded && (
+          <div className="max-w-xl flex-1">
+            <DevelopmentProgress summary={summary} interactive={false} />
+          </div>
+        )}
         <div className="flex items-center gap-2 text-[11px] text-light-700 dark:text-dark-700">
           {!isOnline && (
             <span className="flex items-center gap-1 text-amber-700 dark:text-amber-400">

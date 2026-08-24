@@ -34,8 +34,57 @@ export const getCardWorkspaceView = (
     : "summary";
 };
 
+export const getCardWorkspaceTargetView = ({
+  value,
+  legacyValue,
+  subtask,
+  resource,
+  frame,
+}: {
+  value?: string | string[];
+  legacyValue?: string | string[];
+  subtask?: string | string[];
+  resource?: string | string[];
+  frame?: string | string[];
+}): CardWorkspaceView | null => {
+  if (firstQueryValue(subtask)) return "subtasks";
+  if (firstQueryValue(frame)) return "whiteboard";
+  if (firstQueryValue(resource)) return "files";
+  if (value !== undefined || legacyValue !== undefined) {
+    return getCardWorkspaceView(value, legacyValue);
+  }
+  return null;
+};
+
 export const getCardWorkspaceQueryValue = (view: CardWorkspaceView) =>
   cardWorkspaceQueryValues[view];
+
+export const getCardWorkspaceNavigationQuery = (
+  query: Record<string, string | string[] | undefined>,
+  view: CardWorkspaceView,
+  target?: { subtask?: string; resource?: string; frame?: string },
+) => {
+  const nextQuery: Record<string, string | string[] | undefined> = {
+    ...query,
+    vista: getCardWorkspaceQueryValue(view),
+  };
+  delete nextQuery.view;
+  delete nextQuery.subtask;
+  delete nextQuery.recurso;
+  delete nextQuery.frame;
+
+  if (view === "subtasks" && target?.subtask) {
+    nextQuery.subtask = target.subtask;
+  }
+  if (view === "files" && target?.resource) {
+    nextQuery.recurso = target.resource;
+  }
+  if (view === "whiteboard" && target?.frame) {
+    nextQuery.frame = target.frame;
+  }
+
+  return nextQuery;
+};
 
 export const getNextTabIndex = (
   currentIndex: number,
