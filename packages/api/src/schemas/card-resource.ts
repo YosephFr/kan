@@ -6,6 +6,7 @@ export const resourceSummarySchema = z.object({
   total: z.number().int().min(0),
   uploads: z.number().int().min(0),
   driveLinks: z.number().int().min(0),
+  webLinks: z.number().int().min(0),
 });
 
 const baseResourceSchema = z.object({
@@ -30,9 +31,21 @@ export const driveCardResourceSchema = baseResourceSchema.extend({
   previewUrl: z.string().url(),
 });
 
+export const webCardResourceSchema = baseResourceSchema.extend({
+  kind: z.literal("web"),
+  openUrl: z.string().url(),
+  description: z.string().nullable(),
+  siteName: z.string().nullable(),
+  previewImageUrl: z
+    .string()
+    .regex(/^\/(?!\/)/)
+    .nullable(),
+});
+
 export const cardResourceSchema = z.discriminatedUnion("kind", [
   uploadCardResourceSchema,
   driveCardResourceSchema,
+  webCardResourceSchema,
 ]);
 
 export const cardResourceListSchema = z.object({

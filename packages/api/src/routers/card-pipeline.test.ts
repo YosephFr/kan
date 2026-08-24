@@ -136,6 +136,56 @@ describe("card pipeline router", () => {
     ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 
+  it("maps linked web resources without exposing remote preview URLs", async () => {
+    mockPipeline.mockResolvedValueOnce({
+      pipeline: {
+        ...pipeline,
+        stages: pipeline.stages.map((stage) => ({
+          ...stage,
+          subtasks: stage.subtasks.map((subtask) => ({
+            ...subtask,
+            resources: [
+              {
+                publicId: "webresource1",
+                kind: "web",
+                title: "Research notes",
+                webUrl: "https://example.com/research",
+                webDescription: "Working context",
+                webSiteName: "Example",
+                webImageUrl: "https://cdn.example.com/private.png",
+              },
+            ],
+          })),
+        })),
+      },
+      summary: {
+        total: 1,
+        completed: 0,
+        blocked: 0,
+        progressPercent: 0,
+      },
+    });
+    const { cardPipelineRouter } = await import("./card-pipeline");
+
+    const result = await cardPipelineRouter
+      .createCaller({ db, user } as never)
+      .get({ cardPublicId });
+
+    expect(result.stages[0]?.subtasks[0]?.resources).toEqual([
+      {
+        publicId: "webresource1",
+        kind: "web",
+        title: "Research notes",
+        openUrl: "https://example.com/research",
+        description: "Working context",
+        siteName: "Example",
+        previewImageUrl: null,
+      },
+    ]);
+    expect(JSON.stringify(result)).not.toContain("cdn.example.com");
+    expect(JSON.stringify(result)).not.toContain("webImageUrl");
+  });
+
   it("checks card:view for private reads and card:edit for mutations", async () => {
     const { cardPipelineRouter } = await import("./card-pipeline");
     const caller = cardPipelineRouter.createCaller({ db, user } as never);

@@ -230,6 +230,7 @@ export function NewCardForm({
                 total: 0,
                 uploads: 0,
                 driveLinks: 0,
+                webLinks: 0,
               },
               hasCanvas: false,
               cardNumber: null,

@@ -66,4 +66,20 @@ describe("getCardResourcePreviewKind", () => {
     expect(CARD_RESOURCE_DRIVE_SANDBOX).toBe("allow-scripts allow-same-origin");
     expect(CARD_RESOURCE_REFERRER_POLICY).toBe("no-referrer");
   });
+
+  it("renders web resources without a remote preview image", () => {
+    const web = {
+      kind: "web",
+      publicId: "webresource1",
+      title: "Research notes",
+      openUrl: "https://example.com/research",
+      description: "Working context",
+      siteName: "Example",
+      previewImageUrl: null,
+      createdAt: new Date("2026-08-24T12:00:00.000Z"),
+    } satisfies CardResource;
+
+    expect(getCardResourcePreviewKind(web)).toBe("web");
+    expect(JSON.stringify(web)).not.toContain("webImageUrl");
+  });
 });

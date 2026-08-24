@@ -63,6 +63,7 @@ const Card = ({
     total: number;
     uploads: number;
     driveLinks: number;
+    webLinks: number;
   };
   dueDate?: Date | null;
   startedAt?: Date | null;

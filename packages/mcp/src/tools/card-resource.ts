@@ -21,7 +21,7 @@ export function registerCardResourceTools(server: McpServer): void {
     "list_card_resources",
     {
       description:
-        "List uploads and Google Drive links attached to a card without exposing storage keys or internal IDs.",
+        "List uploads, Google Drive links, and web links attached to a card without exposing storage keys, remote preview URLs, or internal IDs.",
       inputSchema: { cardPublicId: publicId },
       annotations: {
         readOnlyHint: true,

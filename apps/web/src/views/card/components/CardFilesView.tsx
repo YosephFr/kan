@@ -55,6 +55,9 @@ function getDriveTypeLabel(resource: Extract<CardResource, { kind: "drive" }>) {
 }
 
 function ResourceTypeIcon({ resource }: { resource: CardResource }) {
+  if (resource.kind === "web") {
+    return <HiLink className="h-7 w-7" />;
+  }
   if (resource.kind === "drive") {
     if (resource.driveType === "spreadsheet") {
       return <HiOutlineTableCells className="h-7 w-7" />;
@@ -71,6 +74,12 @@ function ResourceTypeIcon({ resource }: { resource: CardResource }) {
     return <HiOutlinePhoto className="h-7 w-7" />;
   }
   return <HiOutlineDocumentText className="h-7 w-7" />;
+}
+
+function getResourceMeta(resource: CardResource) {
+  if (resource.kind === "drive") return getDriveTypeLabel(resource);
+  if (resource.kind === "web") return resource.siteName ?? t`Web link`;
+  return `${formatResourceSize(resource.size)} · ${resource.contentType}`;
 }
 
 function ResourceCard({
@@ -91,11 +100,13 @@ function ResourceCard({
   onDelete: () => void;
 }) {
   const imageUrl =
-    resource.kind === "upload" &&
-    resource.contentType.startsWith("image/") &&
-    resource.viewUrl
-      ? resource.viewUrl
-      : null;
+    resource.kind === "web"
+      ? resource.previewImageUrl
+      : resource.kind === "upload" &&
+          resource.contentType.startsWith("image/") &&
+          resource.viewUrl
+        ? resource.viewUrl
+        : null;
   const pdfUrl =
     resource.kind === "upload" &&
     resource.contentType === "application/pdf" &&
@@ -142,9 +153,7 @@ function ResourceCard({
             {resource.title}
           </p>
           <p className="mt-1 truncate text-[11px] text-light-700 dark:text-dark-700">
-            {resource.kind === "drive"
-              ? getDriveTypeLabel(resource)
-              : `${formatResourceSize(resource.size)} · ${resource.contentType}`}
+            {getResourceMeta(resource)}
           </p>
         </div>
       </button>
@@ -166,7 +175,7 @@ function ResourceCard({
             className="flex h-8 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium text-light-800 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:text-dark-800 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800"
           >
             <HiLink className="h-3.5 w-3.5" />
-            {t`Open in Drive`}
+            {resource.kind === "drive" ? t`Open in Drive` : t`Open link`}
           </a>
         )}
         {canEdit && (

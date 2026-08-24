@@ -17,6 +17,7 @@ import {
   cardCanvasFrames,
   cardCanvasResources,
   cardCanvasRevisions,
+  cardResources,
   cards,
   cardSubtasks,
   lists,
@@ -69,6 +70,26 @@ describe("card canvas clone and resource deletion integrations", () => {
     return created.publicId;
   }
 
+  async function createWeb(title = "Canvas research") {
+    const [resource] = await db
+      .insert(cardResources)
+      .values({
+        publicId: "canvasweb001",
+        cardId: seeded.card.id,
+        kind: "web",
+        title,
+        webUrl: "https://example.com/canvas",
+        webUrlHash: "b".repeat(64),
+        webDescription: "Canvas research",
+        webSiteName: "Example",
+        webImageUrl: "https://cdn.example.com/canvas.png",
+        createdBy: seeded.user.id,
+      })
+      .returning({ publicId: cardResources.publicId });
+    if (!resource) throw new Error("Web resource missing");
+    return resource.publicId;
+  }
+
   async function createSourceSubtask() {
     const initialized = await pipelineRepo.initialize(db, {
       cardPublicId: seeded.card.publicId,
@@ -97,7 +118,10 @@ describe("card canvas clone and resource deletion integrations", () => {
   it.each(["replace", "remove"] as const)(
     "mutates the canvas with CAS before deleting a resource in %s mode",
     async (canvasAction) => {
-      const resourcePublicId = await createDrive(canvasAction);
+      const resourcePublicId =
+        canvasAction === "replace"
+          ? await createDrive(canvasAction)
+          : await createWeb(canvasAction);
       const saved = await saveSourceCanvas({
         elements: [
           {
@@ -174,9 +198,10 @@ describe("card canvas clone and resource deletion integrations", () => {
     },
   );
 
-  it("clones only the canvas head and remaps Drive, frame and subtask public IDs", async () => {
+  it("clones only the canvas head and remaps link, frame and subtask public IDs", async () => {
     const subtask = await createSourceSubtask();
     const drivePublicId = await createDrive();
+    const webPublicId = await createWeb();
     await db.insert(cardAttachments).values({
       publicId: "uploadclone1",
       cardId: seeded.card.id,
@@ -208,6 +233,13 @@ describe("card canvas clone and resource deletion integrations", () => {
           type: "image",
           frameId: "frame-element",
           customData: { kanResourcePublicId: "uploadclone1" },
+        },
+        {
+          id: "web-card",
+          type: "embeddable",
+          frameId: "frame-element",
+          customData: { kanResourcePublicId: webPublicId },
+          link: `kan-resource:${webPublicId}`,
         },
         {
           id: "upload-image-b",
@@ -289,8 +321,13 @@ describe("card canvas clone and resource deletion integrations", () => {
 
     const references = extractCardCanvasReferences(destinationCanvas.scene);
     expect(references.frames[0]?.publicId).not.toBe(sourceFramePublicId);
-    expect(references.resources).toHaveLength(1);
-    expect(references.resources[0]?.publicId).not.toBe(drivePublicId);
+    expect(references.resources).toHaveLength(2);
+    expect(
+      references.resources.map((resource) => resource.publicId),
+    ).not.toContain(drivePublicId);
+    expect(
+      references.resources.map((resource) => resource.publicId),
+    ).not.toContain(webPublicId);
     expect(references.subtaskPublicIds).toHaveLength(1);
     expect(references.subtaskPublicIds[0]).not.toBe(subtask.publicId);
     expect(

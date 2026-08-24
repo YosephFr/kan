@@ -10,7 +10,8 @@ interface DuplicateCardConfirmationDialogProps {
   isOpen: boolean;
   isLoading: boolean;
   uploadCount: number;
-  publicDriveLinkCount?: number;
+  publicLinkCount?: number;
+  publicLinksAreDriveOnly: boolean;
   requiresPublicVisibilityAcknowledgement: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -20,7 +21,8 @@ export function DuplicateCardConfirmationDialog({
   isOpen,
   isLoading,
   uploadCount,
-  publicDriveLinkCount,
+  publicLinkCount,
+  publicLinksAreDriveOnly,
   requiresPublicVisibilityAcknowledgement,
   onCancel,
   onConfirm,
@@ -67,8 +69,8 @@ export function DuplicateCardConfirmationDialog({
                   )}
                   {requiresPublicVisibilityAcknowledgement && (
                     <PublicResourceVisibilityNotice
-                      resourceCount={publicDriveLinkCount}
-                      driveOnly
+                      resourceCount={publicLinkCount}
+                      driveOnly={publicLinksAreDriveOnly}
                     />
                   )}
                 </div>

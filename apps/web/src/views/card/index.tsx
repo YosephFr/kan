@@ -460,6 +460,7 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
                     cardIndex={card.index}
                     uploadCount={card.resourceSummary.uploads}
                     driveLinkCount={card.resourceSummary.driveLinks}
+                    webLinkCount={card.resourceSummary.webLinks}
                     isPublicBoard={board?.visibility === "public"}
                   />
                   <Link

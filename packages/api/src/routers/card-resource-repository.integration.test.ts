@@ -75,6 +75,26 @@ describe("card resource repository", () => {
     return created.publicId;
   }
 
+  async function createWeb() {
+    const [resource] = await db
+      .insert(cardResources)
+      .values({
+        publicId: "webresource1",
+        cardId: seeded.card.id,
+        kind: "web",
+        title: "Market research",
+        webUrl: "https://example.com/research",
+        webUrlHash: "a".repeat(64),
+        webDescription: "Research context",
+        webSiteName: "Example",
+        webImageUrl: "https://cdn.example.com/private-preview.png",
+        createdBy: seeded.user.id,
+      })
+      .returning({ publicId: cardResources.publicId });
+    if (!resource) throw new Error("Web resource missing");
+    return resource.publicId;
+  }
+
   async function makeSourcePrivateAndCreatePublicTarget() {
     await db
       .update(boards)
@@ -489,12 +509,19 @@ describe("card resource repository", () => {
     ).toBeInstanceOf(Date);
   });
 
-  it("clones Drive links and subtask relations while omitting each upload once", async () => {
+  it("clones Drive and web links with subtask relations while omitting each upload once", async () => {
     const subtask = await createSourceSubtask();
     const drivePublicId = await createDrive();
+    const webPublicId = await createWeb();
     await subtaskResourceRepo.linkResource(db, {
       subtaskPublicId: subtask.publicId,
       resourcePublicId: drivePublicId,
+      expectedWorkspaceId: seeded.workspace.id,
+      createdBy: seeded.user.id,
+    });
+    await subtaskResourceRepo.linkResource(db, {
+      subtaskPublicId: subtask.publicId,
+      resourcePublicId: webPublicId,
       expectedWorkspaceId: seeded.workspace.id,
       createdBy: seeded.user.id,
     });
@@ -546,9 +573,21 @@ describe("card resource repository", () => {
       .where(eq(cards.publicId, duplicated.publicId));
     if (!copy) throw new Error("Duplicate missing");
     const copiedResources = await cardResourceRepo.listByCardId(db, copy.id);
-    expect(copiedResources).toEqual([
-      expect.objectContaining({ kind: "drive", title: "Launch brief" }),
-    ]);
+    expect(copiedResources).toHaveLength(2);
+    expect(copiedResources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "drive", title: "Launch brief" }),
+        expect.objectContaining({
+          kind: "web",
+          title: "Market research",
+          webUrl: "https://example.com/research",
+          webUrlHash: "a".repeat(64),
+          webDescription: "Research context",
+          webSiteName: "Example",
+          webImageUrl: "https://cdn.example.com/private-preview.png",
+        }),
+      ]),
+    );
     const pipeline = await pipelineRepo.getByCardPublicId(
       db,
       duplicated.publicId,
@@ -558,8 +597,14 @@ describe("card resource repository", () => {
     }
     expect(
       pipeline.stages.flatMap((stage) => stage.subtasks)[0]?.resources,
-    ).toEqual([
-      expect.objectContaining({ kind: "drive", title: "Launch brief" }),
-    ]);
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "drive", title: "Launch brief" }),
+        expect.objectContaining({ kind: "web", title: "Market research" }),
+      ]),
+    );
+    await expect(
+      cardResourceRepo.getSummaryByCardId(db, copy.id),
+    ).resolves.toEqual({ total: 2, uploads: 0, driveLinks: 1, webLinks: 1 });
   });
 });

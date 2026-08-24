@@ -44,6 +44,7 @@ export {
   driveCardResourceSchema,
   resourceSummarySchema,
   uploadCardResourceSchema,
+  webCardResourceSchema,
 } from "./card-resource";
 
 export {

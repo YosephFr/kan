@@ -11,6 +11,7 @@ import {
 
 import type { User } from "../trpc";
 import { buildDriveUrls } from "./card-resource-drive";
+import { normalizeWebResourceOpenUrl } from "./card-resource-web";
 import { assertPermission } from "./permissions";
 
 interface CardAccessContext {
@@ -141,6 +142,23 @@ export async function loadCardPipeline(
               title: resource.title,
               driveType: resource.driveType,
               ...urls,
+            };
+          }
+          if (resource.kind === "web") {
+            const openUrl = resource.webUrl
+              ? normalizeWebResourceOpenUrl(resource.webUrl)
+              : null;
+            if (!openUrl) {
+              throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+            }
+            return {
+              publicId: resource.publicId,
+              kind: "web" as const,
+              title: resource.title,
+              openUrl,
+              description: resource.webDescription,
+              siteName: resource.webSiteName,
+              previewImageUrl: null,
             };
           }
           if (

@@ -27,6 +27,7 @@ export default function CardDropdown({
   cardIndex,
   uploadCount = 0,
   driveLinkCount = 0,
+  webLinkCount = 0,
   isPublicBoard = false,
 }: {
   cardPublicId: string;
@@ -39,6 +40,7 @@ export default function CardDropdown({
   cardIndex?: number;
   uploadCount?: number;
   driveLinkCount?: number;
+  webLinkCount?: number;
   isPublicBoard?: boolean;
 }) {
   const { openModal } = useModal();
@@ -49,9 +51,10 @@ export default function CardDropdown({
     useState(false);
 
   const requiresPublicVisibilityAcknowledgement =
-    requiresPublicAcknowledgement || (isPublicBoard && driveLinkCount > 0);
-  const publicDriveLinkCount = requiresPublicVisibilityAcknowledgement
-    ? driveLinkCount || undefined
+    requiresPublicAcknowledgement ||
+    (isPublicBoard && driveLinkCount + webLinkCount > 0);
+  const publicLinkCount = requiresPublicVisibilityAcknowledgement
+    ? driveLinkCount + webLinkCount || undefined
     : undefined;
 
   const duplicateCard = api.card.duplicate.useMutation({
@@ -207,7 +210,8 @@ export default function CardDropdown({
         isOpen={isDuplicateWarningOpen}
         isLoading={duplicateCard.isPending}
         uploadCount={uploadCount}
-        publicDriveLinkCount={publicDriveLinkCount}
+        publicLinkCount={publicLinkCount}
+        publicLinksAreDriveOnly={webLinkCount === 0}
         requiresPublicVisibilityAcknowledgement={
           requiresPublicVisibilityAcknowledgement
         }

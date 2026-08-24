@@ -7,6 +7,7 @@ import * as cardResourceRepo from "@kan/db/repository/cardResource.repo";
 import { createTRPCRouter } from "../trpc";
 import { deleteCardResource } from "../utils/card-resource-delete";
 import { normalizeDriveLink } from "../utils/card-resource-drive";
+import { normalizeWebResourceOpenUrl } from "../utils/card-resource-web";
 import { assertPermission } from "../utils/permissions";
 
 vi.mock("@kan/db/repository/card.repo", () => ({
@@ -73,6 +74,18 @@ describe("Google Drive card resource URLs", () => {
   });
 });
 
+describe("web card resource URLs", () => {
+  it("keeps only safe HTTPS navigation URLs", () => {
+    expect(
+      normalizeWebResourceOpenUrl("https://example.com/research?q=kan#result"),
+    ).toBe("https://example.com/research?q=kan#result");
+    expect(normalizeWebResourceOpenUrl("http://example.com")).toBeNull();
+    expect(normalizeWebResourceOpenUrl("https://user@example.com")).toBeNull();
+    expect(normalizeWebResourceOpenUrl(" https://example.com")).toBeNull();
+    expect(normalizeWebResourceOpenUrl("javascript:alert(1)")).toBeNull();
+  });
+});
+
 describe("cardResource router access", () => {
   const db = {} as never;
   const card = {
@@ -88,7 +101,7 @@ describe("cardResource router access", () => {
     );
     vi.mocked(cardResourceRepo.getListSnapshot).mockResolvedValue({
       resources: [],
-      summary: { total: 0, uploads: 0, driveLinks: 0 },
+      summary: { total: 0, uploads: 0, driveLinks: 0, webLinks: 0 },
     });
     vi.mocked(assertPermission).mockResolvedValue(undefined);
     vi.mocked(deleteCardResource).mockResolvedValue(undefined);
@@ -112,7 +125,7 @@ describe("cardResource router access", () => {
       }),
     ).resolves.toEqual({
       resources: [],
-      summary: { total: 0, uploads: 0, driveLinks: 0 },
+      summary: { total: 0, uploads: 0, driveLinks: 0, webLinks: 0 },
     });
     expect(cardResourceRepo.getListSnapshot).toHaveBeenCalledWith(db, {
       cardId: card.id,
@@ -222,13 +235,18 @@ describe("cardResource router access", () => {
           driveType: "document",
           driveFileId: "DocumentId12345",
           resourceKey: "Key_123",
+          webUrl: null,
+          webUrlHash: null,
+          webDescription: null,
+          webSiteName: null,
+          webImageUrl: null,
           contentType: null,
           originalFilename: null,
           size: null,
           createdAt: new Date("2026-08-21T12:00:00.000Z"),
         },
       ],
-      summary: { total: 1, uploads: 0, driveLinks: 1 },
+      summary: { total: 1, uploads: 0, driveLinks: 1, webLinks: 0 },
     });
     const result = await caller.createDriveLink({
       cardPublicId: "cardpublic01",
@@ -248,6 +266,51 @@ describe("cardResource router access", () => {
     expect(result).not.toHaveProperty("resourceKey");
     if (result.kind !== "drive") throw new Error("Drive resource expected");
     expect(result.openUrl).toContain("resourcekey=Key_123");
+  });
+
+  it("maps stored web metadata without exposing the remote preview URL", async () => {
+    const { cardResourceRouter } = await import("./card-resource");
+    vi.mocked(cardResourceRepo.getListSnapshot).mockResolvedValueOnce({
+      resources: [
+        {
+          publicId: "webresource1",
+          kind: "web",
+          title: "Research notes",
+          driveType: null,
+          driveFileId: null,
+          resourceKey: null,
+          webUrl: "https://example.com/research?source=kan",
+          webUrlHash: "a".repeat(64),
+          webDescription: "Private working context",
+          webSiteName: "Example",
+          webImageUrl: "https://cdn.example.com/private-preview.png",
+          contentType: null,
+          originalFilename: null,
+          size: null,
+          createdAt: new Date("2026-08-24T12:00:00.000Z"),
+        },
+      ],
+      summary: { total: 1, uploads: 0, driveLinks: 0, webLinks: 1 },
+    });
+
+    const result = await cardResourceRouter
+      .createCaller({ db, user: { id: "user-1" } } as never)
+      .list({ cardPublicId: "cardpublic01" });
+
+    expect(result.resources).toEqual([
+      {
+        publicId: "webresource1",
+        kind: "web",
+        title: "Research notes",
+        openUrl: "https://example.com/research?source=kan",
+        description: "Private working context",
+        siteName: "Example",
+        previewImageUrl: null,
+        createdAt: new Date("2026-08-24T12:00:00.000Z"),
+      },
+    ]);
+    expect(JSON.stringify(result)).not.toContain("cdn.example.com");
+    expect(JSON.stringify(result)).not.toContain("webImageUrl");
   });
 
   it("publishes every resource adapter in the OpenAPI document", async () => {

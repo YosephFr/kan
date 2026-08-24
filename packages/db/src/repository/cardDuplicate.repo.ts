@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
 import {
@@ -138,18 +138,18 @@ export const duplicateCard = async (
       targetBoard.visibility === "public" &&
       !input.publicVisibilityAcknowledged
     ) {
-      const [driveResource] = await tx
+      const [linkResource] = await tx
         .select({ id: cardResources.id })
         .from(cardResources)
         .where(
           and(
             eq(cardResources.cardId, sourceCard.id),
-            eq(cardResources.kind, "drive"),
+            or(eq(cardResources.kind, "drive"), eq(cardResources.kind, "web")),
             isNull(cardResources.deletedAt),
           ),
         )
         .limit(1);
-      if (driveResource) return { status: "public_ack_required" as const };
+      if (linkResource) return { status: "public_ack_required" as const };
     }
 
     const sourceLabelRows = input.copyLabels

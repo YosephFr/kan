@@ -15,7 +15,7 @@ import {
 import { cardAttachments, cards } from "./cards";
 import { users } from "./users";
 
-export const cardResourceKinds = ["upload", "drive"] as const;
+export const cardResourceKinds = ["upload", "drive", "web"] as const;
 export type CardResourceKind = (typeof cardResourceKinds)[number];
 export const cardResourceKindEnum = pgEnum(
   "card_resource_kind",
@@ -50,6 +50,11 @@ export const cardResources = pgTable(
     driveType: cardResourceDriveTypeEnum("driveType"),
     driveFileId: varchar("driveFileId", { length: 255 }),
     resourceKey: varchar("resourceKey", { length: 255 }),
+    webUrl: varchar("webUrl", { length: 2048 }),
+    webUrlHash: varchar("webUrlHash", { length: 64 }),
+    webDescription: varchar("webDescription", { length: 500 }),
+    webSiteName: varchar("webSiteName", { length: 255 }),
+    webImageUrl: varchar("webImageUrl", { length: 2048 }),
     createdBy: uuid("createdBy").references(() => users.id, {
       onDelete: "set null",
     }),
@@ -65,11 +70,14 @@ export const cardResources = pgTable(
   (table) => [
     check(
       "card_resource_kind_payload_check",
-      sql`(${table.kind} = 'upload' and ${table.attachmentId} is not null and ${table.driveType} is null and ${table.driveFileId} is null and ${table.resourceKey} is null) or (${table.kind} = 'drive' and ${table.attachmentId} is null and ${table.driveType} is not null and ${table.driveFileId} is not null)`,
+      sql`(${table.kind} = 'upload' and ${table.attachmentId} is not null and ${table.driveType} is null and ${table.driveFileId} is null and ${table.resourceKey} is null and ${table.webUrl} is null and ${table.webUrlHash} is null and ${table.webDescription} is null and ${table.webSiteName} is null and ${table.webImageUrl} is null) or (${table.kind} = 'drive' and ${table.attachmentId} is null and ${table.driveType} is not null and ${table.driveFileId} is not null and ${table.webUrl} is null and ${table.webUrlHash} is null and ${table.webDescription} is null and ${table.webSiteName} is null and ${table.webImageUrl} is null) or (${table.kind} = 'web' and ${table.attachmentId} is null and ${table.driveType} is null and ${table.driveFileId} is null and ${table.resourceKey} is null and ${table.webUrl} is not null and ${table.webUrlHash} is not null)`,
     ),
     uniqueIndex("card_resource_drive_active_unique")
       .on(table.cardId, table.driveType, table.driveFileId)
       .where(sql`${table.kind} = 'drive' and ${table.deletedAt} is null`),
+    uniqueIndex("card_resource_web_active_unique")
+      .on(table.cardId, table.webUrlHash)
+      .where(sql`${table.kind} = 'web' and ${table.deletedAt} is null`),
     index("card_resource_card_deleted_idx").on(table.cardId, table.deletedAt),
   ],
 ).enableRLS();

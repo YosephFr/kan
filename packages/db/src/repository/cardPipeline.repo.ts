@@ -214,6 +214,10 @@ const queryByCardPublicId = async (
             driveType: cardResources.driveType,
             driveFileId: cardResources.driveFileId,
             resourceKey: cardResources.resourceKey,
+            webUrl: cardResources.webUrl,
+            webDescription: cardResources.webDescription,
+            webSiteName: cardResources.webSiteName,
+            webImageUrl: cardResources.webImageUrl,
             attachmentPublicId: cardAttachments.publicId,
             filename: cardAttachments.filename,
             originalFilename: cardAttachments.originalFilename,
@@ -246,6 +250,7 @@ const queryByCardPublicId = async (
               isNull(cardResources.deletedAt),
               or(
                 eq(cardResources.kind, "drive"),
+                eq(cardResources.kind, "web"),
                 and(
                   isNull(cardAttachments.deletedAt),
                   isNull(cardAttachments.storageQuarantinedAt),

@@ -25,7 +25,7 @@ interface CardCanvasResourceDrawerProps {
 }
 
 const ResourceIcon = ({ resource }: { resource: CardResource }) => {
-  if (resource.kind === "drive") {
+  if (resource.kind === "drive" || resource.kind === "web") {
     return <HiOutlineLink className="h-5 w-5" />;
   }
   if (resource.contentType.startsWith("image/")) {
@@ -55,17 +55,23 @@ export function CardCanvasResourceDrawer({
 
   return (
     <aside
-      aria-label={t`Card resources`}
+      id="card-canvas-resources-drawer"
+      role="region"
+      aria-labelledby="card-canvas-resources-heading"
       aria-hidden={!open}
+      inert={!open}
       className={twMerge(
-        "absolute inset-y-0 right-0 z-30 flex w-[min(23rem,calc(100vw-1rem))] flex-col border-l border-light-300 bg-light-50 shadow-xl transition-transform duration-300 dark:border-dark-400 dark:bg-dark-100",
+        "absolute inset-y-0 right-0 z-30 flex w-[min(23rem,calc(100%_-_0.5rem))] flex-col border-l border-light-300 bg-light-50 shadow-xl transition-transform duration-300 dark:border-dark-400 dark:bg-dark-100",
         open ? "translate-x-0" : "translate-x-full",
       )}
     >
       <div className="flex h-12 items-center justify-between border-b border-light-300 px-4 dark:border-dark-400">
         <div className="flex items-center gap-2">
           <HiOutlineQueueList className="h-4 w-4 text-light-700 dark:text-dark-700" />
-          <h2 className="text-sm font-semibold text-light-1000 dark:text-dark-1000">
+          <h2
+            id="card-canvas-resources-heading"
+            className="text-sm font-semibold text-light-1000 dark:text-dark-1000"
+          >
             {t`Resources`}
           </h2>
           {resources.length > 0 && (
@@ -77,7 +83,7 @@ export function CardCanvasResourceDrawer({
         <button
           type="button"
           onClick={onClose}
-          className="flex h-8 w-8 items-center justify-center rounded-md text-light-700 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:text-dark-700 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800"
+          className="flex h-11 w-11 touch-manipulation items-center justify-center rounded-md text-light-700 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:text-dark-700 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800"
           aria-label={t`Close resources`}
         >
           <HiXMark className="h-5 w-5" />
@@ -127,7 +133,11 @@ export function CardCanvasResourceDrawer({
                     {resource.title}
                   </p>
                   <p className="mt-0.5 text-[10px] text-light-600 dark:text-dark-600">
-                    {resource.kind === "drive" ? t`Google Drive` : t`Upload`}
+                    {resource.kind === "drive"
+                      ? t`Google Drive`
+                      : resource.kind === "web"
+                        ? t`Web link`
+                        : t`Upload`}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">

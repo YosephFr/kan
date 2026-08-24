@@ -9,12 +9,14 @@ interface CardResourceSummaryProps {
   total: number;
   uploads: number;
   driveLinks: number;
+  webLinks: number;
 }
 
 export function CardResourceSummary({
   total,
   uploads,
   driveLinks,
+  webLinks,
 }: CardResourceSummaryProps) {
   const router = useRouter();
 
@@ -42,7 +44,7 @@ export function CardResourceSummary({
           {total === 1 ? t`1 resource` : t`${total} resources`}
         </span>
         <span className="mt-0.5 block text-xs text-light-700 dark:text-dark-700">
-          {t`${uploads} uploads · ${driveLinks} Drive links`}
+          {t`${uploads} uploads · ${driveLinks} Drive links · ${webLinks} web links`}
         </span>
       </span>
       <HiChevronRight className="h-4 w-4 shrink-0 text-light-600 dark:text-dark-600" />

@@ -34,6 +34,7 @@ export async function assertActiveResourcesAcknowledged(
         isNull(cardResources.deletedAt),
         or(
           eq(cardResources.kind, "drive"),
+          eq(cardResources.kind, "web"),
           and(
             eq(cardResources.kind, "upload"),
             isNull(cardAttachments.deletedAt),

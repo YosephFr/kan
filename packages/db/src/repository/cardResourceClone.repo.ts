@@ -34,6 +34,11 @@ export async function cloneCardResourcesTx(
       driveType: cardResources.driveType,
       driveFileId: cardResources.driveFileId,
       resourceKey: cardResources.resourceKey,
+      webUrl: cardResources.webUrl,
+      webUrlHash: cardResources.webUrlHash,
+      webDescription: cardResources.webDescription,
+      webSiteName: cardResources.webSiteName,
+      webImageUrl: cardResources.webImageUrl,
     })
     .from(cardResources)
     .leftJoin(
@@ -46,6 +51,7 @@ export async function cloneCardResourcesTx(
         isNull(cardResources.deletedAt),
         or(
           eq(cardResources.kind, "drive"),
+          eq(cardResources.kind, "web"),
           and(
             isNull(cardAttachments.deletedAt),
             isNull(cardAttachments.storageQuarantinedAt),
@@ -55,20 +61,25 @@ export async function cloneCardResourcesTx(
     )
     .orderBy(asc(cardResources.id))
     .for("share", { of: cardResources });
-  const driveResources = sourceResources.filter(
-    (resource) => resource.kind === "drive",
+  const cloneableResources = sourceResources.filter(
+    (resource) => resource.kind !== "upload",
   );
-  const prepared = driveResources.map((resource) => ({
+  const prepared = cloneableResources.map((resource) => ({
     sourceId: resource.id,
     sourcePublicId: resource.publicId,
     values: {
       publicId: generateUID(),
       cardId: input.destinationCardId,
-      kind: "drive" as const,
+      kind: resource.kind,
       title: resource.title,
       driveType: resource.driveType,
       driveFileId: resource.driveFileId,
       resourceKey: resource.resourceKey,
+      webUrl: resource.webUrl,
+      webUrlHash: resource.webUrlHash,
+      webDescription: resource.webDescription,
+      webSiteName: resource.webSiteName,
+      webImageUrl: resource.webImageUrl,
       createdBy: input.createdBy,
     },
   }));
@@ -91,7 +102,7 @@ export async function cloneCardResourcesTx(
       return target ? [[resource.sourceId, target] as const] : [];
     }),
   );
-  if (resourceBySourceId.size !== driveResources.length) {
+  if (resourceBySourceId.size !== cloneableResources.length) {
     throw new Error("Failed to map cloned card resources");
   }
   const resourcePublicIdBySourcePublicId = new Map(
@@ -102,7 +113,7 @@ export async function cloneCardResourcesTx(
         : [];
     }),
   );
-  if (resourcePublicIdBySourcePublicId.size !== driveResources.length) {
+  if (resourcePublicIdBySourcePublicId.size !== cloneableResources.length) {
     throw new Error("Failed to map cloned card resource public IDs");
   }
 
@@ -140,7 +151,7 @@ export async function cloneCardResourcesTx(
               ]),
               inArray(
                 cardResources.id,
-                driveResources.map((resource) => resource.id),
+                cloneableResources.map((resource) => resource.id),
               ),
               isNull(cardResources.deletedAt),
               isNull(cardSubtaskResources.deletedAt),
@@ -168,7 +179,7 @@ export async function cloneCardResourcesTx(
   }
   if (inserted.length > 0) {
     await tx.insert(cardActivities).values(
-      driveResources.flatMap((resource) => {
+      cloneableResources.flatMap((resource) => {
         const target = resourceBySourceId.get(resource.id);
         return target
           ? [
@@ -189,7 +200,12 @@ export async function cloneCardResourcesTx(
     skippedUploadCount: sourceResources.filter(
       (resource) => resource.kind === "upload",
     ).length,
-    clonedDriveCount: inserted.length,
+    clonedDriveCount: cloneableResources.filter(
+      (resource) => resource.kind === "drive",
+    ).length,
+    clonedWebCount: cloneableResources.filter(
+      (resource) => resource.kind === "web",
+    ).length,
     clonedRelationCount: clonedRelations.length,
     resourcePublicIdBySourcePublicId,
   };

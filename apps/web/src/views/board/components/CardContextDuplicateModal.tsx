@@ -70,9 +70,11 @@ export function CardContextDuplicateModal({
   const hasChecklists = (card?.checklists.length ?? 0) > 0;
   const uploadCount = card?.resourceSummary.uploads ?? 0;
   const driveLinkCount = card?.resourceSummary.driveLinks ?? 0;
+  const webLinkCount = card?.resourceSummary.webLinks ?? 0;
+  const clonedLinkCount = driveLinkCount + webLinkCount;
   const requiresPublicAcknowledgement =
     serverRequiresPublicAcknowledgement ||
-    (board?.visibility === "public" && driveLinkCount > 0);
+    (board?.visibility === "public" && clonedLinkCount > 0);
   const hasAnyCopyOption = hasLabels || hasMembers || hasChecklists;
 
   const duplicateCard = api.card.duplicate.useMutation({
@@ -287,8 +289,8 @@ export function CardContextDuplicateModal({
         )}
         {requiresPublicAcknowledgement && (
           <PublicResourceVisibilityNotice
-            resourceCount={driveLinkCount || undefined}
-            driveOnly
+            resourceCount={clonedLinkCount || undefined}
+            driveOnly={webLinkCount === 0}
           />
         )}
       </div>

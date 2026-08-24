@@ -36,6 +36,7 @@ const activeResource = and(
   isNull(cardResources.deletedAt),
   or(
     eq(cardResources.kind, "drive"),
+    eq(cardResources.kind, "web"),
     and(
       eq(cardResources.kind, "upload"),
       isNull(cardAttachments.deletedAt),
@@ -60,6 +61,10 @@ export const getSummaryByCardIds = async (
         sql<number>`count(*) filter (where ${cardResources.kind} = 'drive')`.mapWith(
           Number,
         ),
+      webLinks:
+        sql<number>`count(*) filter (where ${cardResources.kind} = 'web')`.mapWith(
+          Number,
+        ),
     })
     .from(cardResources)
     .leftJoin(
@@ -80,7 +85,8 @@ export const getSummaryByCardIds = async (
       {
         uploads: row.uploads,
         driveLinks: row.driveLinks,
-        total: row.uploads + row.driveLinks,
+        webLinks: row.webLinks,
+        total: row.uploads + row.driveLinks + row.webLinks,
       },
     ]),
   );
@@ -90,12 +96,14 @@ export interface ResourceSummary {
   total: number;
   uploads: number;
   driveLinks: number;
+  webLinks: number;
 }
 
 export const emptyResourceSummary = (): ResourceSummary => ({
   total: 0,
   uploads: 0,
   driveLinks: 0,
+  webLinks: 0,
 });
 
 export const getSummaryByCardId = async (
@@ -137,6 +145,11 @@ export const listByCardId = (db: dbClient | DbTransaction, cardId: number) =>
       driveType: cardResources.driveType,
       driveFileId: cardResources.driveFileId,
       resourceKey: cardResources.resourceKey,
+      webUrl: cardResources.webUrl,
+      webUrlHash: cardResources.webUrlHash,
+      webDescription: cardResources.webDescription,
+      webSiteName: cardResources.webSiteName,
+      webImageUrl: cardResources.webImageUrl,
       contentType: cardAttachments.contentType,
       originalFilename: cardAttachments.originalFilename,
       size: cardAttachments.size,

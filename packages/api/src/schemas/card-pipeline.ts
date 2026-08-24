@@ -53,6 +53,16 @@ export const cardSubtaskResourceSchema = z.discriminatedUnion("kind", [
     openUrl: z.string().url(),
     previewUrl: z.string().url(),
   }),
+  cardSubtaskResourceBaseSchema.extend({
+    kind: z.literal("web"),
+    openUrl: z.string().url(),
+    description: z.string().nullable(),
+    siteName: z.string().nullable(),
+    previewImageUrl: z
+      .string()
+      .regex(/^\/(?!\/)/)
+      .nullable(),
+  }),
 ]);
 
 export const cardSubtaskSchema = z.object({

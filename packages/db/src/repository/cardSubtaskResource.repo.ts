@@ -81,6 +81,7 @@ export const getResourceContextByPublicId = async (
         isNull(cardResources.deletedAt),
         or(
           eq(cardResources.kind, "drive"),
+          eq(cardResources.kind, "web"),
           and(
             isNull(cardAttachments.deletedAt),
             isNull(cardAttachments.storageQuarantinedAt),
@@ -134,6 +135,7 @@ export const linkResource = async (
       isNull(cardResources.deletedAt),
       or(
         eq(cardResources.kind, "drive"),
+        eq(cardResources.kind, "web"),
         and(
           isNull(cardAttachments.deletedAt),
           isNull(cardAttachments.storageQuarantinedAt),

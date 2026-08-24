@@ -47,7 +47,11 @@ function ResourceAction({ resource }: { resource: CardResource }) {
       rel="noopener noreferrer"
       referrerPolicy={CARD_RESOURCE_REFERRER_POLICY}
       className="flex h-8 w-8 items-center justify-center rounded-md text-light-800 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:text-dark-800 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800"
-      aria-label={t`Open ${resource.title} in Drive`}
+      aria-label={
+        resource.kind === "drive"
+          ? t`Open ${resource.title} in Drive`
+          : t`Open ${resource.title}`
+      }
     >
       <HiArrowTopRightOnSquare className="h-4 w-4" />
     </a>
@@ -101,6 +105,52 @@ export function CardResourcePreviewBody({
             referrerPolicy={CARD_RESOURCE_REFERRER_POLICY}
             className="text-xs font-medium text-blue-700 underline-offset-2 hover:underline dark:text-blue-400"
           >{t`If the preview is unavailable, open it in Drive`}</a>
+        </div>
+      </div>
+    );
+  }
+
+  if (resource.kind === "web") {
+    return (
+      <div className="flex h-full min-h-80 items-center justify-center bg-light-100 p-6 dark:bg-dark-50 sm:p-10">
+        <div className="w-full max-w-2xl overflow-hidden rounded-lg border border-light-300 bg-light-50 dark:border-dark-400 dark:bg-dark-100">
+          {resource.previewImageUrl && (
+            <div className="relative h-64 bg-light-200 dark:bg-dark-200">
+              <Image
+                src={resource.previewImageUrl}
+                alt=""
+                fill
+                sizes="(max-width: 768px) 100vw, 672px"
+                unoptimized
+                className="object-cover"
+              />
+            </div>
+          )}
+          <div className="p-5 sm:p-6">
+            {resource.siteName && (
+              <p className="text-xs font-medium text-light-700 dark:text-dark-700">
+                {resource.siteName}
+              </p>
+            )}
+            <p className="mt-1 text-base font-semibold text-light-1000 dark:text-dark-1000">
+              {resource.title}
+            </p>
+            {resource.description && (
+              <p className="mt-2 text-sm leading-6 text-light-800 dark:text-dark-800">
+                {resource.description}
+              </p>
+            )}
+            <a
+              href={resource.openUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              referrerPolicy={CARD_RESOURCE_REFERRER_POLICY}
+              className="mt-5 inline-flex items-center gap-2 text-xs font-medium text-blue-700 underline-offset-2 hover:underline dark:text-blue-400"
+            >
+              <HiArrowTopRightOnSquare className="h-4 w-4" />
+              {t`Open link`}
+            </a>
+          </div>
         </div>
       </div>
     );

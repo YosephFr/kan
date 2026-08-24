@@ -17,6 +17,7 @@ import {
   driveFallbackTitle,
   normalizeDriveLink,
 } from "../utils/card-resource-drive";
+import { normalizeWebResourceOpenUrl } from "../utils/card-resource-web";
 import { assertPermission } from "../utils/permissions";
 import { attachmentRouter } from "./attachment";
 
@@ -58,21 +59,39 @@ function mapResource(
       createdAt: resource.createdAt,
     };
   }
-  if (!resource.driveType || !resource.driveFileId) {
+  if (resource.kind === "drive") {
+    if (!resource.driveType || !resource.driveFileId) {
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+    }
+    const urls = buildDriveUrls({
+      driveType: resource.driveType,
+      driveFileId: resource.driveFileId,
+      resourceKey: resource.resourceKey,
+    });
+    return {
+      kind: "drive" as const,
+      publicId: resource.publicId,
+      title: resource.title,
+      driveType: resource.driveType,
+      openUrl: urls.openUrl,
+      previewUrl: urls.previewUrl,
+      createdAt: resource.createdAt,
+    };
+  }
+  const openUrl = resource.webUrl
+    ? normalizeWebResourceOpenUrl(resource.webUrl)
+    : null;
+  if (!openUrl) {
     throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
   }
-  const urls = buildDriveUrls({
-    driveType: resource.driveType,
-    driveFileId: resource.driveFileId,
-    resourceKey: resource.resourceKey,
-  });
   return {
-    kind: "drive" as const,
+    kind: "web" as const,
     publicId: resource.publicId,
     title: resource.title,
-    driveType: resource.driveType,
-    openUrl: urls.openUrl,
-    previewUrl: urls.previewUrl,
+    openUrl,
+    description: resource.webDescription,
+    siteName: resource.webSiteName,
+    previewImageUrl: null,
     createdAt: resource.createdAt,
   };
 }

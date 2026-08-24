@@ -34,7 +34,7 @@ export function PublicResourceVisibilityNotice({
         <p className="mt-1 text-xs leading-5 text-amber-900 dark:text-amber-200">
           {driveOnly
             ? t`Anyone with the board link can open these resources, subject to their Google permissions.`
-            : t`Anyone with the board link can view uploaded files and open Drive resources allowed by Google.`}
+            : t`Anyone with the board link can view uploaded files and open Drive or web resources.`}
         </p>
       </div>
     </div>
