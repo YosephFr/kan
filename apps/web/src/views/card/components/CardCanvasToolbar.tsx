@@ -119,7 +119,10 @@ export function CardCanvasToolbar({
           : "bg-emerald-500";
 
   return (
-    <div className="relative z-40 flex min-h-12 shrink-0 items-center gap-0.5 border-b border-light-300 bg-light-50 px-1 dark:border-dark-400 dark:bg-dark-100 sm:gap-1 sm:px-3">
+    <div
+      className="relative z-40 flex min-h-12 shrink-0 items-center gap-0.5 border-b border-light-300 bg-light-50 px-1 dark:border-dark-400 dark:bg-dark-100 sm:gap-1 sm:px-3"
+      style={{ containerType: "inline-size" }}
+    >
       <div className="flex min-w-0 flex-1 items-center gap-0.5 sm:gap-1">
         {onExit && (
           <button
@@ -159,7 +162,7 @@ export function CardCanvasToolbar({
             pressed={penModeEnabled}
           />
         )}
-        <details className="relative shrink-0 md:hidden">
+        <details className="card-canvas-toolbar-more relative shrink-0">
           <summary
             className="flex h-11 min-w-11 cursor-pointer touch-manipulation list-none items-center justify-center rounded-md text-light-800 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:text-dark-800 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800"
             aria-label={t`More whiteboard actions`}
@@ -245,7 +248,7 @@ export function CardCanvasToolbar({
             ))}
           </div>
         </details>
-        <div className="hidden items-center gap-1 md:flex">
+        <div className="card-canvas-toolbar-actions items-center gap-1">
           <ToolbarButton
             label={t`Zones`}
             icon={<HiOutlineMap className="h-4 w-4" />}
@@ -335,6 +338,21 @@ export function CardCanvasToolbar({
           </span>
         </div>
       </div>
+      <style>{`
+        .card-canvas-toolbar-actions {
+          display: none;
+        }
+
+        @container (min-width: 46rem) {
+          .card-canvas-toolbar-more {
+            display: none;
+          }
+
+          .card-canvas-toolbar-actions {
+            display: flex;
+          }
+        }
+      `}</style>
     </div>
   );
 }

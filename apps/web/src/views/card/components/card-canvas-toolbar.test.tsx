@@ -86,6 +86,17 @@ describe("CardCanvasToolbar", () => {
     expect(markup).toContain("h-11 min-w-11");
   });
 
+  it("uses the canvas width to collapse secondary actions", () => {
+    const markup = renderToStaticMarkup(
+      <CardCanvasToolbar {...defaultProps} onToggleExtended={vi.fn()} />,
+    );
+
+    expect(markup).toContain('style="container-type:inline-size"');
+    expect(markup).toContain("card-canvas-toolbar-more");
+    expect(markup).toContain("card-canvas-toolbar-actions");
+    expect(markup).toContain("@container (min-width: 46rem)");
+  });
+
   it("disables the image picker action while an import is in progress", () => {
     const markup = renderToStaticMarkup(
       <CardCanvasToolbar
