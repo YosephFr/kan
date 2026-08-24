@@ -3,9 +3,61 @@ import { describe, expect, it } from "vitest";
 import {
   captureCardCanvasDocument,
   hasCardCanvasDocumentChanged,
+  seedCardCanvasDocumentSnapshot,
 } from "./card-canvas-document-change";
 
 describe("hasCardCanvasDocumentChanged", () => {
+  it("seeds the empty remote snapshot before Excalidraw's first callback", () => {
+    const appState = {
+      viewBackgroundColor: "#ffffff",
+      gridSize: 20,
+      gridStep: 5,
+      gridModeEnabled: false,
+      objectsSnapModeEnabled: false,
+    };
+    const seeded = seedCardCanvasDocumentSnapshot(
+      null,
+      null,
+      "blank-card:1",
+      [],
+      appState,
+    );
+
+    expect(hasCardCanvasDocumentChanged(seeded.snapshot, [], appState)).toBe(
+      false,
+    );
+    expect(
+      hasCardCanvasDocumentChanged(seeded.snapshot, [], {
+        ...appState,
+        gridModeEnabled: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("re-seeds new scene epochs without replacing a live snapshot", () => {
+    const snapshot = captureCardCanvasDocument([], {
+      viewBackgroundColor: "#ffffff",
+    });
+    const sameEpoch = seedCardCanvasDocumentSnapshot(
+      snapshot,
+      "card:2",
+      "card:2",
+      [{ id: "unpersisted-shape" }],
+      { viewBackgroundColor: "#f8f9fa" },
+    );
+    const nextEpoch = seedCardCanvasDocumentSnapshot(
+      sameEpoch.snapshot,
+      sameEpoch.key,
+      "card:3",
+      [{ id: "remote-shape" }],
+      { viewBackgroundColor: "#f8f9fa" },
+    );
+
+    expect(sameEpoch.snapshot).toBe(snapshot);
+    expect(nextEpoch.snapshot).not.toBe(snapshot);
+    expect(nextEpoch.snapshot.elements).toEqual([{ id: "remote-shape" }]);
+  });
+
   it("ignores Excalidraw's first empty callback after mounting a blank canvas", () => {
     const loadedElements: readonly unknown[] = [];
     const mountedElements: readonly unknown[] = [];

@@ -27,6 +27,7 @@ import { prepareCardCanvasConversion } from "./card-canvas-convert";
 import {
   captureCardCanvasDocument,
   hasCardCanvasDocumentChanged,
+  seedCardCanvasDocumentSnapshot,
 } from "./card-canvas-document-change";
 import {
   findCanvasFrameByPublicId,
@@ -96,6 +97,7 @@ export function CardWhiteboardCanvas({
   const documentSnapshotRef = useRef<ReturnType<
     typeof captureCardCanvasDocument
   > | null>(null);
+  const documentSnapshotKeyRef = useRef<string | null>(null);
   const focusedFrameRef = useRef<string | null>(null);
   const reportedCanvasRef = useRef(false);
   const penPreferenceKey = useMemo(
@@ -109,6 +111,21 @@ export function CardWhiteboardCanvas({
     userId: session?.user.id ?? null,
     canEdit,
   });
+  const documentSnapshotKey = `${cardPublicId}:${controller.sceneEpoch}`;
+  if (
+    controller.scene &&
+    documentSnapshotKeyRef.current !== documentSnapshotKey
+  ) {
+    const seededSnapshot = seedCardCanvasDocumentSnapshot(
+      documentSnapshotRef.current,
+      documentSnapshotKeyRef.current,
+      documentSnapshotKey,
+      controller.scene.elements,
+      toExcalidrawAppState(controller.scene.appState),
+    );
+    documentSnapshotRef.current = seededSnapshot.snapshot;
+    documentSnapshotKeyRef.current = seededSnapshot.key;
+  }
 
   const effectiveCanEdit = !controller.viewModeEnabled;
   const pen = useCardCanvasPen({
@@ -253,6 +270,7 @@ export function CardWhiteboardCanvas({
     const elements = controller.scene
       .elements as unknown as ExcalidrawElement[];
     documentSnapshotRef.current = captureCardCanvasDocument(elements, appState);
+    documentSnapshotKeyRef.current = documentSnapshotKey;
     excalidrawApi.updateScene({
       elements,
       appState,
@@ -262,7 +280,7 @@ export function CardWhiteboardCanvas({
     queueMicrotask(() => {
       applyingSceneRef.current = false;
     });
-  }, [controller.scene, controller.sceneEpoch, excalidrawApi]);
+  }, [controller.scene, documentSnapshotKey, excalidrawApi]);
 
   useEffect(() => {
     if (!excalidrawApi || resources.length === 0) return;

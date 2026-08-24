@@ -22,6 +22,20 @@ export const captureCardCanvasDocument = (
   objectsSnapModeEnabled: appState.objectsSnapModeEnabled,
 });
 
+export const seedCardCanvasDocumentSnapshot = (
+  currentSnapshot: CardCanvasDocumentSnapshot | null,
+  currentKey: string | null,
+  nextKey: string,
+  elements: readonly unknown[],
+  appState: CardCanvasDocumentAppState,
+) =>
+  currentSnapshot !== null && currentKey === nextKey
+    ? { key: currentKey, snapshot: currentSnapshot }
+    : {
+        key: nextKey,
+        snapshot: captureCardCanvasDocument(elements, appState),
+      };
+
 export const hasCardCanvasDocumentChanged = (
   previous: CardCanvasDocumentSnapshot | null,
   elements: readonly unknown[],
