@@ -28,6 +28,8 @@ interface CardWhiteboardViewProps {
   compact?: boolean;
   embedded?: boolean;
   isVisible?: boolean;
+  extended: boolean;
+  onExtendedChange: (extended: boolean) => void;
   onCanvasCreated?: () => void;
   onClose?: () => void;
 }
@@ -35,6 +37,7 @@ interface CardWhiteboardViewProps {
 export function CardWhiteboardView({
   embedded = false,
   isVisible = true,
+  extended,
   ...props
 }: CardWhiteboardViewProps) {
   const [assetsReady, setAssetsReady] = useState(false);
@@ -65,7 +68,11 @@ export function CardWhiteboardView({
       <div
         className={twMerge(
           "flex min-h-[24rem] items-center justify-center bg-light-100 dark:bg-dark-50",
-          embedded ? "h-[68dvh] max-h-[52rem] w-full" : "h-full",
+          embedded
+            ? extended
+              ? "h-full min-h-0 w-full"
+              : "h-[68dvh] max-h-[52rem] w-full"
+            : "h-full",
           !isVisible && "hidden",
         )}
         role="status"
@@ -83,6 +90,7 @@ export function CardWhiteboardView({
       {...props}
       embedded={embedded}
       isVisible={isVisible}
+      extended={extended}
     />
   );
 }

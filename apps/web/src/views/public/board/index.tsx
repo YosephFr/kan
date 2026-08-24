@@ -29,7 +29,8 @@ export default function PublicBoardView() {
   const router = useRouter();
   const { showPopup } = usePopup();
   const [isRouteLoaded, setIsRouteLoaded] = useState(false);
-  const { openModal } = useModal();
+  const { isOpen, modalContentType, openModal } = useModal();
+  const [whiteboardExtended, setWhiteboardExtended] = useState(false);
 
   const { ref: scrollRef, onMouseDown } = useDragToScroll({
     enabled: true,
@@ -117,6 +118,12 @@ export default function PublicBoardView() {
     cardPublicId,
     openModal,
   ]);
+
+  useEffect(() => {
+    if (!isOpen || modalContentType !== "CARD") {
+      setWhiteboardExtended(false);
+    }
+  }, [isOpen, modalContentType]);
 
   return (
     <>
@@ -220,6 +227,7 @@ export default function PublicBoardView() {
                             className={`mb-2 flex !cursor-pointer flex-col`}
                             shallow={true}
                             onClick={() => {
+                              setWhiteboardExtended(false);
                               openModal("CARD");
                             }}
                           >
@@ -275,11 +283,19 @@ export default function PublicBoardView() {
         </div>
       </div>
       <Popup />
-      <Modal modalSize="lg" positionFromTop={"sm"}>
+      <Modal
+        modalSize={whiteboardExtended ? "full" : "lg"}
+        positionFromTop={"sm"}
+        onClose={
+          whiteboardExtended ? () => setWhiteboardExtended(false) : undefined
+        }
+      >
         <CardModal
           cardPublicId={cardPublicId}
           workspaceSlug={data?.workspace.slug}
           boardSlug={data?.slug}
+          whiteboardExtended={whiteboardExtended}
+          onWhiteboardExtendedChange={setWhiteboardExtended}
         />
       </Modal>
     </>

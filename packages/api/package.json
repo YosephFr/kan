@@ -47,6 +47,14 @@
     "./utils/attachment-access": {
       "types": "./src/utils/attachment-access.ts",
       "default": "./src/utils/attachment-access.ts"
+    },
+    "./utils/safe-preview": {
+      "types": "./src/utils/safe-preview.ts",
+      "default": "./src/utils/safe-preview.ts"
+    },
+    "./utils/web-resource-preview-access": {
+      "types": "./src/utils/web-resource-preview-access.ts",
+      "default": "./src/utils/web-resource-preview-access.ts"
     }
   },
   "license": "GPL-3.0",

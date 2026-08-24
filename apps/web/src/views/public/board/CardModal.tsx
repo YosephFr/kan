@@ -18,10 +18,14 @@ export function CardModal({
   cardPublicId,
   workspaceSlug,
   boardSlug,
+  whiteboardExtended,
+  onWhiteboardExtendedChange,
 }: {
   cardPublicId: string | null | undefined;
   workspaceSlug: string | null | undefined;
   boardSlug: string | null | undefined;
+  whiteboardExtended: boolean;
+  onWhiteboardExtendedChange: (extended: boolean) => void;
 }) {
   const router = useRouter();
   const { closeModal, isOpen } = useModal();
@@ -68,11 +72,22 @@ export function CardModal({
   const labels = data?.labels ?? [];
 
   return (
-    <div className="max-h-[calc(100dvh-2rem)] w-full overflow-y-auto sm:max-h-[82dvh]">
+    <div
+      data-card-scroll-host
+      className={
+        whiteboardExtended
+          ? "flex h-full min-h-0 w-full flex-col overflow-hidden"
+          : "max-h-[calc(100dvh-2rem)] w-full overflow-y-auto sm:max-h-[82dvh]"
+      }
+    >
       <Dialog.Title className="sr-only">
         {data?.title ?? t`Card details`}
       </Dialog.Title>
-      <div className="sticky top-0 z-20 border-b border-light-300 bg-light-50 px-5 py-4 dark:border-dark-400 dark:bg-dark-100 sm:px-8">
+      <div
+        className={`sticky top-0 z-20 border-b border-light-300 bg-light-50 px-5 py-4 dark:border-dark-400 dark:bg-dark-100 sm:px-8 ${
+          whiteboardExtended ? "hidden" : ""
+        }`}
+      >
         <div className="flex w-full items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             {isLoading ? (
@@ -105,6 +120,7 @@ export function CardModal({
               className="rounded p-1.5 transition-colors hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800"
               onClick={(event) => {
                 event.preventDefault();
+                onWhiteboardExtendedChange(false);
                 closeModal();
                 setTimeout(() => {
                   const nextQuery = { ...router.query };
@@ -150,7 +166,11 @@ export function CardModal({
       </div>
 
       {data && cardPublicId ? (
-        <div className="px-5 py-6 sm:px-8">
+        <div
+          className={
+            whiteboardExtended ? "min-h-0 flex-1" : "px-5 py-6 sm:px-8"
+          }
+        >
           <CardWorkspaceDocument
             key={cardPublicId}
             cardPublicId={cardPublicId}
@@ -163,6 +183,8 @@ export function CardModal({
             hasCanvas={data.hasCanvas}
             preferenceScope="public"
             compact
+            whiteboardExtended={whiteboardExtended}
+            onWhiteboardExtendedChange={onWhiteboardExtendedChange}
             summaryContent={
               <>
                 {data.description && (

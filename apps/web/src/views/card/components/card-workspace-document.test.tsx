@@ -53,9 +53,11 @@ const defaultProps = {
     blocked: 0,
     progressPercent: 0,
   },
-  resourceSummary: { total: 0, uploads: 0, driveLinks: 0 },
+  resourceSummary: { total: 0, uploads: 0, driveLinks: 0, webLinks: 0 },
   hasCanvas: false,
   preferenceScope: "test-user",
+  whiteboardExtended: false,
+  onWhiteboardExtendedChange: vi.fn(),
   summaryContent: <p>Summary content</p>,
   activityContent: <p>Activity content</p>,
 };
@@ -91,5 +93,17 @@ describe("CardWorkspaceDocument", () => {
     expect(markup.match(/aria-expanded="false"/g)).toHaveLength(2);
     expect(markup).toContain("Activate subtasks");
     expect(markup).toContain("Open whiteboard");
+  });
+
+  it("keeps only the mounted whiteboard surface in the extended layout", () => {
+    const markup = renderToStaticMarkup(
+      <CardWorkspaceDocument {...defaultProps} hasCanvas whiteboardExtended />,
+    );
+
+    expect(markup).toContain("h-full max-w-none p-0");
+    expect(markup).toContain('id="card-workspace-whiteboard-content"');
+    expect(markup).toContain('data-dynamic-view="true"');
+    expect(markup).toContain('id="card-workspace-whiteboard-heading"');
+    expect(markup.match(/hidden=""/g)?.length).toBeGreaterThanOrEqual(4);
   });
 });

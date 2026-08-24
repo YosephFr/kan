@@ -3,24 +3,41 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as cardRepo from "@kan/db/repository/card.repo";
 import * as cardResourceRepo from "@kan/db/repository/cardResource.repo";
+import { WorkspaceChangedError } from "@kan/db/repository/workspace-boundary";
 
 import { createTRPCRouter } from "../trpc";
 import { deleteCardResource } from "../utils/card-resource-delete";
 import { normalizeDriveLink } from "../utils/card-resource-drive";
 import { normalizeWebResourceOpenUrl } from "../utils/card-resource-web";
 import { assertPermission } from "../utils/permissions";
+import { fetchSafePreviewMetadata } from "../utils/safe-preview";
 
+const { mockLogger } = vi.hoisted(() => ({
+  mockLogger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
+vi.mock("@kan/logger", () => ({ createLogger: vi.fn(() => mockLogger) }));
 vi.mock("@kan/db/repository/card.repo", () => ({
   getWorkspaceAndCardIdByCardPublicId: vi.fn(),
 }));
 vi.mock("@kan/db/repository/cardResource.repo", () => ({
   createDrive: vi.fn(),
   getListSnapshot: vi.fn(),
+  reserveWeb: vi.fn(),
+  updateWebMetadata: vi.fn(),
 }));
 vi.mock("../utils/card-resource-delete", () => ({
   deleteCardResource: vi.fn(),
 }));
 vi.mock("../utils/permissions", () => ({ assertPermission: vi.fn() }));
+vi.mock("../utils/safe-preview", () => ({
+  fetchSafePreviewMetadata: vi.fn(),
+}));
 
 describe("Google Drive card resource URLs", () => {
   it.each([
@@ -83,6 +100,11 @@ describe("web card resource URLs", () => {
     expect(normalizeWebResourceOpenUrl("https://user@example.com")).toBeNull();
     expect(normalizeWebResourceOpenUrl(" https://example.com")).toBeNull();
     expect(normalizeWebResourceOpenUrl("javascript:alert(1)")).toBeNull();
+    expect(
+      normalizeWebResourceOpenUrl(
+        `https://example.com/research?q=${"é".repeat(700)}`,
+      ),
+    ).toBeNull();
   });
 });
 
@@ -105,6 +127,17 @@ describe("cardResource router access", () => {
     });
     vi.mocked(assertPermission).mockResolvedValue(undefined);
     vi.mocked(deleteCardResource).mockResolvedValue(undefined);
+    vi.mocked(cardResourceRepo.reserveWeb).mockResolvedValue({
+      status: "created",
+      publicId: "webresource1",
+    });
+    vi.mocked(cardResourceRepo.updateWebMetadata).mockResolvedValue({
+      status: "updated",
+      publicId: "webresource1",
+    });
+    vi.mocked(fetchSafePreviewMetadata).mockRejectedValue(
+      new Error("Preview unavailable"),
+    );
   });
 
   it("allows anonymous reads only when the locked board is public", async () => {
@@ -268,6 +301,397 @@ describe("cardResource router access", () => {
     expect(result.openUrl).toContain("resourcekey=Key_123");
   });
 
+  it("creates a web resource from sanitized metadata and exposes only its proxy", async () => {
+    const { cardResourceRouter } = await import("./card-resource");
+    const createdAt = new Date("2026-08-24T12:00:00.000Z");
+    vi.mocked(fetchSafePreviewMetadata).mockResolvedValueOnce({
+      resolvedUrl: "https://example.com/research",
+      title: "Research notes",
+      siteName: "Example",
+      description: "Useful context",
+      image: {
+        resolvedUrl: "https://cdn.example.com/preview.png",
+        bytes: new Uint8Array([1, 2, 3]),
+        contentType: "image/png",
+        width: 1,
+        height: 1,
+      },
+    });
+    vi.mocked(cardResourceRepo.getListSnapshot).mockResolvedValueOnce({
+      resources: [
+        {
+          publicId: "webresource1",
+          kind: "web",
+          title: "Research notes",
+          driveType: null,
+          driveFileId: null,
+          resourceKey: null,
+          webUrl: "https://example.com/research?source=kan",
+          webUrlHash: "a".repeat(64),
+          webDescription: "Useful context",
+          webSiteName: "Example",
+          webImageUrl: "https://cdn.example.com/preview.png",
+          contentType: null,
+          originalFilename: null,
+          size: null,
+          createdAt,
+        },
+      ],
+      summary: { total: 1, uploads: 0, driveLinks: 0, webLinks: 1 },
+    });
+    const result = await cardResourceRouter
+      .createCaller({ db, user: { id: "user-1" } } as never)
+      .createWebLink({
+        cardPublicId: "cardpublic01",
+        url: "https://example.com/research?source=kan",
+        publicVisibilityAcknowledged: true,
+      });
+
+    expect(assertPermission).toHaveBeenCalledWith(
+      db,
+      "user-1",
+      card.workspaceId,
+      "card:edit",
+    );
+    expect(cardResourceRepo.reserveWeb).toHaveBeenCalledWith(db, {
+      cardId: card.id,
+      expectedWorkspaceId: card.workspaceId,
+      webUrl: "https://example.com/research?source=kan",
+      fallbackTitle: "example.com",
+      createdBy: "user-1",
+      publicVisibilityAcknowledged: true,
+    });
+    expect(cardResourceRepo.updateWebMetadata).toHaveBeenCalledWith(db, {
+      cardId: card.id,
+      expectedWorkspaceId: card.workspaceId,
+      resourcePublicId: "webresource1",
+      title: "Research notes",
+      description: "Useful context",
+      siteName: "Example",
+      imageUrl: "https://cdn.example.com/preview.png",
+    });
+    expect(result).toEqual({
+      publicId: "webresource1",
+      kind: "web",
+      title: "Research notes",
+      openUrl: "https://example.com/research?source=kan",
+      description: "Useful context",
+      siteName: "Example",
+      previewImageUrl: "/api/resources/webresource1/preview-image",
+      createdAt,
+    });
+    expect(JSON.stringify(result)).not.toContain("cdn.example.com");
+  });
+
+  it("saves an HTTPS fallback when unfurl is blocked or unavailable", async () => {
+    const { cardResourceRouter } = await import("./card-resource");
+    const createdAt = new Date("2026-08-24T12:00:00.000Z");
+    vi.mocked(cardResourceRepo.getListSnapshot).mockResolvedValueOnce({
+      resources: [
+        {
+          publicId: "webresource1",
+          kind: "web",
+          title: "127.0.0.1",
+          driveType: null,
+          driveFileId: null,
+          resourceKey: null,
+          webUrl: "https://127.0.0.1/private?secret=value",
+          webUrlHash: "b".repeat(64),
+          webDescription: null,
+          webSiteName: "127.0.0.1",
+          webImageUrl: null,
+          contentType: null,
+          originalFilename: null,
+          size: null,
+          createdAt,
+        },
+      ],
+      summary: { total: 1, uploads: 0, driveLinks: 0, webLinks: 1 },
+    });
+
+    const result = await cardResourceRouter
+      .createCaller({ db, user: { id: "user-1" } } as never)
+      .createWebLink({
+        cardPublicId: "cardpublic01",
+        url: "https://127.0.0.1/private?secret=value",
+        publicVisibilityAcknowledged: true,
+      });
+
+    expect(fetchSafePreviewMetadata).toHaveBeenCalledWith(
+      "https://127.0.0.1/private?secret=value",
+    );
+    expect(cardResourceRepo.reserveWeb).toHaveBeenCalledWith(
+      db,
+      expect.objectContaining({
+        webUrl: "https://127.0.0.1/private?secret=value",
+        fallbackTitle: "127.0.0.1",
+      }),
+    );
+    expect(cardResourceRepo.updateWebMetadata).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      kind: "web",
+      title: "127.0.0.1",
+      previewImageUrl: null,
+    });
+  });
+
+  it("returns an existing web resource before starting another unfurl", async () => {
+    const { cardResourceRouter } = await import("./card-resource");
+    const createdAt = new Date("2026-08-24T12:00:00.000Z");
+    vi.mocked(cardResourceRepo.reserveWeb).mockResolvedValueOnce({
+      status: "existing",
+      publicId: "webresource1",
+    });
+    vi.mocked(cardResourceRepo.getListSnapshot).mockResolvedValueOnce({
+      resources: [
+        {
+          publicId: "webresource1",
+          kind: "web",
+          title: "Existing research",
+          driveType: null,
+          driveFileId: null,
+          resourceKey: null,
+          webUrl: "https://example.com/research",
+          webUrlHash: "a".repeat(64),
+          webDescription: null,
+          webSiteName: "Example",
+          webImageUrl: null,
+          contentType: null,
+          originalFilename: null,
+          size: null,
+          createdAt,
+        },
+      ],
+      summary: { total: 1, uploads: 0, driveLinks: 0, webLinks: 1 },
+    });
+
+    await expect(
+      cardResourceRouter
+        .createCaller({ db, user: { id: "user-1" } } as never)
+        .createWebLink({
+          cardPublicId: "cardpublic01",
+          url: "https://example.com/research",
+          publicVisibilityAcknowledged: true,
+        }),
+    ).resolves.toMatchObject({
+      publicId: "webresource1",
+      kind: "web",
+      openUrl: "https://example.com/research",
+    });
+    expect(assertPermission).toHaveBeenCalledTimes(2);
+    expect(fetchSafePreviewMetadata).not.toHaveBeenCalled();
+    expect(cardResourceRepo.updateWebMetadata).not.toHaveBeenCalled();
+  });
+
+  it("unfurls exactly once when concurrent replicas reserve the same URL", async () => {
+    const { cardResourceRouter } = await import("./card-resource");
+    const createdAt = new Date("2026-08-24T12:00:00.000Z");
+    let reservationIndex = 0;
+    vi.mocked(cardResourceRepo.reserveWeb).mockImplementation(() => {
+      reservationIndex += 1;
+      return Promise.resolve(
+        reservationIndex === 1
+          ? { status: "created", publicId: "webresource1" }
+          : { status: "existing", publicId: "webresource1" },
+      );
+    });
+    vi.mocked(cardResourceRepo.getListSnapshot).mockResolvedValue({
+      resources: [
+        {
+          publicId: "webresource1",
+          kind: "web",
+          title: "example.com",
+          driveType: null,
+          driveFileId: null,
+          resourceKey: null,
+          webUrl: "https://example.com/concurrent",
+          webUrlHash: "a".repeat(64),
+          webDescription: null,
+          webSiteName: "example.com",
+          webImageUrl: null,
+          contentType: null,
+          originalFilename: null,
+          size: null,
+          createdAt,
+        },
+      ],
+      summary: { total: 1, uploads: 0, driveLinks: 0, webLinks: 1 },
+    });
+    vi.mocked(fetchSafePreviewMetadata).mockResolvedValueOnce({
+      resolvedUrl: "https://example.com/concurrent",
+      title: "Concurrent research",
+      siteName: "Example",
+      description: "Fetched once",
+      image: null,
+    });
+    const caller = cardResourceRouter.createCaller({
+      db,
+      user: { id: "user-1" },
+    } as never);
+
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        caller.createWebLink({
+          cardPublicId: "cardpublic01",
+          url: "https://example.com/concurrent",
+          publicVisibilityAcknowledged: true,
+        }),
+      ),
+    );
+
+    expect(results).toHaveLength(8);
+    expect(cardResourceRepo.reserveWeb).toHaveBeenCalledTimes(8);
+    expect(fetchSafePreviewMetadata).toHaveBeenCalledTimes(1);
+    expect(cardResourceRepo.updateWebMetadata).toHaveBeenCalledTimes(1);
+  });
+
+  it("enforces edit permission, public acknowledgement and the web cap", async () => {
+    const { cardResourceRouter } = await import("./card-resource");
+    const caller = cardResourceRouter.createCaller({
+      db,
+      user: { id: "read-only-user" },
+    } as never);
+    vi.mocked(assertPermission).mockRejectedValueOnce(
+      new Error("Permission denied"),
+    );
+    await expect(
+      caller.createWebLink({
+        cardPublicId: "cardpublic01",
+        url: "https://example.com/private",
+        publicVisibilityAcknowledged: true,
+      }),
+    ).rejects.toThrow("Permission denied");
+    expect(fetchSafePreviewMetadata).not.toHaveBeenCalled();
+    expect(cardResourceRepo.reserveWeb).not.toHaveBeenCalled();
+
+    vi.mocked(assertPermission).mockResolvedValue(undefined);
+    vi.mocked(
+      cardRepo.getWorkspaceAndCardIdByCardPublicId,
+    ).mockResolvedValueOnce({
+      ...card,
+      workspaceVisibility: "public",
+    } as never);
+    await expect(
+      caller.createWebLink({
+        cardPublicId: "cardpublic01",
+        url: "https://example.com/public",
+        publicVisibilityAcknowledged: false,
+      }),
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: "PUBLIC_VISIBILITY_ACKNOWLEDGEMENT_REQUIRED",
+    });
+    expect(fetchSafePreviewMetadata).not.toHaveBeenCalled();
+
+    vi.mocked(cardResourceRepo.reserveWeb).mockResolvedValueOnce({
+      status: "limit_reached",
+    });
+    await expect(
+      caller.createWebLink({
+        cardPublicId: "cardpublic01",
+        url: "https://example.com/clearly-over-limit",
+        publicVisibilityAcknowledged: true,
+      }),
+    ).rejects.toMatchObject({
+      code: "TOO_MANY_REQUESTS",
+      message: "WEB_RESOURCE_LIMIT_REACHED",
+    });
+    expect(fetchSafePreviewMetadata).not.toHaveBeenCalled();
+    expect(cardResourceRepo.updateWebMetadata).not.toHaveBeenCalled();
+  });
+
+  it("stops before unfurl when the reservation workspace changed", async () => {
+    const { cardResourceRouter } = await import("./card-resource");
+    vi.mocked(cardResourceRepo.reserveWeb).mockRejectedValueOnce(
+      new WorkspaceChangedError(),
+    );
+
+    await expect(
+      cardResourceRouter
+        .createCaller({ db, user: { id: "user-1" } } as never)
+        .createWebLink({
+          cardPublicId: "cardpublic01",
+          url: "https://example.com/research",
+          publicVisibilityAcknowledged: true,
+        }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND", message: "CARD_NOT_FOUND" });
+    expect(fetchSafePreviewMetadata).not.toHaveBeenCalled();
+    expect(cardResourceRepo.updateWebMetadata).not.toHaveBeenCalled();
+  });
+
+  it("rechecks card:edit after unfurl before updating reserved metadata", async () => {
+    const { cardResourceRouter } = await import("./card-resource");
+    vi.mocked(assertPermission)
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(
+        new Error("Permission revoked while preview was fetched"),
+      );
+
+    await expect(
+      cardResourceRouter
+        .createCaller({ db, user: { id: "user-1" } } as never)
+        .createWebLink({
+          cardPublicId: "cardpublic01",
+          url: "https://example.com/research",
+          publicVisibilityAcknowledged: true,
+        }),
+    ).rejects.toThrow("Permission revoked while preview was fetched");
+    expect(fetchSafePreviewMetadata).toHaveBeenCalledOnce();
+    expect(assertPermission).toHaveBeenCalledTimes(2);
+    expect(cardResourceRepo.reserveWeb).toHaveBeenCalledOnce();
+    expect(cardResourceRepo.updateWebMetadata).not.toHaveBeenCalled();
+  });
+
+  it.each(["reserve", "metadata", "snapshot"] as const)(
+    "redacts an unexpected %s database failure from response and logs",
+    async (stage) => {
+      const { cardResourceRouter } = await import("./card-resource");
+      const router = createTRPCRouter({ cardResource: cardResourceRouter });
+      const privateMarker =
+        "PRIVATE_DB_PARAM:https://example.com/private?token=SECRET_QUERY";
+      if (stage === "reserve") {
+        vi.mocked(cardResourceRepo.reserveWeb).mockRejectedValueOnce(
+          new Error(`Failed query params: ${privateMarker}`),
+        );
+      } else if (stage === "metadata") {
+        vi.mocked(fetchSafePreviewMetadata).mockResolvedValueOnce({
+          resolvedUrl: "https://example.com/private",
+          title: "Private",
+          siteName: "Example",
+          description: null,
+          image: null,
+        });
+        vi.mocked(cardResourceRepo.updateWebMetadata).mockRejectedValueOnce(
+          new Error(`Failed query params: ${privateMarker}`),
+        );
+      } else {
+        vi.mocked(cardResourceRepo.getListSnapshot).mockRejectedValueOnce(
+          new Error(`Failed query params: ${privateMarker}`),
+        );
+      }
+
+      const error = await router
+        .createCaller({ db, user: { id: "user-1" } } as never)
+        .cardResource.createWebLink({
+          cardPublicId: "cardpublic01",
+          url: "https://example.com/private?token=SECRET_QUERY",
+          publicVisibilityAcknowledged: true,
+        })
+        .catch((caught: unknown) => caught);
+
+      expect(error).toMatchObject({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "WEB_RESOURCE_CREATE_FAILED",
+      });
+      expect(JSON.stringify(error)).not.toContain(privateMarker);
+      expect(JSON.stringify(error)).not.toContain("SECRET_QUERY");
+      const logs = JSON.stringify(mockLogger.error.mock.calls);
+      expect(logs).toContain("cardResource.createWebLink");
+      expect(logs).not.toContain(privateMarker);
+      expect(logs).not.toContain("SECRET_QUERY");
+    },
+  );
+
   it("maps stored web metadata without exposing the remote preview URL", async () => {
     const { cardResourceRouter } = await import("./card-resource");
     vi.mocked(cardResourceRepo.getListSnapshot).mockResolvedValueOnce({
@@ -305,7 +729,7 @@ describe("cardResource router access", () => {
         openUrl: "https://example.com/research?source=kan",
         description: "Private working context",
         siteName: "Example",
-        previewImageUrl: null,
+        previewImageUrl: "/api/resources/webresource1/preview-image",
         createdAt: new Date("2026-08-24T12:00:00.000Z"),
       },
     ]);
@@ -329,6 +753,7 @@ describe("cardResource router access", () => {
       "/cards/{cardPublicId}/resources/drive",
       "/cards/{cardPublicId}/resources/upload",
       "/cards/{cardPublicId}/resources/upload/confirm",
+      "/cards/{cardPublicId}/resources/web",
       "/resources/{resourcePublicId}",
     ]);
   });

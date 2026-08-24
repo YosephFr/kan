@@ -46,17 +46,23 @@ export function CardCanvasZonesDrawer({
 
   return (
     <aside
-      aria-label={t`Whiteboard zones`}
+      id="card-canvas-zones-drawer"
+      role="region"
+      aria-labelledby="card-canvas-zones-heading"
       aria-hidden={!open}
+      inert={(open ? undefined : "true") as unknown as boolean}
       className={twMerge(
-        "absolute inset-y-0 left-0 z-30 flex w-[min(21rem,calc(100vw-1rem))] flex-col border-r border-light-300 bg-light-50 shadow-xl transition-transform duration-300 dark:border-dark-400 dark:bg-dark-100",
+        "absolute inset-y-0 left-0 z-30 flex w-[min(21rem,calc(100%_-_0.5rem))] flex-col border-r border-light-300 bg-light-50 shadow-xl transition-transform duration-300 dark:border-dark-400 dark:bg-dark-100",
         open ? "translate-x-0" : "-translate-x-full",
       )}
     >
       <div className="flex h-12 items-center justify-between border-b border-light-300 px-4 dark:border-dark-400">
         <div className="flex items-center gap-2">
           <HiOutlineMap className="h-4 w-4 text-light-700 dark:text-dark-700" />
-          <h2 className="text-sm font-semibold text-light-1000 dark:text-dark-1000">
+          <h2
+            id="card-canvas-zones-heading"
+            className="text-sm font-semibold text-light-1000 dark:text-dark-1000"
+          >
             {t`Zones`}
           </h2>
           {frames.length > 0 && (
@@ -68,7 +74,7 @@ export function CardCanvasZonesDrawer({
         <button
           type="button"
           onClick={onClose}
-          className="flex h-8 w-8 items-center justify-center rounded-md text-light-700 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:text-dark-700 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800"
+          className="flex h-11 w-11 touch-manipulation items-center justify-center rounded-md text-light-700 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:text-dark-700 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800"
           aria-label={t`Close zones`}
         >
           <HiXMark className="h-5 w-5" />

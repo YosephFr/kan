@@ -19,6 +19,7 @@ import {
 } from "../utils/card-resource-drive";
 import { normalizeWebResourceOpenUrl } from "../utils/card-resource-web";
 import { assertPermission } from "../utils/permissions";
+import { fetchSafePreviewMetadata } from "../utils/safe-preview";
 import { attachmentRouter } from "./attachment";
 
 const publicId = z.string().regex(/^[a-z0-9]{12}$/);
@@ -91,7 +92,9 @@ function mapResource(
     openUrl,
     description: resource.webDescription,
     siteName: resource.webSiteName,
-    previewImageUrl: null,
+    previewImageUrl: resource.webImageUrl
+      ? `/api/resources/${resource.publicId}/preview-image`
+      : null,
     createdAt: resource.createdAt,
   };
 }
@@ -266,6 +269,149 @@ export const cardResourceRouter = createTRPCRouter({
       );
       if (!created) throw new TRPCError({ code: "CONFLICT" });
       return mapResource(created);
+    }),
+
+  createWebLink: protectedProcedure
+    .meta({
+      openapi: {
+        summary: "Add a web resource",
+        method: "POST",
+        path: "/cards/{cardPublicId}/resources/web",
+        tags: ["Card resources"],
+        protect: true,
+      },
+    })
+    .input(
+      z.object({
+        cardPublicId: publicId,
+        url: z.string().min(1).max(2048),
+        publicVisibilityAcknowledged: visibilityAcknowledgement,
+      }),
+    )
+    .output(cardResourceSchema)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user?.id;
+      if (!userId) throw new TRPCError({ code: "UNAUTHORIZED" });
+      const card = await getCardOrThrow(ctx.db, input.cardPublicId);
+      await assertPermission(ctx.db, userId, card.workspaceId, "card:edit");
+      const webUrl = normalizeWebResourceOpenUrl(input.url);
+      if (!webUrl) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "INVALID_WEB_URL",
+        });
+      }
+      if (
+        card.workspaceVisibility === "public" &&
+        !input.publicVisibilityAcknowledged
+      ) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "PUBLIC_VISIBILITY_ACKNOWLEDGEMENT_REQUIRED",
+        });
+      }
+      const readWebResource = async (resourcePublicId: string) => {
+        let snapshot: Awaited<
+          ReturnType<typeof cardResourceRepo.getListSnapshot>
+        >;
+        try {
+          snapshot = await cardResourceRepo.getListSnapshot(ctx.db, {
+            cardId: card.id,
+            expectedWorkspaceId: card.workspaceId,
+            requirePublic: false,
+          });
+        } catch (error) {
+          if (error instanceof WorkspaceChangedError) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "CARD_NOT_FOUND",
+            });
+          }
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "WEB_RESOURCE_CREATE_FAILED",
+          });
+        }
+        const resource = snapshot.resources.find(
+          (item) => item.publicId === resourcePublicId,
+        );
+        if (!resource) throw new TRPCError({ code: "CONFLICT" });
+        return mapResource(resource);
+      };
+      const fallbackTitle = new URL(webUrl).hostname
+        .replace(/^www\./i, "")
+        .slice(0, 255);
+      let reservation: Awaited<ReturnType<typeof cardResourceRepo.reserveWeb>>;
+      try {
+        reservation = await cardResourceRepo.reserveWeb(ctx.db, {
+          cardId: card.id,
+          expectedWorkspaceId: card.workspaceId,
+          webUrl,
+          fallbackTitle,
+          createdBy: userId,
+          publicVisibilityAcknowledged: input.publicVisibilityAcknowledged,
+        });
+      } catch (error) {
+        if (error instanceof WorkspaceChangedError) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "CARD_NOT_FOUND" });
+        }
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "WEB_RESOURCE_CREATE_FAILED",
+        });
+      }
+      if (reservation.status === "public_ack_required") {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "PUBLIC_VISIBILITY_ACKNOWLEDGEMENT_REQUIRED",
+        });
+      }
+      if (reservation.status === "limit_reached") {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "WEB_RESOURCE_LIMIT_REACHED",
+        });
+      }
+      if (reservation.status === "existing") {
+        await assertPermission(ctx.db, userId, card.workspaceId, "card:edit");
+        return readWebResource(reservation.publicId);
+      }
+
+      let metadata: Awaited<
+        ReturnType<typeof fetchSafePreviewMetadata>
+      > | null = null;
+      try {
+        metadata = await fetchSafePreviewMetadata(webUrl);
+      } catch {
+        metadata = null;
+      }
+
+      await assertPermission(ctx.db, userId, card.workspaceId, "card:edit");
+      if (metadata) {
+        try {
+          await cardResourceRepo.updateWebMetadata(ctx.db, {
+            cardId: card.id,
+            expectedWorkspaceId: card.workspaceId,
+            resourcePublicId: reservation.publicId,
+            title: metadata.title,
+            description: metadata.description ?? null,
+            siteName: metadata.siteName,
+            imageUrl: metadata.image?.resolvedUrl ?? null,
+          });
+        } catch (error) {
+          if (error instanceof WorkspaceChangedError) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "CARD_NOT_FOUND",
+            });
+          }
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "WEB_RESOURCE_CREATE_FAILED",
+          });
+        }
+      }
+      return readWebResource(reservation.publicId);
     }),
 
   delete: protectedProcedure

@@ -179,7 +179,7 @@ describe("card pipeline router", () => {
         openUrl: "https://example.com/research",
         description: "Working context",
         siteName: "Example",
-        previewImageUrl: null,
+        previewImageUrl: "/api/resources/webresource1/preview-image",
       },
     ]);
     expect(JSON.stringify(result)).not.toContain("cdn.example.com");

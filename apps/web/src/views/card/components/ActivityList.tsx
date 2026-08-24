@@ -154,7 +154,7 @@ const getActivityText = ({
     "card.updated.checklist.item.deleted": t`deleted a checklist item`,
     "card.updated.attachment.added": t`added an attachment`,
     "card.updated.attachment.removed": t`removed an attachment`,
-    "card.updated.resource.added": t`added a Drive link`,
+    "card.updated.resource.added": t`added a resource`,
     "card.updated.resource.removed": t`removed a resource`,
     "card.updated.resource.linked": t`linked a resource to a subtask`,
     "card.updated.resource.unlinked": t`unlinked a resource from a subtask`,

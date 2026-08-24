@@ -57,6 +57,7 @@ interface CardResourceSummary {
   total: number;
   uploads: number;
   driveLinks: number;
+  webLinks: number;
 }
 
 interface CardWorkspaceDocumentProps {
@@ -71,6 +72,8 @@ interface CardWorkspaceDocumentProps {
   summaryContent: ReactNode;
   activityContent: ReactNode;
   preferenceScope: string;
+  whiteboardExtended: boolean;
+  onWhiteboardExtendedChange: (extended: boolean) => void;
   compact?: boolean;
 }
 
@@ -190,6 +193,8 @@ export function CardWorkspaceDocument({
   summaryContent,
   activityContent,
   preferenceScope,
+  whiteboardExtended,
+  onWhiteboardExtendedChange,
   compact = false,
 }: CardWorkspaceDocumentProps) {
   const router = useRouter();
@@ -207,7 +212,19 @@ export function CardWorkspaceDocument({
   const [subtasksActivationRequested, setSubtasksActivationRequested] =
     useState(false);
   const [preferencesReady, setPreferencesReady] = useState(false);
+  const documentRef = useRef<HTMLDivElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
+  const savedScrollTopRef = useRef(0);
+  const layoutFrameRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (layoutFrameRef.current !== null) {
+        window.cancelAnimationFrame(layoutFrameRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (hasCanvas) setCanvasHasContent(true);
@@ -335,6 +352,29 @@ export function CardWorkspaceDocument({
     else if (targetView === "whiteboard") void clearWorkspaceTarget();
   };
 
+  const setWhiteboardExtension = (extended: boolean) => {
+    const scrollHost = documentRef.current?.closest<HTMLElement>(
+      "[data-card-scroll-host]",
+    );
+    if (extended) {
+      savedScrollTopRef.current = scrollHost?.scrollTop ?? 0;
+      setWhiteboardPreference(true);
+      setWhiteboardMounted(true);
+    }
+    onWhiteboardExtendedChange(extended);
+    if (layoutFrameRef.current !== null) {
+      window.cancelAnimationFrame(layoutFrameRef.current);
+    }
+    layoutFrameRef.current = window.requestAnimationFrame(() => {
+      if (scrollHost) {
+        scrollHost.scrollTop = extended ? 0 : savedScrollTopRef.current;
+      }
+      if (!extended) {
+        document.getElementById("card-workspace-whiteboard-heading")?.focus();
+      }
+    });
+  };
+
   const requestSubtasksInitialization = () => {
     document.getElementById("card-workspace-subtasks-heading")?.focus();
     setSubtasksActivationRequested(true);
@@ -359,14 +399,17 @@ export function CardWorkspaceDocument({
 
   return (
     <div
+      ref={documentRef}
       className={twMerge(
         "mx-auto w-full max-w-6xl px-4 py-6 md:px-6 lg:px-8",
         compact && "max-w-none px-0 py-0",
+        whiteboardExtended && "h-full max-w-none p-0 md:p-0 lg:p-0",
       )}
     >
       <section
         id={sectionIds.summary}
         aria-label={t`Summary`}
+        hidden={whiteboardExtended}
         className="scroll-mt-16"
       >
         <div className="max-w-3xl">{summaryContent}</div>
@@ -379,6 +422,7 @@ export function CardWorkspaceDocument({
             ? t`1 resource`
             : t`${resourceSummary.total} resources`
         }
+        hidden={whiteboardExtended}
         className="mt-10 scroll-mt-16 border-t border-light-300 pt-8 dark:border-dark-400"
       >
         <CardFilesView
@@ -392,6 +436,7 @@ export function CardWorkspaceDocument({
       <section
         id={sectionIds.subtasks}
         aria-labelledby="card-workspace-subtasks-heading"
+        hidden={whiteboardExtended}
         className="mt-10 scroll-mt-16 border-t border-light-300 dark:border-dark-400"
       >
         <DisclosureHeader
@@ -448,28 +493,33 @@ export function CardWorkspaceDocument({
       <section
         id={sectionIds.whiteboard}
         aria-labelledby="card-workspace-whiteboard-heading"
-        className="mt-10 scroll-mt-16 border-t border-light-300 dark:border-dark-400"
+        className={twMerge(
+          "mt-10 scroll-mt-16 border-t border-light-300 dark:border-dark-400",
+          whiteboardExtended && "m-0 h-full border-0",
+        )}
       >
-        <DisclosureHeader
-          id="card-workspace-whiteboard-heading"
-          controls="card-workspace-whiteboard-content"
-          title={t`Whiteboard`}
-          description={whiteboardDescription}
-          actionLabel={whiteboardOpen ? t`Hide` : t`Open whiteboard`}
-          isOpen={whiteboardOpen}
-          onToggle={toggleWhiteboard}
-          icon={
-            <HiOutlinePencilSquare className="h-5 w-5" aria-hidden="true" />
-          }
-        />
+        <div hidden={whiteboardExtended}>
+          <DisclosureHeader
+            id="card-workspace-whiteboard-heading"
+            controls="card-workspace-whiteboard-content"
+            title={t`Whiteboard`}
+            description={whiteboardDescription}
+            actionLabel={whiteboardOpen ? t`Hide` : t`Open whiteboard`}
+            isOpen={whiteboardOpen}
+            onToggle={toggleWhiteboard}
+            icon={
+              <HiOutlinePencilSquare className="h-5 w-5" aria-hidden="true" />
+            }
+          />
+        </div>
         <div
           id="card-workspace-whiteboard-content"
           role="region"
           aria-labelledby="card-workspace-whiteboard-heading"
-          hidden={!whiteboardOpen}
-          className="pt-5"
+          hidden={!whiteboardOpen && !whiteboardExtended}
+          className={whiteboardExtended ? "h-full" : "pt-5"}
         >
-          {whiteboardMounted && (
+          {(whiteboardMounted || whiteboardExtended) && (
             <CardWhiteboardView
               cardPublicId={cardPublicId}
               cardTitle={cardTitle}
@@ -477,14 +527,19 @@ export function CardWorkspaceDocument({
               canEdit={canEdit}
               isPublicBoard={isPublicBoard}
               embedded
-              isVisible={whiteboardOpen}
+              isVisible={whiteboardOpen || whiteboardExtended}
+              extended={whiteboardExtended}
+              onExtendedChange={setWhiteboardExtension}
               onCanvasCreated={() => setCanvasHasContent(true)}
             />
           )}
         </div>
       </section>
 
-      <section className="mt-12 border-t border-light-300 pt-10 dark:border-dark-400">
+      <section
+        hidden={whiteboardExtended}
+        className="mt-12 border-t border-light-300 pt-10 dark:border-dark-400"
+      >
         <div className="max-w-3xl">{activityContent}</div>
       </section>
     </div>

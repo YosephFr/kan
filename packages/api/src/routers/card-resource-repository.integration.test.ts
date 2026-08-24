@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { eq, isNull } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -10,6 +11,7 @@ import * as cardResourceRepo from "@kan/db/repository/cardResource.repo";
 import { PublicVisibilityAcknowledgementError } from "@kan/db/repository/cardResourceVisibility.repo";
 import * as subtaskRepo from "@kan/db/repository/cardSubtask.repo";
 import * as subtaskResourceRepo from "@kan/db/repository/cardSubtaskResource.repo";
+import { WorkspaceChangedError } from "@kan/db/repository/workspace-boundary";
 import {
   boards,
   cardAttachments,
@@ -18,6 +20,7 @@ import {
   cardSubtaskResources,
   cardSubtasks,
   lists,
+  workspaces,
 } from "@kan/db/schema";
 
 import type { PipelineTestDbClient } from "./card-pipeline-repository.test-utils";
@@ -293,6 +296,193 @@ describe("card resource repository", () => {
         resourceKey: "New_Resource_Key",
       }),
     ]);
+  });
+
+  it("requires public acknowledgement and deduplicates the normalized web URL hash", async () => {
+    const input = {
+      cardId: seeded.card.id,
+      expectedWorkspaceId: seeded.workspace.id,
+      webUrl: "https://example.com/research?source=kan",
+      fallbackTitle: "example.com",
+      createdBy: seeded.user.id,
+    };
+    await expect(
+      cardResourceRepo.reserveWeb(db, {
+        ...input,
+        publicVisibilityAcknowledged: false,
+      }),
+    ).resolves.toEqual({ status: "public_ack_required" });
+
+    const first = await cardResourceRepo.reserveWeb(db, {
+      ...input,
+      publicVisibilityAcknowledged: true,
+    });
+    if (first.status !== "created") throw new Error("Web resource missing");
+    await cardResourceRepo.updateWebMetadata(db, {
+      cardId: seeded.card.id,
+      expectedWorkspaceId: seeded.workspace.id,
+      resourcePublicId: first.publicId,
+      title: "Research",
+      description: "Context",
+      siteName: "Example",
+      imageUrl: "https://cdn.example.com/preview.png",
+    });
+    const duplicate = await cardResourceRepo.reserveWeb(db, {
+      ...input,
+      publicVisibilityAcknowledged: true,
+    });
+
+    expect(duplicate).toEqual({
+      status: "existing",
+      publicId: first.publicId,
+    });
+    expect(await cardResourceRepo.listByCardId(db, seeded.card.id)).toEqual([
+      expect.objectContaining({
+        kind: "web",
+        title: "Research",
+        webUrl: input.webUrl,
+        webUrlHash: createHash("sha256").update(input.webUrl).digest("hex"),
+        webDescription: "Context",
+        webImageUrl: "https://cdn.example.com/preview.png",
+      }),
+    ]);
+  });
+
+  it("grants exactly one unfurl winner for concurrent identical reservations", async () => {
+    const webUrl = "https://example.com/concurrent-research";
+    let metadataFetches = 0;
+    const reserveAndUnfurl = async () => {
+      const reservation = await cardResourceRepo.reserveWeb(db, {
+        cardId: seeded.card.id,
+        expectedWorkspaceId: seeded.workspace.id,
+        webUrl,
+        fallbackTitle: "example.com",
+        createdBy: seeded.user.id,
+        publicVisibilityAcknowledged: true,
+      });
+      if (reservation.status === "created") {
+        metadataFetches += 1;
+        await cardResourceRepo.updateWebMetadata(db, {
+          cardId: seeded.card.id,
+          expectedWorkspaceId: seeded.workspace.id,
+          resourcePublicId: reservation.publicId,
+          title: "Concurrent research",
+          description: "Fetched once",
+          siteName: "Example",
+          imageUrl: null,
+        });
+      }
+      return reservation;
+    };
+
+    const reservations = await Promise.all(
+      Array.from({ length: 8 }, () => reserveAndUnfurl()),
+    );
+
+    const created = reservations.filter(({ status }) => status === "created");
+    const existing = reservations.filter(({ status }) => status === "existing");
+    expect([metadataFetches, created.length, existing.length]).toEqual([
+      1, 1, 7,
+    ]);
+    expect(await cardResourceRepo.listByCardId(db, seeded.card.id)).toEqual([
+      expect.objectContaining({ webDescription: "Fetched once" }),
+    ]);
+  });
+
+  it("allows exactly 100 active web resources and rejects number 101", async () => {
+    const existing = Array.from({ length: 99 }, (_, index) => {
+      const webUrl = `https://example.com/resource/${index}`;
+      return {
+        publicId: `webcap${String(index).padStart(6, "0")}`,
+        cardId: seeded.card.id,
+        kind: "web" as const,
+        title: `Resource ${index}`,
+        webUrl,
+        webUrlHash: createHash("sha256").update(webUrl).digest("hex"),
+        createdBy: seeded.user.id,
+      };
+    });
+    await db.insert(cardResources).values(existing);
+    const concurrent = await Promise.all(
+      [99, 100].map((index) =>
+        cardResourceRepo.reserveWeb(db, {
+          cardId: seeded.card.id,
+          expectedWorkspaceId: seeded.workspace.id,
+          webUrl: `https://example.com/resource/${index}`,
+          fallbackTitle: `Resource ${index}`,
+          createdBy: seeded.user.id,
+          publicVisibilityAcknowledged: true,
+        }),
+      ),
+    );
+
+    expect(concurrent.map((result) => result.status).sort()).toEqual([
+      "created",
+      "limit_reached",
+    ]);
+    await expect(
+      cardResourceRepo.reserveWeb(db, {
+        cardId: seeded.card.id,
+        expectedWorkspaceId: seeded.workspace.id,
+        webUrl: "https://example.com/new-resource",
+        fallbackTitle: "example.com",
+        createdBy: seeded.user.id,
+        publicVisibilityAcknowledged: true,
+      }),
+    ).resolves.toEqual({ status: "limit_reached" });
+    expect(
+      (await cardResourceRepo.getSummaryByCardId(db, seeded.card.id)).webLinks,
+    ).toBe(100);
+  });
+
+  it("rejects web reservation after the card leaves the authorized workspace", async () => {
+    await expect(
+      cardResourceRepo.reserveWeb(db, {
+        cardId: seeded.card.id,
+        expectedWorkspaceId: seeded.otherWorkspace.id,
+        webUrl: "https://example.com/research",
+        fallbackTitle: "example.com",
+        createdBy: seeded.user.id,
+        publicVisibilityAcknowledged: true,
+      }),
+    ).rejects.toBeInstanceOf(WorkspaceChangedError);
+  });
+
+  it("reads preview context only while the whole resource hierarchy is active", async () => {
+    const created = await cardResourceRepo.reserveWeb(db, {
+      cardId: seeded.card.id,
+      expectedWorkspaceId: seeded.workspace.id,
+      webUrl: "https://example.com/research",
+      fallbackTitle: "example.com",
+      createdBy: seeded.user.id,
+      publicVisibilityAcknowledged: true,
+    });
+    if (created.status !== "created") throw new Error("Web resource missing");
+    await cardResourceRepo.updateWebMetadata(db, {
+      cardId: seeded.card.id,
+      expectedWorkspaceId: seeded.workspace.id,
+      resourcePublicId: created.publicId,
+      title: "Research",
+      description: null,
+      siteName: "Example",
+      imageUrl: "https://cdn.example.com/preview.png",
+    });
+    await expect(
+      cardResourceRepo.getWebPreviewContextByPublicId(db, created.publicId),
+    ).resolves.toMatchObject({
+      publicId: created.publicId,
+      workspaceId: seeded.workspace.id,
+      boardVisibility: "public",
+      imageUrl: "https://cdn.example.com/preview.png",
+    });
+
+    await db
+      .update(workspaces)
+      .set({ deletedAt: new Date() })
+      .where(eq(workspaces.id, seeded.workspace.id));
+    await expect(
+      cardResourceRepo.getWebPreviewContextByPublicId(db, created.publicId),
+    ).resolves.toBeNull();
   });
 
   it("requires acknowledgement before publishing a board with resources", async () => {

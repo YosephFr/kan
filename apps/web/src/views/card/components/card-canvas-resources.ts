@@ -139,7 +139,7 @@ export const parseCardCanvasImageDimensions = (
   return null;
 };
 
-const assertSafeImageDimensions = (dimensions: {
+export const assertSafeCardCanvasImageDimensions = (dimensions: {
   width: number;
   height: number;
 }) => {
@@ -152,6 +152,66 @@ const assertSafeImageDimensions = (dimensions: {
   ) {
     throw new Error("IMAGE_RESOURCE_DIMENSIONS_UNSAFE");
   }
+};
+
+export const preflightCardCanvasImageFile = async ({
+  file,
+  contentType,
+  api,
+  resources,
+}: {
+  file: File;
+  contentType: string;
+  api: ExcalidrawImperativeAPI;
+  resources: CardResource[];
+}) => {
+  if (
+    !contentType.startsWith("image/") ||
+    file.size > MAX_CARD_CANVAS_IMAGE_BYTES
+  ) {
+    throw new Error("IMAGE_RESOURCE_TOO_LARGE");
+  }
+  const header = new Uint8Array(
+    await file.slice(0, IMAGE_HEADER_BYTES).arrayBuffer(),
+  );
+  const dimensions = parseCardCanvasImageDimensions(contentType, header);
+  if (!dimensions) throw new Error("IMAGE_RESOURCE_DIMENSIONS_INVALID");
+  assertSafeCardCanvasImageDimensions(dimensions);
+
+  const existingPublicIds = new Set(
+    api.getSceneElements().flatMap((element) => {
+      if (element.type !== "image" || element.isDeleted) return [];
+      const publicId = getCanvasResourcePublicId(
+        element as unknown as CardCanvasElement,
+      );
+      return publicId ? [publicId] : [];
+    }),
+  );
+  const resourcesByPublicId = new Map(
+    resources.flatMap((resource) =>
+      resource.kind === "upload" &&
+      resource.contentType.startsWith("image/") &&
+      resource.viewUrl !== null
+        ? [[resource.publicId, resource] as const]
+        : [],
+    ),
+  );
+  const existingResources = [...existingPublicIds].flatMap((publicId) => {
+    const resource = resourcesByPublicId.get(publicId);
+    return resource ? [resource] : [];
+  });
+  if (existingResources.length !== existingPublicIds.size) {
+    throw new Error("IMAGE_RESOURCE_BUDGET_UNKNOWN");
+  }
+  if (
+    existingResources.length + 1 > MAX_CARD_CANVAS_IMAGE_RESOURCES ||
+    existingResources.reduce((total, resource) => total + resource.size, 0) +
+      file.size >
+      MAX_CARD_CANVAS_TOTAL_IMAGE_BYTES
+  ) {
+    throw new Error("IMAGE_RESOURCE_BUDGET_EXCEEDED");
+  }
+  return dimensions;
 };
 
 const fitImage = (width: number, height: number) => {
@@ -262,7 +322,7 @@ export const hydrateCardCanvasImage = async (
   );
   const dimensions = parseCardCanvasImageDimensions(blob.type, header);
   if (!dimensions) throw new Error("IMAGE_RESOURCE_DIMENSIONS_INVALID");
-  assertSafeImageDimensions(dimensions);
+  assertSafeCardCanvasImageDimensions(dimensions);
   const objectUrl = URL.createObjectURL(blob);
   let rendered: ReturnType<typeof renderImageDataUrl>;
   const fitted = fitImage(dimensions.width, dimensions.height);

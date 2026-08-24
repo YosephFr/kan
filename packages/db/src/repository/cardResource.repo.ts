@@ -1,4 +1,5 @@
-import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { createHash } from "node:crypto";
+import { and, asc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
 import type { CardResourceDriveType } from "@kan/db/schema";
@@ -277,6 +278,171 @@ export const createDrive = async (
     });
     return { status: "created" as const, publicId };
   });
+
+export const MAX_ACTIVE_WEB_RESOURCES_PER_CARD = 100;
+
+export const reserveWeb = async (
+  db: dbClient,
+  input: {
+    cardId: number;
+    expectedWorkspaceId: number;
+    webUrl: string;
+    fallbackTitle: string;
+    createdBy: string;
+    publicVisibilityAcknowledged: boolean;
+  },
+) =>
+  db.transaction(async (tx) => {
+    const [card] = await lockCardsInWorkspace(
+      tx,
+      [input.cardId],
+      input.expectedWorkspaceId,
+      { cardLock: "update" },
+    );
+    if (!card) throw new WorkspaceChangedError();
+    const [board] = await tx.query.boards.findMany({
+      columns: { visibility: true },
+      where: (boards, { eq }) => eq(boards.id, card.boardId),
+      limit: 1,
+    });
+    if (!board) throw new WorkspaceChangedError();
+    if (board.visibility === "public" && !input.publicVisibilityAcknowledged) {
+      return { status: "public_ack_required" as const };
+    }
+
+    const webUrlHash = createHash("sha256").update(input.webUrl).digest("hex");
+    const [existing] = await tx
+      .select({
+        publicId: cardResources.publicId,
+      })
+      .from(cardResources)
+      .where(
+        and(
+          eq(cardResources.cardId, card.id),
+          eq(cardResources.kind, "web"),
+          eq(cardResources.webUrlHash, webUrlHash),
+          isNull(cardResources.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (existing) {
+      return { status: "existing" as const, publicId: existing.publicId };
+    }
+
+    const [activeWebCount] = await tx
+      .select({ count: sql<number>`count(*)`.mapWith(Number) })
+      .from(cardResources)
+      .where(
+        and(
+          eq(cardResources.cardId, card.id),
+          eq(cardResources.kind, "web"),
+          isNull(cardResources.deletedAt),
+        ),
+      );
+    if ((activeWebCount?.count ?? 0) >= MAX_ACTIVE_WEB_RESOURCES_PER_CARD) {
+      return { status: "limit_reached" as const };
+    }
+
+    const publicId = generateUID();
+    const [resource] = await tx
+      .insert(cardResources)
+      .values({
+        publicId,
+        cardId: card.id,
+        kind: "web",
+        title: input.fallbackTitle,
+        webUrl: input.webUrl,
+        webUrlHash,
+        webSiteName: input.fallbackTitle,
+        createdBy: input.createdBy,
+      })
+      .returning({ publicId: cardResources.publicId });
+    if (!resource) throw new Error("Unable to create card resource");
+    await tx.insert(cardActivities).values({
+      publicId: generateUID(),
+      type: "card.updated.resource.added",
+      cardId: card.id,
+      toTitle: input.fallbackTitle,
+      createdBy: input.createdBy,
+    });
+    return { status: "created" as const, publicId };
+  });
+
+export const updateWebMetadata = async (
+  db: dbClient,
+  input: {
+    cardId: number;
+    expectedWorkspaceId: number;
+    resourcePublicId: string;
+    title: string;
+    description: string | null;
+    siteName: string | null;
+    imageUrl: string | null;
+  },
+) =>
+  db.transaction(async (tx) => {
+    const [card] = await lockCardsInWorkspace(
+      tx,
+      [input.cardId],
+      input.expectedWorkspaceId,
+      { cardLock: "update" },
+    );
+    if (!card) throw new WorkspaceChangedError();
+
+    const [resource] = await tx
+      .update(cardResources)
+      .set({
+        title: input.title,
+        webDescription: input.description,
+        webSiteName: input.siteName,
+        webImageUrl: input.imageUrl,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(cardResources.publicId, input.resourcePublicId),
+          eq(cardResources.cardId, card.id),
+          eq(cardResources.kind, "web"),
+          isNull(cardResources.deletedAt),
+        ),
+      )
+      .returning({ publicId: cardResources.publicId });
+    return resource
+      ? { status: "updated" as const, publicId: resource.publicId }
+      : { status: "not_found" as const };
+  });
+
+export const getWebPreviewContextByPublicId = async (
+  db: dbClient,
+  publicId: string,
+) => {
+  const [resource] = await db
+    .select({
+      publicId: cardResources.publicId,
+      workspaceId: boards.workspaceId,
+      boardVisibility: boards.visibility,
+      imageUrl: cardResources.webImageUrl,
+    })
+    .from(cardResources)
+    .innerJoin(cards, eq(cardResources.cardId, cards.id))
+    .innerJoin(lists, eq(cards.listId, lists.id))
+    .innerJoin(boards, eq(lists.boardId, boards.id))
+    .innerJoin(workspaces, eq(boards.workspaceId, workspaces.id))
+    .where(
+      and(
+        eq(cardResources.publicId, publicId),
+        eq(cardResources.kind, "web"),
+        isNotNull(cardResources.webImageUrl),
+        isNull(cardResources.deletedAt),
+        isNull(cards.deletedAt),
+        isNull(lists.deletedAt),
+        isNull(boards.deletedAt),
+        isNull(workspaces.deletedAt),
+      ),
+    )
+    .limit(1);
+  return resource ?? null;
+};
 
 export const getByPublicId = async (db: dbClient, publicId: string) => {
   const [resource] = await db

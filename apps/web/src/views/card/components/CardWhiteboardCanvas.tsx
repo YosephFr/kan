@@ -17,10 +17,8 @@ import type { CardCanvasPreparedConversion } from "./card-canvas-convert";
 import type { CardCanvasExportFormat } from "./card-canvas-export";
 import type { CardCanvasSubtaskFields } from "./card-canvas-types";
 import type { CardResource } from "./card-resource-types";
-import type {
-  PipelineStageStatus,
-  WorkspaceMemberOption,
-} from "./subtask-types";
+import type { CardWhiteboardCanvasProps } from "./card-whiteboard-canvas-types";
+import type { PipelineStageStatus } from "./subtask-types";
 import { useLocalisation } from "~/hooks/useLocalisation";
 import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
@@ -39,6 +37,7 @@ import {
   toExcalidrawAppState,
 } from "./card-canvas-excalidraw-adapter";
 import { exportCardCanvas } from "./card-canvas-export";
+import { getExcalidrawLanguage } from "./card-canvas-localization";
 import {
   hydrateCardCanvasImages,
   insertCardCanvasResource,
@@ -46,44 +45,23 @@ import {
 import { getFrameElements } from "./card-canvas-selection";
 import { CardCanvasConflictDialog } from "./CardCanvasConflictDialog";
 import { CardCanvasConvertDialog } from "./CardCanvasConvertDialog";
+import { CardCanvasEmbeddable } from "./CardCanvasEmbeddable";
 import { CardCanvasFrameOverlays } from "./CardCanvasFrameOverlays";
 import { CardCanvasHistoryDrawer } from "./CardCanvasHistoryDrawer";
 import { CardCanvasPasteUploadDialog } from "./CardCanvasPasteUploadDialog";
 import { CardCanvasResourceDrawer } from "./CardCanvasResourceDrawer";
 import { CardCanvasToolbar } from "./CardCanvasToolbar";
 import { CardCanvasZonesDrawer } from "./CardCanvasZonesDrawer";
+import { CardWebLinkDialog } from "./CardWebLinkDialog";
 import { useCardCanvas } from "./use-card-canvas";
+import { useCardCanvasDrawers } from "./use-card-canvas-drawers";
 import { useCardCanvasImagePaste } from "./use-card-canvas-image-paste";
-
-interface CardWhiteboardCanvasProps {
-  cardPublicId: string;
-  cardTitle: string;
-  members: WorkspaceMemberOption[];
-  canEdit: boolean;
-  isPublicBoard: boolean;
-  compact?: boolean;
-  embedded?: boolean;
-  isVisible?: boolean;
-  onCanvasCreated?: () => void;
-  onClose?: () => void;
-}
+import { useCardCanvasPen } from "./use-card-canvas-pen";
+import { useCardCanvasViewport } from "./use-card-canvas-viewport";
+import { useCardCanvasWebLinks } from "./use-card-canvas-web-links";
 
 const FORBIDDEN_TOOLS = new Set(["image", "embeddable", "magicframe"]);
 const INTERNAL_LINK_PATTERN = /^kan-(resource|subtask):[a-z0-9]{12}$/;
-
-const getExcalidrawLanguage = (locale: string) => {
-  const localeMap: Record<string, string> = {
-    de: "de-DE",
-    es: "es-ES",
-    fr: "fr-FR",
-    it: "it-IT",
-    nl: "nl-NL",
-    pl: "pl-PL",
-    ptbr: "pt-BR",
-    ru: "ru-RU",
-  };
-  return localeMap[locale] ?? "en";
-};
 
 export function CardWhiteboardCanvas({
   cardPublicId,
@@ -94,6 +72,8 @@ export function CardWhiteboardCanvas({
   compact = false,
   embedded = false,
   isVisible = true,
+  extended,
+  onExtendedChange,
   onCanvasCreated,
   onClose,
 }: CardWhiteboardCanvasProps) {
@@ -108,24 +88,39 @@ export function CardWhiteboardCanvas({
   const [canvasContainer, setCanvasContainer] = useState<HTMLDivElement | null>(
     null,
   );
-  const [zonesOpen, setZonesOpen] = useState(false);
-  const [resourcesOpen, setResourcesOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [focusModeEnabled, setFocusModeEnabled] = useState(false);
   const [preparedConversion, setPreparedConversion] =
     useState<CardCanvasPreparedConversion | null>(null);
   const canvasSectionRef = useRef<HTMLElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
   const applyingSceneRef = useRef(false);
   const documentSnapshotRef = useRef<ReturnType<
     typeof captureCardCanvasDocument
   > | null>(null);
   const focusedFrameRef = useRef<string | null>(null);
   const reportedCanvasRef = useRef(false);
+  const penPreferenceKey = useMemo(
+    () =>
+      `kan:card-canvas:pen-mode:v1:${session?.user.id ?? "device"}:${cardPublicId}`,
+    [cardPublicId, session?.user.id],
+  );
 
   const controller = useCardCanvas({
     cardPublicId,
     userId: session?.user.id ?? null,
     canEdit,
+  });
+
+  const effectiveCanEdit = !controller.viewModeEnabled;
+  const pen = useCardCanvasPen({
+    api: excalidrawApi,
+    canEdit: effectiveCanEdit,
+    preferenceKey: penPreferenceKey,
+  });
+  useCardCanvasViewport({
+    api: excalidrawApi,
+    sectionRef: canvasSectionRef,
+    enabled: embedded && isVisible,
+    layoutKey: extended,
   });
 
   useEffect(() => {
@@ -134,17 +129,10 @@ export function CardWhiteboardCanvas({
     onCanvasCreated?.();
     void utils.card.byId.invalidate({ cardPublicId });
   }, [cardPublicId, controller.version, onCanvasCreated, utils.card.byId]);
-  const effectiveCanEdit = !controller.viewModeEnabled;
   const resourceQuery = api.cardResource.list.useQuery(
     { cardPublicId },
     { enabled: cardPublicId.length >= 12, retry: 1 },
   );
-  const historyQuery = api.cardCanvas.listRevisions.useQuery(
-    { cardPublicId },
-    { enabled: effectiveCanEdit && historyOpen, retry: 1 },
-  );
-  const restoreMutation = api.cardCanvas.restore.useMutation();
-  const convertMutation = api.cardCanvas.convertFrame.useMutation();
   const resources = useMemo(
     () => resourceQuery.data?.resources ?? [],
     [resourceQuery.data?.resources],
@@ -180,33 +168,41 @@ export function CardWhiteboardCanvas({
     canEdit: effectiveCanEdit,
     isPublicBoard,
     excalidrawApi,
+    resources,
     onResourceCreated: insertUploadedImage,
   });
+  const webLinks = useCardCanvasWebLinks({
+    cardPublicId,
+    canEdit: effectiveCanEdit,
+    isPublicBoard,
+    excalidrawApi,
+  });
+  const drawers = useCardCanvasDrawers({
+    api: excalidrawApi,
+    extended,
+    hasOpenDialog:
+      webLinks.isDialogOpen ||
+      preparedConversion?.status === "ready" ||
+      controller.saveState === "conflict" ||
+      imagePaste.pendingPublicImage !== null,
+    onExtendedChange,
+  });
+  const historyQuery = api.cardCanvas.listRevisions.useQuery(
+    { cardPublicId },
+    { enabled: effectiveCanEdit && drawers.historyOpen, retry: 1 },
+  );
+  const restoreMutation = api.cardCanvas.restore.useMutation();
+  const convertMutation = api.cardCanvas.convertFrame.useMutation();
+  const handleCanvasPaste = useCallback(
+    (data: Parameters<typeof imagePaste.handleExcalidrawPaste>[0]) =>
+      webLinks.handlePaste(data) ?? imagePaste.handleExcalidrawPaste(data),
+    [imagePaste, webLinks],
+  );
 
   useEffect(() => {
-    if (!embedded || isVisible) return;
-    setFocusModeEnabled(false);
-  }, [embedded, isVisible]);
-
-  useEffect(() => {
-    if (!embedded || !isVisible || !excalidrawApi) return;
-
-    const refreshCanvas = () => excalidrawApi.refresh();
-    const animationFrame = window.requestAnimationFrame(refreshCanvas);
-    const transitionTimer = window.setTimeout(refreshCanvas, 320);
-
-    if (focusModeEnabled) {
-      canvasSectionRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }
-
-    return () => {
-      window.cancelAnimationFrame(animationFrame);
-      window.clearTimeout(transitionTimer);
-    };
-  }, [embedded, excalidrawApi, focusModeEnabled, isVisible]);
+    if (!embedded || isVisible || !extended) return;
+    onExtendedChange(false);
+  }, [embedded, extended, isVisible, onExtendedChange]);
 
   const replaceWorkspaceQuery = useCallback(
     async (
@@ -236,14 +232,18 @@ export function CardWhiteboardCanvas({
     else void replaceWorkspaceQuery("summary");
   };
   const openResource = useCallback(
-    (resourcePublicId: string) =>
-      void replaceWorkspaceQuery("files", { recurso: resourcePublicId }),
-    [replaceWorkspaceQuery],
+    (resourcePublicId: string) => {
+      if (extended) onExtendedChange(false);
+      void replaceWorkspaceQuery("files", { recurso: resourcePublicId });
+    },
+    [extended, onExtendedChange, replaceWorkspaceQuery],
   );
   const openSubtask = useCallback(
-    (subtaskPublicId: string) =>
-      void replaceWorkspaceQuery("subtasks", { subtask: subtaskPublicId }),
-    [replaceWorkspaceQuery],
+    (subtaskPublicId: string) => {
+      if (extended) onExtendedChange(false);
+      void replaceWorkspaceQuery("subtasks", { subtask: subtaskPublicId });
+    },
+    [extended, onExtendedChange, replaceWorkspaceQuery],
   );
 
   useEffect(() => {
@@ -326,24 +326,37 @@ export function CardWhiteboardCanvas({
   const handleSceneChange = useCallback(
     (elements: readonly ExcalidrawElement[], appState: AppState) => {
       if (!excalidrawApi || applyingSceneRef.current) return;
+      const linksRemoved = elements.some(
+        (element) =>
+          typeof element.link === "string" &&
+          !INTERNAL_LINK_PATTERN.test(element.link),
+      );
+      const safeElements = linksRemoved
+        ? elements.map((element) =>
+            typeof element.link === "string" &&
+            !INTERNAL_LINK_PATTERN.test(element.link)
+              ? { ...element, link: null }
+              : element,
+          )
+        : elements;
       if (
         !hasCardCanvasDocumentChanged(
           documentSnapshotRef.current,
-          elements,
+          safeElements,
           appState,
         )
       ) {
         return;
       }
       documentSnapshotRef.current = captureCardCanvasDocument(
-        elements,
+        safeElements,
         appState,
       );
       if (FORBIDDEN_TOOLS.has(appState.activeTool.type)) {
         excalidrawApi.setActiveTool({ type: "selection" });
       }
-      const adapted = toCardCanvasScene(elements, appState);
-      if (adapted.changed) {
+      const adapted = toCardCanvasScene(safeElements, appState);
+      if (linksRemoved || adapted.changed) {
         applyingSceneRef.current = true;
         excalidrawApi.updateScene({
           elements: adapted.elements as unknown as ExcalidrawElement[],
@@ -361,7 +374,7 @@ export function CardWhiteboardCanvas({
     if (!excalidrawApi) return;
     try {
       await insertCardCanvasResource(excalidrawApi, resource);
-      setResourcesOpen(false);
+      drawers.closeResources();
     } catch {
       showPopup({
         header: t`Resource could not be placed`,
@@ -529,34 +542,14 @@ export function CardWhiteboardCanvas({
 
   const renderEmbeddable = useCallback(
     (element: { link: string | null }) => {
-      const link = parseCanvasInternalLink(
-        element as unknown as Parameters<typeof parseCanvasInternalLink>[0],
-      );
-      if (!link) return null;
-      const resource =
-        link.kind === "resource" ? resourceByPublicId.get(link.publicId) : null;
-      const subtask =
-        link.kind === "subtask" ? subtaskByPublicId.get(link.publicId) : null;
       return (
-        <button
-          type="button"
-          onDoubleClick={() =>
-            link.kind === "resource"
-              ? openResource(link.publicId)
-              : openSubtask(link.publicId)
-          }
-          className="flex h-full w-full flex-col justify-between overflow-hidden rounded-md border border-light-400 bg-light-50 p-4 text-left text-light-1000 dark:border-dark-500 dark:bg-dark-100 dark:text-dark-1000"
-        >
-          <span className="text-[10px] font-medium text-light-600 dark:text-dark-600">
-            {link.kind === "resource" ? t`Card resource` : t`Card subtask`}
-          </span>
-          <span className="line-clamp-3 text-sm font-semibold">
-            {resource?.title ?? subtask?.title ?? t`Unavailable item`}
-          </span>
-          <span className="text-[10px] text-light-600 dark:text-dark-600">
-            {t`Double-click to open`}
-          </span>
-        </button>
+        <CardCanvasEmbeddable
+          element={element}
+          resources={resourceByPublicId}
+          subtasks={subtaskByPublicId}
+          onOpenResource={openResource}
+          onOpenSubtask={openSubtask}
+        />
       );
     },
     [openResource, openSubtask, resourceByPublicId, subtaskByPublicId],
@@ -602,12 +595,13 @@ export function CardWhiteboardCanvas({
       role={embedded ? "region" : "tabpanel"}
       aria-label={embedded ? t`Whiteboard canvas` : undefined}
       aria-labelledby={embedded ? undefined : "card-tab-whiteboard"}
+      onKeyDownCapture={drawers.handleKeyDownCapture}
       className={twMerge(
         "kan-card-canvas flex min-h-0 flex-col overflow-hidden bg-light-100 dark:bg-dark-50",
         embedded
-          ? focusModeEnabled
-            ? "relative h-[calc(100dvh-5rem)] min-h-[28rem] w-full scroll-mt-16 transition-[height] duration-300 ease-out"
-            : "relative h-[68dvh] max-h-[52rem] min-h-[24rem] w-full scroll-mt-16 transition-[height] duration-300 ease-out"
+          ? extended
+            ? "relative h-full w-full"
+            : "relative h-[68dvh] max-h-[52rem] min-h-[24rem] w-full scroll-mt-16"
           : compact
             ? "fixed inset-0 z-[130] h-[100dvh] w-screen"
             : "fixed inset-0 z-[130] h-[100dvh] w-screen md:relative md:inset-auto md:z-auto md:h-full md:w-full",
@@ -615,39 +609,53 @@ export function CardWhiteboardCanvas({
       )}
     >
       <CardCanvasToolbar
-        cardTitle={embedded ? undefined : cardTitle}
+        cardTitle={extended || !embedded ? cardTitle : undefined}
         saveState={controller.saveState}
         canEdit={effectiveCanEdit}
-        onToggleZones={() => {
-          setZonesOpen((current) => !current);
-          setResourcesOpen(false);
-          setHistoryOpen(false);
-        }}
-        onToggleResources={() => {
-          setResourcesOpen((current) => !current);
-          setZonesOpen(false);
-          setHistoryOpen(false);
-        }}
-        onToggleHistory={() => {
-          setHistoryOpen((current) => !current);
-          setZonesOpen(false);
-          setResourcesOpen(false);
-        }}
+        onToggleZones={drawers.toggleZones}
+        onToggleResources={drawers.toggleResources}
+        onToggleHistory={drawers.toggleHistory}
         onConvert={beginConversion}
+        onAddImage={
+          effectiveCanEdit ? () => imageInputRef.current?.click() : undefined
+        }
+        imageImportDisabled={imagePaste.isImageImportBusy}
+        onAddLink={effectiveCanEdit ? () => webLinks.openDialog() : undefined}
+        onTogglePenMode={effectiveCanEdit ? pen.toggle : undefined}
         onExport={(format) => void exportCanvas(format)}
         onExit={embedded ? undefined : leaveWhiteboard}
-        onToggleFocus={
-          embedded
-            ? () => setFocusModeEnabled((current) => !current)
-            : undefined
+        onToggleExtended={
+          embedded ? () => onExtendedChange(!extended) : undefined
         }
-        focusModeEnabled={focusModeEnabled}
+        extended={extended}
+        penModeEnabled={pen.enabled}
+        zonesOpen={drawers.zonesOpen}
+        resourcesOpen={drawers.resourcesOpen}
+        historyOpen={drawers.historyOpen}
       />
       <div
         ref={setCanvasContainer}
         className="relative min-h-0 flex-1"
         onPasteCapture={imagePaste.handlePasteCapture}
+        onDragOverCapture={imagePaste.handleDragOverCapture}
+        onDropCapture={imagePaste.handleDropCapture}
+        onPointerDownCapture={pen.handlePointerDownCapture}
       >
+        {effectiveCanEdit && (
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            disabled={imagePaste.isImageImportBusy}
+            tabIndex={-1}
+            className="sr-only"
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              event.currentTarget.value = "";
+              if (file) imagePaste.importImageFile(file);
+            }}
+          />
+        )}
         <Excalidraw
           excalidrawAPI={setExcalidrawApi}
           initialData={{
@@ -656,7 +664,7 @@ export function CardWhiteboardCanvas({
             appState: toExcalidrawAppState(controller.scene.appState),
           }}
           onChange={handleSceneChange}
-          onPaste={imagePaste.handleExcalidrawPaste}
+          onPaste={handleCanvasPaste}
           onLinkOpen={(element, event) => {
             const link = parseCanvasInternalLink(
               element as unknown as Parameters<
@@ -694,25 +702,25 @@ export function CardWhiteboardCanvas({
           onOpenSubtask={openSubtask}
         />
         <CardCanvasZonesDrawer
-          open={zonesOpen}
+          open={drawers.zonesOpen}
           frames={presentFrames}
           activeFramePublicId={routerFramePublicId ?? null}
           isLoading={controller.framesLoading}
-          onClose={() => setZonesOpen(false)}
+          onClose={drawers.closeZones}
           onFocusFrame={focusFrame}
         />
         <CardCanvasResourceDrawer
-          open={resourcesOpen}
+          open={drawers.resourcesOpen}
           resources={resources}
           canEdit={effectiveCanEdit}
           isLoading={resourceQuery.isLoading}
-          onClose={() => setResourcesOpen(false)}
+          onClose={drawers.closeResources}
           onInsert={(resource) => void insertResource(resource)}
           onOpenResource={openResource}
         />
         {effectiveCanEdit && (
           <CardCanvasHistoryDrawer
-            open={historyOpen}
+            open={drawers.historyOpen}
             revisions={historyQuery.data ?? []}
             isLoading={historyQuery.isLoading}
             isRestoring={restoreMutation.isPending}
@@ -721,7 +729,7 @@ export function CardWhiteboardCanvas({
               controller.saveState === "conflict" ||
               !controller.isOnline
             }
-            onClose={() => setHistoryOpen(false)}
+            onClose={drawers.closeHistory}
             onRestore={(revisionPublicId) =>
               void restoreRevision(revisionPublicId)
             }
@@ -756,6 +764,13 @@ export function CardWhiteboardCanvas({
         isUploading={imagePaste.isUploadingPaste}
         onCancel={imagePaste.cancelPublicImage}
         onConfirm={imagePaste.confirmPublicImage}
+      />
+      <CardWebLinkDialog
+        cardPublicId={cardPublicId}
+        isOpen={webLinks.isDialogOpen}
+        initialUrl={webLinks.initialUrl}
+        onCreated={webLinks.insertCreatedWebLink}
+        onClose={webLinks.closeDialog}
       />
       <style jsx global>{`
         .kan-card-canvas [data-testid="toolbar-embeddable"],

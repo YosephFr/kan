@@ -158,7 +158,9 @@ export async function loadCardPipeline(
               openUrl,
               description: resource.webDescription,
               siteName: resource.webSiteName,
-              previewImageUrl: null,
+              previewImageUrl: resource.webImageUrl
+                ? `/api/resources/${resource.publicId}/preview-image`
+                : null,
             };
           }
           if (

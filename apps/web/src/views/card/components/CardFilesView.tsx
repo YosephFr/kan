@@ -32,6 +32,7 @@ import {
   CardResourceInlinePreview,
   CardResourceViewer,
 } from "./CardResourceViewer";
+import { CardWebLinkDialog } from "./CardWebLinkDialog";
 import { formatResourceSize } from "./resource-upload-queue";
 
 interface CardFilesViewProps {
@@ -204,6 +205,7 @@ export function CardFilesView({
   const utils = api.useUtils();
   const { showPopup } = usePopup();
   const [isDriveDialogOpen, setIsDriveDialogOpen] = useState(false);
+  const [isWebLinkDialogOpen, setIsWebLinkDialogOpen] = useState(false);
   const [acknowledgedPublicVisibility, setAcknowledgedPublicVisibility] =
     useState(false);
   const [serverRequiresAcknowledgement, setServerRequiresAcknowledgement] =
@@ -375,16 +377,28 @@ export function CardFilesView({
             <p className="mt-1 text-xs leading-5 text-light-700 dark:text-dark-700">{t`Keep source material, documents and visual references with the work.`}</p>
           </div>
           {canEdit && (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              iconLeft={<HiPlusSmall className="h-4 w-4" />}
-              disabled={controlsDisabled}
-              onClick={() => setIsDriveDialogOpen(true)}
-            >
-              {t`Add Drive link`}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                iconLeft={<HiLink className="h-4 w-4" />}
+                disabled={controlsDisabled}
+                onClick={() => setIsWebLinkDialogOpen(true)}
+              >
+                {t`Add web link`}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                iconLeft={<HiPlusSmall className="h-4 w-4" />}
+                disabled={controlsDisabled}
+                onClick={() => setIsDriveDialogOpen(true)}
+              >
+                {t`Add Drive link`}
+              </Button>
+            </div>
           )}
         </div>
 
@@ -512,6 +526,16 @@ export function CardFilesView({
           setAcknowledgedPublicVisibility(true);
         }}
         onClose={() => setIsDriveDialogOpen(false)}
+      />
+      <CardWebLinkDialog
+        cardPublicId={cardPublicId}
+        isOpen={isWebLinkDialogOpen}
+        publicVisibilityAcknowledged={mutationAcknowledgement}
+        onVisibilityAcknowledged={() => {
+          setServerRequiresAcknowledgement(true);
+          setAcknowledgedPublicVisibility(true);
+        }}
+        onClose={() => setIsWebLinkDialogOpen(false)}
       />
       {!embedded && (
         <CardResourceViewer

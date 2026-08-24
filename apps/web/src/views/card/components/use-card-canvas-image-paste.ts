@@ -1,6 +1,9 @@
 import type { ClipboardData } from "@excalidraw/excalidraw/clipboard";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
-import type { ClipboardEvent as ReactClipboardEvent } from "react";
+import type {
+  ClipboardEvent as ReactClipboardEvent,
+  DragEvent as ReactDragEvent,
+} from "react";
 import { t } from "@lingui/core/macro";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -10,34 +13,23 @@ import { api } from "~/utils/api";
 import { invalidateCard } from "~/utils/cardInvalidation";
 import { validateAttachmentFile } from "./attachment-upload";
 import {
-  hashResourceFile,
-  isVisibilityAcknowledgementError,
-  uploadResourceFile,
-} from "./resource-upload-queue";
+  createCardCanvasImageImportQueue,
+  downloadCardCanvasImageUrl,
+  getCardCanvasImageFiles,
+  hasCardCanvasImageDragItem,
+} from "./card-canvas-image-import";
+import { preflightCardCanvasImageFile } from "./card-canvas-resources";
+import { hashResourceFile, uploadResourceFile } from "./resource-upload-queue";
 
 const MERMAID_PATTERN =
   /^\s*(graph\s|flowchart\s|sequenceDiagram\b|classDiagram\b|stateDiagram\b|erDiagram\b|gantt\b|pie\b|journey\b)/i;
-
-const externalImageToFile = async (value: string) => {
-  const url = new URL(value);
-  if (url.protocol !== "https:") throw new Error("UNSAFE_IMAGE_URL");
-  const response = await fetch(url.toString(), {
-    mode: "cors",
-    credentials: "omit",
-    referrerPolicy: "no-referrer",
-  });
-  if (!response.ok) throw new Error("IMAGE_DOWNLOAD_FAILED");
-  const blob = await response.blob();
-  if (!blob.type.startsWith("image/")) throw new Error("NOT_AN_IMAGE");
-  const extension = blob.type.split("/")[1]?.replace("jpeg", "jpg") ?? "png";
-  return new File([blob], `imagen-pizarra.${extension}`, { type: blob.type });
-};
 
 interface UseCardCanvasImagePasteInput {
   cardPublicId: string;
   canEdit: boolean;
   isPublicBoard: boolean;
   excalidrawApi: ExcalidrawImperativeAPI | null;
+  resources: CardResource[];
   onResourceCreated: (resource: CardResource) => Promise<void>;
 }
 
@@ -46,6 +38,7 @@ export function useCardCanvasImagePaste({
   canEdit,
   isPublicBoard,
   excalidrawApi,
+  resources,
   onResourceCreated,
 }: UseCardCanvasImagePasteInput) {
   const utils = api.useUtils();
@@ -54,13 +47,50 @@ export function useCardCanvasImagePaste({
     null,
   );
   const [isUploadingPaste, setIsUploadingPaste] = useState(false);
+  const [isImageImportBusy, setIsImageImportBusy] = useState(false);
   const uploadAbortRef = useRef<AbortController | null>(null);
+  const publicDecisionRef = useRef<((approved: boolean) => void) | null>(null);
+  const importQueueRef = useRef(createCardCanvasImageImportQueue());
+  const queuedImportsRef = useRef(0);
+  const mountedRef = useRef(true);
+  const resourcesRef = useRef(resources);
+  resourcesRef.current = resources;
   const createUploadMutation = api.cardResource.createUpload.useMutation();
   const confirmUploadMutation = api.cardResource.confirmUpload.useMutation();
 
-  const uploadPastedImage = useCallback(
-    async (file: File, publicVisibilityAcknowledged?: boolean) => {
-      if (!excalidrawApi || !canEdit) return;
+  const showImageRejected = useCallback(() => {
+    showPopup({
+      header: t`Image could not be added`,
+      message: t`Choose a supported image within the whiteboard size and resolution limits.`,
+      icon: "error",
+    });
+  }, [showPopup]);
+
+  const requestPublicApproval = useCallback((file: File) => {
+    return new Promise<boolean>((resolve) => {
+      publicDecisionRef.current = resolve;
+      setPendingPublicImage(file);
+    });
+  }, []);
+
+  const processImage = useCallback(
+    async (file: File) => {
+      if (!excalidrawApi || !canEdit || !mountedRef.current) return;
+      let contentType: string;
+      try {
+        contentType = validateAttachmentFile(file);
+        await preflightCardCanvasImageFile({
+          file,
+          contentType,
+          api: excalidrawApi,
+          resources: resourcesRef.current,
+        });
+      } catch {
+        publicDecisionRef.current = null;
+        setPendingPublicImage(null);
+        showImageRejected();
+        return;
+      }
       if (!navigator.onLine) {
         showPopup({
           header: t`Image not added while offline`,
@@ -69,9 +99,27 @@ export function useCardCanvasImagePaste({
         });
         return;
       }
+
+      const publicVisibilityAcknowledged = isPublicBoard
+        ? await requestPublicApproval(file)
+        : undefined;
+      if (publicVisibilityAcknowledged === false) return;
+      try {
+        await preflightCardCanvasImageFile({
+          file,
+          contentType,
+          api: excalidrawApi,
+          resources: resourcesRef.current,
+        });
+      } catch {
+        publicDecisionRef.current = null;
+        setPendingPublicImage(null);
+        showImageRejected();
+        return;
+      }
+
       setIsUploadingPaste(true);
       try {
-        const contentType = validateAttachmentFile(file);
         const sha256 = await hashResourceFile(file);
         const session = await createUploadMutation.mutateAsync({
           cardPublicId,
@@ -95,25 +143,29 @@ export function useCardCanvasImagePaste({
           uploadSessionPublicId: session.uploadSessionPublicId,
           publicVisibilityAcknowledged,
         });
+        if (
+          !resourcesRef.current.some(
+            (current) => current.publicId === resource.publicId,
+          )
+        ) {
+          resourcesRef.current = [...resourcesRef.current, resource];
+        }
         await Promise.all([
           utils.cardResource.list.invalidate({ cardPublicId }),
           invalidateCard(utils, cardPublicId),
           utils.board.byId.invalidate(),
         ]);
         await onResourceCreated(resource);
-        setPendingPublicImage(null);
-      } catch (error) {
-        if (isVisibilityAcknowledgementError(error)) {
-          setPendingPublicImage(file);
-        } else {
-          showPopup({
-            header: t`Image could not be added`,
-            message: t`The whiteboard was not changed. Try again or upload the image from Files.`,
-            icon: "error",
-          });
-        }
+      } catch {
+        showPopup({
+          header: t`Image could not be added`,
+          message: t`The whiteboard was not changed. Try again or upload the image from Files.`,
+          icon: "error",
+        });
       } finally {
         uploadAbortRef.current = null;
+        publicDecisionRef.current = null;
+        setPendingPublicImage(null);
         setIsUploadingPaste(false);
       }
     },
@@ -123,40 +175,96 @@ export function useCardCanvasImagePaste({
       confirmUploadMutation,
       createUploadMutation,
       excalidrawApi,
+      isPublicBoard,
       onResourceCreated,
+      requestPublicApproval,
+      showImageRejected,
       showPopup,
       utils,
     ],
   );
 
-  useEffect(
-    () => () => {
-      uploadAbortRef.current?.abort();
+  const enqueueImageImport = useCallback(
+    (loadFile: () => Promise<File>, source: "local" | "remote" = "local") => {
+      if (!canEdit) return;
+      queuedImportsRef.current += 1;
+      setIsImageImportBusy(true);
+      void importQueueRef
+        .current(async () => {
+          try {
+            await processImage(await loadFile());
+          } catch {
+            if (source === "remote") {
+              showPopup({
+                header: t`Online image could not be imported`,
+                message: t`The image host did not allow a safe browser download. Save it and upload it from Files.`,
+                icon: "error",
+              });
+            } else {
+              showImageRejected();
+            }
+          }
+        })
+        .finally(() => {
+          queuedImportsRef.current -= 1;
+          if (mountedRef.current && queuedImportsRef.current === 0) {
+            setIsImageImportBusy(false);
+          }
+        });
     },
-    [],
+    [canEdit, processImage, showImageRejected, showPopup],
   );
 
-  const handleIncomingImage = useCallback(
-    (file: File) => {
-      if (isPublicBoard) setPendingPublicImage(file);
-      else void uploadPastedImage(file);
+  const importFiles = useCallback(
+    (files: File[]) => {
+      files.forEach((file) => enqueueImageImport(() => Promise.resolve(file)));
     },
-    [isPublicBoard, uploadPastedImage],
+    [enqueueImageImport],
   );
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      publicDecisionRef.current?.(false);
+      uploadAbortRef.current?.abort();
+    };
+  }, []);
 
   const handlePasteCapture = useCallback(
     (event: ReactClipboardEvent<HTMLDivElement>) => {
       if (!canEdit) return;
-      const image = Array.from(event.clipboardData.files).find((file) =>
-        file.type.startsWith("image/"),
-      );
-      if (!image) return;
+      const images = getCardCanvasImageFiles(event.clipboardData.files);
+      if (images.length === 0) return;
       event.preventDefault();
       event.stopPropagation();
       event.nativeEvent.stopImmediatePropagation();
-      handleIncomingImage(image);
+      importFiles(images);
     },
-    [canEdit, handleIncomingImage],
+    [canEdit, importFiles],
+  );
+
+  const handleDragOverCapture = useCallback(
+    (event: ReactDragEvent<HTMLDivElement>) => {
+      if (!canEdit) return;
+      if (!hasCardCanvasImageDragItem(event.dataTransfer)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+    },
+    [canEdit],
+  );
+
+  const handleDropCapture = useCallback(
+    (event: ReactDragEvent<HTMLDivElement>) => {
+      if (!canEdit) return;
+      const images = getCardCanvasImageFiles(event.dataTransfer.files);
+      if (images.length === 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.nativeEvent.stopImmediatePropagation();
+      importFiles(images);
+    },
+    [canEdit, importFiles],
   );
 
   const handleExcalidrawPaste = useCallback(
@@ -176,15 +284,10 @@ export function useCardCanvasImagePaste({
         (item) => item.type === "imageUrl",
       )?.value;
       if (imageUrl) {
-        void externalImageToFile(imageUrl)
-          .then(handleIncomingImage)
-          .catch(() =>
-            showPopup({
-              header: t`Online image could not be imported`,
-              message: t`The image host did not allow a safe browser download. Save it and upload it from Files.`,
-              icon: "error",
-            }),
-          );
+        enqueueImageImport(
+          () => downloadCardCanvasImageUrl(imageUrl),
+          "remote",
+        );
         return false;
       }
       if (data.text && MERMAID_PATTERN.test(data.text)) {
@@ -197,17 +300,23 @@ export function useCardCanvasImagePaste({
       }
       return true;
     },
-    [handleIncomingImage, showPopup],
+    [enqueueImageImport, showPopup],
   );
 
   return {
     pendingPublicImage,
     isUploadingPaste,
+    isImageImportBusy,
     handlePasteCapture,
+    handleDragOverCapture,
+    handleDropCapture,
     handleExcalidrawPaste,
-    confirmPublicImage: () => {
-      if (pendingPublicImage) void uploadPastedImage(pendingPublicImage, true);
+    importImageFile: (file: File) => importFiles([file]),
+    confirmPublicImage: () => publicDecisionRef.current?.(true),
+    cancelPublicImage: () => {
+      setPendingPublicImage(null);
+      publicDecisionRef.current?.(false);
+      publicDecisionRef.current = null;
     },
-    cancelPublicImage: () => setPendingPublicImage(null),
   };
 }

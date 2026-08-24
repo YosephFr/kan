@@ -10,22 +10,26 @@ const log = createLogger("api");
 const isCloud = process.env.NEXT_PUBLIC_KAN_ENV === "cloud";
 
 export function withApiLogging(
-  handler: (
-    req: NextApiRequest,
-    res: NextApiResponse,
-  ) => Promise<unknown> | unknown,
+  handler: (req: NextApiRequest, res: NextApiResponse) => unknown,
+  options: { sensitive?: boolean } = {},
 ) {
   return async (req: NextApiRequest, res: NextApiResponse) => {
     const start = Date.now();
     const requestId = randomUUID();
     const route = req.url?.split("?")[0] ?? "unknown";
-    const input = {
-      ...(req.query &&
-        Object.keys(req.query).length > 0 && { query: req.query }),
-      ...(req.body &&
-        typeof req.body === "object" &&
-        Object.keys(req.body).length > 0 && { body: req.body }),
-    };
+    const sensitive = options.sensitive === true;
+    const input: Record<string, unknown> = {};
+    if (!sensitive) {
+      if (Object.keys(req.query).length > 0) input.query = req.query;
+      const body = req.body as unknown;
+      if (
+        body !== null &&
+        typeof body === "object" &&
+        Object.keys(body).length > 0
+      ) {
+        input.body = body;
+      }
+    }
 
     let statusCode = 200;
     const originalStatus = res.status.bind(res);
@@ -36,12 +40,14 @@ export function withApiLogging(
 
     let userId: string | undefined;
     let email: string | undefined;
-    try {
-      const ctx = await createNextApiContext(req);
-      userId = ctx.user?.id;
-      email = ctx.user?.email ?? undefined;
-    } catch {
-      // unauthenticated or auth unavailable
+    if (!sensitive) {
+      try {
+        const ctx = await createNextApiContext(req);
+        userId = ctx.user?.id;
+        email = ctx.user?.email ?? undefined;
+      } catch {
+        // unauthenticated or auth unavailable
+      }
     }
 
     let handlerError: unknown;
@@ -61,14 +67,17 @@ export function withApiLogging(
       procedure: route,
       transport: "rest",
       duration,
-      userId,
-      ...(isCloud && email && { email }),
+      ...(!sensitive && { userId }),
+      ...(!sensitive && isCloud && email && { email }),
       ...(Object.keys(input).length > 0 && { input }),
       status: statusCode,
-      ...(handlerError instanceof Error && {
-        error: handlerError.message,
-        stack: handlerError.stack,
-      }),
+      ...(handlerError instanceof Error &&
+        !sensitive && {
+          error: handlerError.message,
+          stack: handlerError.stack,
+        }),
+      ...(handlerError instanceof Error &&
+        sensitive && { errorCode: "INTERNAL_SERVER_ERROR" }),
     };
 
     if (statusCode < 400) {

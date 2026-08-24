@@ -10,6 +10,7 @@ interface Props {
   isVisible?: boolean;
   closeOnClickOutside?: boolean;
   centered?: boolean;
+  onClose?: () => void;
 }
 
 const Modal: React.FC<Props> = ({
@@ -19,6 +20,7 @@ const Modal: React.FC<Props> = ({
   isVisible,
   closeOnClickOutside,
   centered = false,
+  onClose,
 }) => {
   const {
     isOpen,
@@ -29,6 +31,7 @@ const Modal: React.FC<Props> = ({
   const shouldShow = isVisible ?? isOpen;
   const shouldCloseOnClickOutside =
     closeOnClickOutside ?? modalCloseOnClickOutside;
+  const handleClose = onClose ?? closeModal;
 
   const modalSizeMap = {
     sm: "max-w-[400px]",
@@ -48,7 +51,7 @@ const Modal: React.FC<Props> = ({
       <Dialog
         as="div"
         className="relative z-50"
-        onClose={shouldCloseOnClickOutside ? closeModal : () => null}
+        onClose={shouldCloseOnClickOutside ? handleClose : () => null}
       >
         <Transition.Child
           as={Fragment}

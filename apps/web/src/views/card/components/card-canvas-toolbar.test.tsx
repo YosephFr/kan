@@ -38,33 +38,81 @@ describe("CardCanvasToolbar", () => {
 
     expect(markup).toContain('aria-label="Leave whiteboard"');
     expect(markup).toContain("Launch plan");
-    expect(markup).not.toContain('aria-label="Focus whiteboard"');
+    expect(markup).not.toContain('aria-label="Extend"');
   });
 
-  it("offers an accessible focus toggle without an exit control when embedded", () => {
+  it("offers an accessible extend toggle without an exit control when embedded", () => {
     const markup = renderToStaticMarkup(
       <CardCanvasToolbar
         {...defaultProps}
-        onToggleFocus={vi.fn()}
-        focusModeEnabled={false}
+        onToggleExtended={vi.fn()}
+        extended={false}
       />,
     );
 
     expect(markup).not.toContain('aria-label="Leave whiteboard"');
-    expect(markup).toContain('aria-label="Focus whiteboard"');
+    expect(markup).toContain('aria-label="Extend"');
     expect(markup).toContain('aria-pressed="false"');
+    expect(markup).toContain('aria-label="More whiteboard actions"');
   });
 
-  it("announces how to leave focus mode", () => {
+  it("announces how to return to the card from the extended canvas", () => {
     const markup = renderToStaticMarkup(
       <CardCanvasToolbar
         {...defaultProps}
-        onToggleFocus={vi.fn()}
-        focusModeEnabled
+        onToggleExtended={vi.fn()}
+        extended
       />,
     );
 
-    expect(markup).toContain('aria-label="Exit focus"');
+    expect(markup).toContain('aria-label="Back to card"');
     expect(markup).toContain('aria-pressed="true"');
+  });
+
+  it("keeps image, link and pen actions primary with tablet-sized targets", () => {
+    const markup = renderToStaticMarkup(
+      <CardCanvasToolbar
+        {...defaultProps}
+        onAddImage={vi.fn()}
+        onAddLink={vi.fn()}
+        onTogglePenMode={vi.fn()}
+        penModeEnabled
+      />,
+    );
+
+    expect(markup).toContain('aria-label="Image"');
+    expect(markup).toContain('aria-label="Link"');
+    expect(markup).toContain('aria-label="Disable pen mode"');
+    expect(markup).toContain("h-11 min-w-11");
+  });
+
+  it("disables the image picker action while an import is in progress", () => {
+    const markup = renderToStaticMarkup(
+      <CardCanvasToolbar
+        {...defaultProps}
+        onAddImage={vi.fn()}
+        imageImportDisabled
+      />,
+    );
+
+    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*aria-label="Image"/);
+  });
+
+  it("does not expose mutation controls in view-only mode", () => {
+    const markup = renderToStaticMarkup(
+      <CardCanvasToolbar
+        {...defaultProps}
+        canEdit={false}
+        onAddImage={vi.fn()}
+        onAddLink={vi.fn()}
+        onTogglePenMode={vi.fn()}
+      />,
+    );
+
+    expect(markup).not.toContain('aria-label="Image"');
+    expect(markup).not.toContain('aria-label="Link"');
+    expect(markup).not.toContain("Enable pen mode");
+    expect(markup).not.toContain(">Convert<");
+    expect(markup).toContain('aria-label="More whiteboard actions"');
   });
 });

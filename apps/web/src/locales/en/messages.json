@@ -206,20 +206,26 @@
   "auqkU+": {
     "message": "{0} of {1} subtasks completed",
     "placeholders": {
-      "0": ["summary.completed"],
-      "1": ["summary.total"]
+      "0": ["subtaskSummary.completed", "summary.completed"],
+      "1": ["subtaskSummary.total", "summary.total"]
     },
     "comments": [],
-    "origin": [["src/views/card/components/DevelopmentProgress.tsx", 76]],
+    "origin": [
+      ["src/views/card/components/CardWorkspaceDocument.tsx", 388],
+      ["src/views/card/components/DevelopmentProgress.tsx", 76]
+    ],
     "translation": "{0} of {1} subtasks completed"
   },
   "tEv7k7": {
     "message": "{0} resources",
     "placeholders": {
-      "0": ["resourceSummary?.total ?? 0"]
+      "0": ["resourceSummary.total", "resourceSummary?.total ?? 0"]
     },
     "comments": [],
-    "origin": [["src/views/board/components/Card.tsx", 200]],
+    "origin": [
+      ["src/views/board/components/Card.tsx", 201],
+      ["src/views/card/components/CardWorkspaceDocument.tsx", 423]
+    ],
     "translation": "{0} resources"
   },
   "U2lHCx": {
@@ -12426,5 +12432,235 @@
     "placeholders": {},
     "comments": [],
     "origin": [["src/views/card/components/CardWhiteboardCanvas.tsx", 593]]
+  },
+  "7m+bBX": {
+    "message": "{uploads} uploads · {driveLinks} Drive links · {webLinks} web links",
+    "placeholders": {
+      "uploads": ["uploads"],
+      "driveLinks": ["driveLinks"],
+      "webLinks": ["webLinks"]
+    },
+    "comments": [],
+    "origin": [["src/views/card/components/CardResourceSummary.tsx", 47]],
+    "translation": "{uploads} uploads · {driveLinks} Drive links · {webLinks} web links"
+  },
+  "lajJEP": {
+    "message": "Add a web link",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWebLinkDialog.tsx", 113]],
+    "translation": "Add a web link"
+  },
+  "VZGq9X": {
+    "message": "Add web link",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 389]],
+    "translation": "Add web link"
+  },
+  "gPr3ZN": {
+    "message": "added a resource",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/ActivityList.tsx", 157]],
+    "translation": "added a resource"
+  },
+  "wU6JfD": {
+    "message": "Anyone with access to the public board can see this preview and open the link.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWebLinkDialog.tsx", 140]],
+    "translation": "Anyone with access to the public board can see this preview and open the link."
+  },
+  "HYEwBs": {
+    "message": "Anyone with the board link can view uploaded files and open Drive or web resources.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/PublicResourceVisibilityNotice.tsx", 37]],
+    "translation": "Anyone with the board link can view uploaded files and open Drive or web resources."
+  },
+  "9krCfL": {
+    "message": "Back to card",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 315]],
+    "translation": "Back to card"
+  },
+  "S+Z+Ys": {
+    "message": "Choose a supported image within the whiteboard size and resolution limits.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/use-card-canvas-image-paste.ts", 64]
+    ],
+    "translation": "Choose a supported image within the whiteboard size and resolution limits."
+  },
+  "qgLhq8": {
+    "message": "Disable pen mode",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 156]],
+    "translation": "Disable pen mode"
+  },
+  "s9ugKe": {
+    "message": "Enable pen mode",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 156]],
+    "translation": "Enable pen mode"
+  },
+  "gut5hK": {
+    "message": "Enter one valid HTTPS link without credentials.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWebLinkDialog.tsx", 54]],
+    "translation": "Enter one valid HTTPS link without credentials."
+  },
+  "epuijl": {
+    "message": "Export .excalidraw",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 242]],
+    "translation": "Export .excalidraw"
+  },
+  "ulRS22": {
+    "message": "Export {0}",
+    "placeholders": {
+      "0": ["format.toUpperCase()"]
+    },
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 243]],
+    "translation": "Export {0}"
+  },
+  "54SO/B": {
+    "message": "Extend",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 315]],
+    "translation": "Extend"
+  },
+  "0timu5": {
+    "message": "HTTPS link",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWebLinkDialog.tsx", 157]],
+    "translation": "HTTPS link"
+  },
+  "NaoiLY": {
+    "message": "Kan creates a safe visual preview. The website is never embedded in the whiteboard.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWebLinkDialog.tsx", 188]],
+    "translation": "Kan creates a safe visual preview. The website is never embedded in the whiteboard."
+  },
+  "GvlLvd": {
+    "message": "Link added",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWebLinkDialog.tsx", 65]],
+    "translation": "Link added"
+  },
+  "5S3hWS": {
+    "message": "Link could not be added",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-web-links.ts", 79]],
+    "translation": "Link could not be added"
+  },
+  "JUiSdv": {
+    "message": "Link not added while offline",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-web-links.ts", 68]],
+    "translation": "Link not added while offline"
+  },
+  "NQPDvg": {
+    "message": "Link saved, but not placed",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-web-links.ts", 40]],
+    "translation": "Link saved, but not placed"
+  },
+  "Yo503f": {
+    "message": "Links need secure card storage before they can appear on the whiteboard.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-web-links.ts", 69]],
+    "translation": "Links need secure card storage before they can appear on the whiteboard."
+  },
+  "aetd/c": {
+    "message": "More whiteboard actions",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasToolbar.tsx", 165]],
+    "translation": "More whiteboard actions"
+  },
+  "x57cJf": {
+    "message": "Open link",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/CardCanvasWebResourceCard.tsx", 80],
+      ["src/views/card/components/CardFilesView.tsx", 179],
+      ["src/views/card/components/CardResourceViewer.tsx", 151]
+    ],
+    "translation": "Open link"
+  },
+  "s5cAhL": {
+    "message": "The link could not be added. Check it and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWebLinkDialog.tsx", 78]],
+    "translation": "The link could not be added. Check it and try again."
+  },
+  "UjKBmW": {
+    "message": "The link is now available from this card.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWebLinkDialog.tsx", 66]],
+    "translation": "The link is now available from this card."
+  },
+  "olAq3n": {
+    "message": "The link is safe in Resources. Open the resource drawer to place it again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-web-links.ts", 41]],
+    "translation": "The link is safe in Resources. Open the resource drawer to place it again."
+  },
+  "5Rr8YR": {
+    "message": "The whiteboard was not changed. Check the link and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-web-links.ts", 82]],
+    "translation": "The whiteboard was not changed. Check the link and try again."
+  },
+  "3/M5+I": {
+    "message": "This card already has 100 web links.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/CardWebLinkDialog.tsx", 77],
+      ["src/views/card/components/use-card-canvas-web-links.ts", 81]
+    ],
+    "translation": "This card already has 100 web links."
+  },
+  "hCPRus": {
+    "message": "Web link",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/CardCanvasResourceDrawer.tsx", 139],
+      ["src/views/card/components/CardFilesView.tsx", 82]
+    ],
+    "translation": "Web link"
+  },
+  "sf1IkC": {
+    "message": "Web link: {0}",
+    "placeholders": {
+      "0": ["resource.title"]
+    },
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasWebResourceCard.tsx", 40]],
+    "translation": "Web link: {0}"
   }
 }

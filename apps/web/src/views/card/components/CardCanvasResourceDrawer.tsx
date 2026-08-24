@@ -59,7 +59,7 @@ export function CardCanvasResourceDrawer({
       role="region"
       aria-labelledby="card-canvas-resources-heading"
       aria-hidden={!open}
-      inert={!open}
+      inert={(open ? undefined : "true") as unknown as boolean}
       className={twMerge(
         "absolute inset-y-0 right-0 z-30 flex w-[min(23rem,calc(100%_-_0.5rem))] flex-col border-l border-light-300 bg-light-50 shadow-xl transition-transform duration-300 dark:border-dark-400 dark:bg-dark-100",
         open ? "translate-x-0" : "translate-x-full",

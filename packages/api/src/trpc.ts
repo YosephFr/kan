@@ -15,7 +15,9 @@ import { createLogger } from "@kan/logger";
 const log = createLogger("api");
 
 export const isSensitiveProcedure = (path: string) =>
-  path === "cardCanvas" || path.startsWith("cardCanvas.");
+  path === "cardCanvas" ||
+  path.startsWith("cardCanvas.") ||
+  path === "cardResource.createWebLink";
 
 export function getSafeProcedureErrorMessage(
   path: string | undefined,

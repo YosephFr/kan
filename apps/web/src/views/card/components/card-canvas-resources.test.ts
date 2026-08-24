@@ -1,13 +1,23 @@
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import { convertToExcalidrawElements } from "@excalidraw/excalidraw";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { MAX_CARD_CANVAS_IMAGE_BYTES } from "@kan/shared";
+import {
+  MAX_CARD_CANVAS_IMAGE_BYTES,
+  MAX_CARD_CANVAS_IMAGE_RESOURCES,
+  MAX_CARD_CANVAS_TOTAL_IMAGE_BYTES,
+} from "@kan/shared";
 
-import type { UploadCardResource } from "./card-resource-types";
+import type {
+  UploadCardResource,
+  WebCardResource,
+} from "./card-resource-types";
 import {
   hydrateCardCanvasImage,
   hydrateCardCanvasImages,
+  insertCardCanvasResource,
   parseCardCanvasImageDimensions,
+  preflightCardCanvasImageFile,
 } from "./card-canvas-resources";
 
 vi.mock("@excalidraw/excalidraw", () => ({
@@ -34,6 +44,23 @@ const makeResource = (publicId: string, size: number): UploadCardResource => ({
   downloadUrl: `/api/attachments/${publicId}/download`,
   createdAt: new Date(0),
 });
+
+const makePngFile = (width: number, height: number, size: number) =>
+  new File(
+    [makePngHeader(width, height), new Uint8Array(size - 24)],
+    "whiteboard.png",
+    { type: "image/png" },
+  );
+
+const makeCanvasApi = (resources: UploadCardResource[]) =>
+  ({
+    getSceneElements: () =>
+      resources.map((resource) => ({
+        id: resource.publicId,
+        type: "image",
+        customData: { kanResourcePublicId: resource.publicId },
+      })),
+  }) as unknown as ExcalidrawImperativeAPI;
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -90,5 +117,171 @@ describe("card canvas image resources", () => {
       "IMAGE_RESOURCE_BUDGET_EXCEEDED",
     );
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("allows the exact upload, dimension, pixel, and aggregate limits", async () => {
+    const existing = [
+      makeResource(
+        "resource0001",
+        MAX_CARD_CANVAS_TOTAL_IMAGE_BYTES - MAX_CARD_CANVAS_IMAGE_BYTES,
+      ),
+    ];
+
+    await expect(
+      preflightCardCanvasImageFile({
+        file: makePngFile(8192, 2048, MAX_CARD_CANVAS_IMAGE_BYTES),
+        contentType: "image/png",
+        api: makeCanvasApi(existing),
+        resources: existing,
+      }),
+    ).resolves.toEqual({ width: 8192, height: 2048 });
+  });
+
+  it("allows adding the fiftieth distinct canvas image", async () => {
+    const existing = Array.from(
+      { length: MAX_CARD_CANVAS_IMAGE_RESOURCES - 1 },
+      (_, index) => makeResource(`image${String(index).padStart(7, "0")}`, 1),
+    );
+
+    await expect(
+      preflightCardCanvasImageFile({
+        file: makePngFile(1, 1, 24),
+        contentType: "image/png",
+        api: makeCanvasApi(existing),
+        resources: existing,
+      }),
+    ).resolves.toEqual({ width: 1, height: 1 });
+  });
+
+  it("rejects an oversized file before reading its header or scene", async () => {
+    const sceneSpy = vi.fn();
+    const file = makePngFile(1, 1, MAX_CARD_CANVAS_IMAGE_BYTES + 1);
+    const sliceSpy = vi.spyOn(file, "slice");
+
+    await expect(
+      preflightCardCanvasImageFile({
+        file,
+        contentType: "image/png",
+        api: {
+          getSceneElements: sceneSpy,
+        } as unknown as ExcalidrawImperativeAPI,
+        resources: [],
+      }),
+    ).rejects.toThrow("IMAGE_RESOURCE_TOO_LARGE");
+    expect(sliceSpy).not.toHaveBeenCalled();
+    expect(sceneSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsafe dimensions before checking the resource budget", async () => {
+    const sceneSpy = vi.fn();
+
+    await expect(
+      preflightCardCanvasImageFile({
+        file: makePngFile(8192, 2049, 24),
+        contentType: "image/png",
+        api: {
+          getSceneElements: sceneSpy,
+        } as unknown as ExcalidrawImperativeAPI,
+        resources: [],
+      }),
+    ).rejects.toThrow("IMAGE_RESOURCE_DIMENSIONS_UNSAFE");
+    expect(sceneSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects a dimension above 8192 before checking the resource budget", async () => {
+    const sceneSpy = vi.fn();
+
+    await expect(
+      preflightCardCanvasImageFile({
+        file: makePngFile(8193, 1, 24),
+        contentType: "image/png",
+        api: {
+          getSceneElements: sceneSpy,
+        } as unknown as ExcalidrawImperativeAPI,
+        resources: [],
+      }),
+    ).rejects.toThrow("IMAGE_RESOURCE_DIMENSIONS_UNSAFE");
+    expect(sceneSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects the fifty-first distinct canvas image", async () => {
+    const existing = Array.from(
+      { length: MAX_CARD_CANVAS_IMAGE_RESOURCES },
+      (_, index) => makeResource(`image${String(index).padStart(7, "0")}`, 1),
+    );
+
+    await expect(
+      preflightCardCanvasImageFile({
+        file: makePngFile(1, 1, 24),
+        contentType: "image/png",
+        api: makeCanvasApi(existing),
+        resources: existing,
+      }),
+    ).rejects.toThrow("IMAGE_RESOURCE_BUDGET_EXCEEDED");
+  });
+
+  it("rejects an aggregate image byte above 20 MiB", async () => {
+    const existing = [
+      makeResource(
+        "resource0001",
+        MAX_CARD_CANVAS_TOTAL_IMAGE_BYTES - MAX_CARD_CANVAS_IMAGE_BYTES + 1,
+      ),
+    ];
+
+    await expect(
+      preflightCardCanvasImageFile({
+        file: makePngFile(1, 1, MAX_CARD_CANVAS_IMAGE_BYTES),
+        contentType: "image/png",
+        api: makeCanvasApi(existing),
+        resources: existing,
+      }),
+    ).rejects.toThrow("IMAGE_RESOURCE_BUDGET_EXCEEDED");
+  });
+
+  it("stores only the internal resource identifier in a web card element", async () => {
+    vi.mocked(convertToExcalidrawElements).mockReturnValue([
+      { id: "element-1", type: "rectangle" } as never,
+    ]);
+    const updateScene = vi.fn((update: unknown) => update);
+    const api = {
+      getAppState: () => ({
+        zoom: { value: 1 },
+        scrollX: 0,
+        scrollY: 0,
+        width: 1000,
+        height: 800,
+      }),
+      getSceneElements: () => [],
+      updateScene,
+      scrollToContent: vi.fn(),
+    } as unknown as ExcalidrawImperativeAPI;
+    const webResource: WebCardResource = {
+      kind: "web",
+      publicId: "resource0001",
+      title: "Private planning reference",
+      openUrl: "https://example.com/private?secret=marker",
+      description: "Private metadata marker",
+      siteName: "Example",
+      previewImageUrl: "/api/resources/resource0001/preview-image",
+      createdAt: new Date(0),
+    };
+
+    await insertCardCanvasResource(api, webResource);
+
+    const sceneUpdate = updateScene.mock.calls[0]?.[0] as {
+      elements: {
+        type: string;
+        link?: string;
+        customData?: { kanResourcePublicId?: string };
+      }[];
+    };
+    expect(sceneUpdate.elements.at(-1)).toMatchObject({
+      type: "embeddable",
+      link: "kan-resource:resource0001",
+      customData: { kanResourcePublicId: "resource0001" },
+    });
+    expect(JSON.stringify(sceneUpdate)).not.toContain(webResource.openUrl);
+    expect(JSON.stringify(sceneUpdate)).not.toContain(webResource.title);
+    expect(JSON.stringify(sceneUpdate)).not.toContain(webResource.description);
   });
 });
