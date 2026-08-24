@@ -5,6 +5,10 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { HiXMark } from "react-icons/hi2";
 import { IoChevronForwardSharp } from "react-icons/io5";
+import {
+  TbLayoutSidebarRightCollapse,
+  TbLayoutSidebarRightExpand,
+} from "react-icons/tb";
 
 import { authClient } from "@kan/auth/client";
 
@@ -222,7 +226,12 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
   const { workspace, availableWorkspaces, switchWorkspace } = useWorkspace();
   const { canDeleteCard, canEditCard } = usePermissions();
   const { data: session } = authClient.useSession();
-  const { setMode: setDashboardSurfaceMode } = useDashboardSurface();
+  const {
+    hasRightPanel,
+    isRightPanelOpen,
+    setMode: setDashboardSurfaceMode,
+    toggleRightPanel,
+  } = useDashboardSurface();
   const [activeChecklistForm, setActiveChecklistForm] = useState<string | null>(
     null,
   );
@@ -462,6 +471,23 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
                   </span>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
+                  {hasRightPanel && (
+                    <button
+                      type="button"
+                      data-dashboard-right-panel-trigger
+                      onClick={toggleRightPanel}
+                      aria-controls="dashboard-card-details"
+                      aria-expanded={isRightPanelOpen}
+                      aria-label={`${isRightPanelOpen ? t`Hide` : t`Show`} ${t`Card details`}`}
+                      className="relative hidden h-7 w-7 items-center justify-center rounded-[5px] text-light-900 after:absolute after:-inset-2 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:text-dark-900 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800 md:flex xl:hidden"
+                    >
+                      {isRightPanelOpen ? (
+                        <TbLayoutSidebarRightCollapse size={18} />
+                      ) : (
+                        <TbLayoutSidebarRightExpand size={18} />
+                      )}
+                    </button>
+                  )}
                   <Dropdown
                     cardPublicId={cardId}
                     isTemplate={isTemplate}

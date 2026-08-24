@@ -79,6 +79,7 @@ export default function Dashboard({
   const rightPanelRef = useRef<HTMLDivElement>(null);
   const sideNavButtonRef = useRef<HTMLButtonElement>(null);
   const rightPanelButtonRef = useRef<HTMLButtonElement>(null);
+  const lastRightPanelTriggerRef = useRef<HTMLElement | null>(null);
 
   const toggleSideNav = () => {
     setIsSideNavOpen(!isSideNavOpen);
@@ -92,6 +93,9 @@ export default function Dashboard({
   };
 
   const toggleRightPanel = () => {
+    if (!isRightPanelOpen && document.activeElement instanceof HTMLElement) {
+      lastRightPanelTriggerRef.current = document.activeElement;
+    }
     setIsRightPanelOpen(!isRightPanelOpen);
     if (!isRightPanelOpen) {
       setIsSideNavOpen(false);
@@ -111,10 +115,30 @@ export default function Dashboard({
     if (rightPanelButtonRef.current?.contains(event.target as Node)) {
       return;
     }
+    if (
+      event.target instanceof Element &&
+      event.target.closest("[data-dashboard-right-panel-trigger]")
+    ) {
+      return;
+    }
     if (isRightPanelOpen) {
       setIsRightPanelOpen(false);
     }
   });
+
+  useEffect(() => {
+    if (!isRightPanelOpen) return;
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setIsRightPanelOpen(false);
+      requestAnimationFrame(() => lastRightPanelTriggerRef.current?.focus());
+    };
+
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [isRightPanelOpen]);
 
   useEffect(() => {
     const partnerActivated = searchParams.get("partner_activated");
@@ -225,6 +249,10 @@ export default function Dashboard({
             {showRightPanel && (
               <button
                 ref={rightPanelButtonRef}
+                data-dashboard-right-panel-trigger
+                aria-controls="dashboard-card-details"
+                aria-expanded={isRightPanelOpen}
+                aria-label={`${isRightPanelOpen ? t`Hide` : t`Show`} ${t`Card details`}`}
                 onClick={toggleRightPanel}
                 className="rounded p-1.5 transition-all hover:bg-light-200 dark:hover:bg-dark-100"
               >
@@ -281,7 +309,13 @@ export default function Dashboard({
                 }`}
               >
                 <DashboardSurfaceProvider
-                  value={{ mode: surfaceMode, setMode: setSurfaceMode }}
+                  value={{
+                    hasRightPanel: showRightPanel,
+                    isRightPanelOpen,
+                    mode: surfaceMode,
+                    setMode: setSurfaceMode,
+                    toggleRightPanel,
+                  }}
                 >
                   {children}
                 </DashboardSurfaceProvider>
@@ -290,9 +324,11 @@ export default function Dashboard({
               {/* Mobile Right Panel */}
               {showRightPanel && rightPanel && (
                 <div
+                  id="dashboard-card-details"
                   ref={rightPanelRef}
-                  aria-hidden={whiteboardExtended}
-                  className={`fixed right-0 top-12 z-40 h-[calc(100dvh-3rem)] w-80 transform border-l border-light-300 bg-light-200 transition-transform duration-300 ease-in-out dark:border-dark-300 dark:bg-dark-100 md:hidden ${
+                  aria-hidden={!isRightPanelOpen || whiteboardExtended}
+                  inert={!isRightPanelOpen || whiteboardExtended || undefined}
+                  className={`fixed right-0 top-12 z-40 h-[calc(100dvh-3rem)] w-80 transform overflow-y-auto overscroll-contain border-l border-light-300 bg-light-200 transition-transform duration-300 ease-in-out dark:border-dark-300 dark:bg-dark-100 md:right-3 md:top-3 md:h-[calc(100dvh-1.5rem)] md:w-[360px] xl:hidden ${
                     isRightPanelOpen ? "translate-x-0" : "translate-x-full"
                   } ${whiteboardExtended ? "hidden" : ""}`}
                 >
@@ -304,7 +340,7 @@ export default function Dashboard({
               {showRightPanel && rightPanel && (
                 <div
                   aria-hidden={whiteboardExtended}
-                  className={whiteboardExtended ? "hidden" : "hidden md:block"}
+                  className={whiteboardExtended ? "hidden" : "hidden xl:block"}
                 >
                   {rightPanel}
                 </div>
