@@ -5296,7 +5296,7 @@
     ]
   },
   "ypi3FP": {
-    "translation": "",
+    "translation": "No se añadió la imagen sin conexión",
     "message": "Image not added while offline",
     "placeholders": {},
     "comments": [],
@@ -9298,7 +9298,7 @@
     "translation": "Testimonios"
   },
   "d3Ru9o": {
-    "translation": "",
+    "translation": "El texto y las figuras siguen disponibles sin conexión. Las imágenes requieren primero el almacenamiento seguro de la tarjeta.",
     "message": "Text and shapes remain available offline. Images need secure card storage first.",
     "placeholders": {},
     "comments": [],
@@ -12662,5 +12662,171 @@
     "comments": [],
     "origin": [["src/views/card/components/CardCanvasWebResourceCard.tsx", 40]],
     "translation": "Enlace web: {0}"
+  },
+  "o/54fr": {
+    "translation": "{0} imágenes o enlaces no se pudieron importar de forma segura. El contenido original no cambió.",
+    "message": "{0} images or links could not be imported safely. The original content remains unchanged.",
+    "placeholders": {
+      "0": ["result.skipped"]
+    },
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 158]]
+  },
+  "sQdEoe": {
+    "message": "{0} images or links could not be imported safely. Save private images and upload them manually from Files.",
+    "placeholders": {
+      "0": ["result.skipped"]
+    },
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 164]],
+    "translation": "{0} imágenes o enlaces no se pudieron importar de forma segura. Guarda las imágenes privadas y súbelas manualmente desde Archivos."
+  },
+  "Jc/tbP": {
+    "translation": "{0} imágenes o enlaces necesitan conexión. El texto se mantuvo en la pizarra.",
+    "message": "{0} images or links need a connection. Text was kept on the whiteboard.",
+    "placeholders": {
+      "0": ["result.skipped"]
+    },
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 159]]
+  },
+  "o4cM2M": {
+    "translation": "¿Añadir los recursos pegados a un tablero público?",
+    "message": "Add pasted resources to a public board?",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasPasteBatchDialog.tsx", 38]]
+  },
+  "W2NRCr": {
+    "translation": "El acceso al portapapeles no está disponible",
+    "message": "Clipboard access is unavailable",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 305]]
+  },
+  "nycwSa": {
+    "translation": "No se pudo pegar el contenido del portapapeles",
+    "message": "Clipboard content could not be pasted",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/use-card-canvas-clipboard.ts", 102],
+      ["src/views/card/components/use-card-canvas-clipboard.ts", 156],
+      ["src/views/card/components/use-card-canvas-clipboard.ts", 166],
+      ["src/views/card/components/use-card-canvas-clipboard.ts", 271]
+    ]
+  },
+  "z7UHR0": {
+    "translation": "No se concedió permiso para acceder al portapapeles",
+    "message": "Clipboard permission was not granted",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/use-card-canvas-clipboard.ts", 345],
+      ["src/views/card/components/use-card-canvas-clipboard.ts", 354]
+    ]
+  },
+  "3JGlKw": {
+    "translation": "Copia texto, una imagen o un enlace e inténtalo de nuevo.",
+    "message": "Copy text, an image or a link and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 331]]
+  },
+  "/Yy1Bq": {
+    "translation": "Entiendo, añadir recursos",
+    "message": "I understand, add resources",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasPasteBatchDialog.tsx", 57]]
+  },
+  "UfljvD": {
+    "translation": "No se hicieron cambios. También puedes usar la acción Pegar del navegador o Cmd+V.",
+    "message": "No changes were made. You can also use the browser Paste action or Cmd+V.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/use-card-canvas-clipboard.ts", 346],
+      ["src/views/card/components/use-card-canvas-clipboard.ts", 355]
+    ]
+  },
+  "LwcBib": {
+    "translation": "No hay nada que pegar",
+    "message": "Nothing to paste",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 330]]
+  },
+  "OJEhHp": {
+    "translation": "Pega hasta 20 elementos, con un máximo de 10 imágenes y 10 enlaces, dentro del límite de tamaño del portapapeles.",
+    "message": "Paste up to 20 items, including at most 10 images and 10 links, within the clipboard size limit.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 103]]
+  },
+  "poia71": {
+    "translation": "Elimina algunos elementos o imágenes antes de pegar este contenido. No se importó ningún recurso.",
+    "message": "Remove some elements or images before pasting this content. No resources were imported.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 210]]
+  },
+  "gbN+BC": {
+    "translation": "Se omitieron algunos elementos pegados",
+    "message": "Some pasted items were skipped",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 155]]
+  },
+  "EmJrun": {
+    "translation": "El contenido del portapapeles no se reconoció de forma segura. No se hicieron cambios.",
+    "message": "The clipboard content was not recognized safely. No changes were made.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 272]]
+  },
+  "M2O16W": {
+    "translation": "El botón Pegar sirve para contenido copiado desde otras aplicaciones.",
+    "message": "The Paste button is for content copied from other apps.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 322]]
+  },
+  "cQzm53": {
+    "translation": "La pizarra no cambió. Las imágenes o los enlaces importados de forma segura siguen disponibles en Recursos.",
+    "message": "The whiteboard was not changed. Any securely imported images or links remain available in Resources.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 167]]
+  },
+  "qRsO+O": {
+    "translation": "Este pegado supera los límites de la pizarra",
+    "message": "This paste exceeds the whiteboard limits",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 209]]
+  },
+  "o+GqbB": {
+    "translation": "Este pegado incluye {resourceCount} imágenes o enlaces. Cualquier persona que pueda abrir este tablero público podrá ver esos recursos.",
+    "message": "This paste includes {resourceCount} images or links. Anyone who can open this public board will be able to view those resources.",
+    "placeholders": {
+      "resourceCount": ["resourceCount"]
+    },
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasPasteBatchDialog.tsx", 41]]
+  },
+  "Wcbw0z": {
+    "translation": "Usa Cmd+V para los objetos de la pizarra",
+    "message": "Use Cmd+V for whiteboard objects",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 321]]
+  },
+  "sCbAgH": {
+    "translation": "Usa la acción Pegar del navegador o Cmd+V dentro de la pizarra.",
+    "message": "Use the browser Paste action or Cmd+V inside the whiteboard.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 306]]
   }
 }

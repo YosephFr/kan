@@ -7,7 +7,7 @@ import type {
 import { t } from "@lingui/core/macro";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { CardResource } from "./card-resource-types";
+import type { CardResource, UploadCardResource } from "./card-resource-types";
 import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
 import { invalidateCard } from "~/utils/cardInvalidation";
@@ -16,6 +16,7 @@ import {
   createCardCanvasImageImportQueue,
   downloadCardCanvasImageUrl,
   getCardCanvasImageFiles,
+  getCardCanvasNativePasteAction,
   hasCardCanvasImageDragItem,
 } from "./card-canvas-image-import";
 import { preflightCardCanvasImageFile } from "./card-canvas-resources";
@@ -57,6 +58,8 @@ export function useCardCanvasImagePaste({
   resourcesRef.current = resources;
   const createUploadMutation = api.cardResource.createUpload.useMutation();
   const confirmUploadMutation = api.cardResource.confirmUpload.useMutation();
+  const importRemoteImageMutation =
+    api.cardResource.importRemoteImage.useMutation();
 
   const showImageRejected = useCallback(() => {
     showPopup({
@@ -73,51 +76,22 @@ export function useCardCanvasImagePaste({
     });
   }, []);
 
-  const processImage = useCallback(
-    async (file: File) => {
-      if (!excalidrawApi || !canEdit || !mountedRef.current) return;
-      let contentType: string;
-      try {
-        contentType = validateAttachmentFile(file);
-        await preflightCardCanvasImageFile({
-          file,
-          contentType,
-          api: excalidrawApi,
-          resources: resourcesRef.current,
-        });
-      } catch {
-        publicDecisionRef.current = null;
-        setPendingPublicImage(null);
-        showImageRejected();
-        return;
+  const uploadImageResource = useCallback(
+    async (
+      file: File,
+      publicVisibilityAcknowledged?: boolean,
+    ): Promise<UploadCardResource> => {
+      if (!excalidrawApi || !canEdit || !mountedRef.current) {
+        throw new Error("IMAGE_IMPORT_UNAVAILABLE");
       }
-      if (!navigator.onLine) {
-        showPopup({
-          header: t`Image not added while offline`,
-          message: t`Text and shapes remain available offline. Images need secure card storage first.`,
-          icon: "error",
-        });
-        return;
-      }
-
-      const publicVisibilityAcknowledged = isPublicBoard
-        ? await requestPublicApproval(file)
-        : undefined;
-      if (publicVisibilityAcknowledged === false) return;
-      try {
-        await preflightCardCanvasImageFile({
-          file,
-          contentType,
-          api: excalidrawApi,
-          resources: resourcesRef.current,
-        });
-      } catch {
-        publicDecisionRef.current = null;
-        setPendingPublicImage(null);
-        showImageRejected();
-        return;
-      }
-
+      const contentType = validateAttachmentFile(file);
+      await preflightCardCanvasImageFile({
+        file,
+        contentType,
+        api: excalidrawApi,
+        resources: resourcesRef.current,
+      });
+      if (!navigator.onLine) throw new Error("IMAGE_IMPORT_OFFLINE");
       setIsUploadingPaste(true);
       try {
         const sha256 = await hashResourceFile(file);
@@ -143,6 +117,9 @@ export function useCardCanvasImagePaste({
           uploadSessionPublicId: session.uploadSessionPublicId,
           publicVisibilityAcknowledged,
         });
+        if (resource.kind !== "upload") {
+          throw new Error("INVALID_UPLOAD_RESOURCE");
+        }
         if (
           !resourcesRef.current.some(
             (current) => current.publicId === resource.publicId,
@@ -155,17 +132,9 @@ export function useCardCanvasImagePaste({
           invalidateCard(utils, cardPublicId),
           utils.board.byId.invalidate(),
         ]);
-        await onResourceCreated(resource);
-      } catch {
-        showPopup({
-          header: t`Image could not be added`,
-          message: t`The whiteboard was not changed. Try again or upload the image from Files.`,
-          icon: "error",
-        });
+        return resource;
       } finally {
         uploadAbortRef.current = null;
-        publicDecisionRef.current = null;
-        setPendingPublicImage(null);
         setIsUploadingPaste(false);
       }
     },
@@ -175,13 +144,101 @@ export function useCardCanvasImagePaste({
       confirmUploadMutation,
       createUploadMutation,
       excalidrawApi,
+      utils,
+    ],
+  );
+
+  const processImage = useCallback(
+    async (file: File) => {
+      if (!excalidrawApi || !canEdit || !mountedRef.current) return;
+      try {
+        const contentType = validateAttachmentFile(file);
+        await preflightCardCanvasImageFile({
+          file,
+          contentType,
+          api: excalidrawApi,
+          resources: resourcesRef.current,
+        });
+      } catch {
+        showImageRejected();
+        return;
+      }
+      if (!navigator.onLine) {
+        showPopup({
+          header: t`Image not added while offline`,
+          message: t`Text and shapes remain available offline. Images need secure card storage first.`,
+          icon: "error",
+        });
+        return;
+      }
+
+      const publicVisibilityAcknowledged = isPublicBoard
+        ? await requestPublicApproval(file)
+        : undefined;
+      if (publicVisibilityAcknowledged === false) return;
+      try {
+        const resource = await uploadImageResource(
+          file,
+          publicVisibilityAcknowledged,
+        );
+        await onResourceCreated(resource);
+      } catch {
+        showPopup({
+          header: t`Image could not be added`,
+          message: t`The whiteboard was not changed. Try again or upload the image from Files.`,
+          icon: "error",
+        });
+      } finally {
+        publicDecisionRef.current = null;
+        setPendingPublicImage(null);
+      }
+    },
+    [
+      canEdit,
+      excalidrawApi,
       isPublicBoard,
       onResourceCreated,
       requestPublicApproval,
       showImageRejected,
       showPopup,
-      utils,
+      uploadImageResource,
     ],
+  );
+
+  const importRemoteImageResource = useCallback(
+    async (
+      url: string,
+      publicVisibilityAcknowledged?: boolean,
+    ): Promise<UploadCardResource> => {
+      if (!excalidrawApi || !canEdit || !mountedRef.current) {
+        throw new Error("IMAGE_IMPORT_UNAVAILABLE");
+      }
+      if (!navigator.onLine) throw new Error("IMAGE_IMPORT_OFFLINE");
+      setIsUploadingPaste(true);
+      try {
+        const resource = await importRemoteImageMutation.mutateAsync({
+          cardPublicId,
+          url,
+          publicVisibilityAcknowledged,
+        });
+        if (
+          !resourcesRef.current.some(
+            (current) => current.publicId === resource.publicId,
+          )
+        ) {
+          resourcesRef.current = [...resourcesRef.current, resource];
+        }
+        await Promise.all([
+          utils.cardResource.list.invalidate({ cardPublicId }),
+          invalidateCard(utils, cardPublicId),
+          utils.board.byId.invalidate(),
+        ]);
+        return resource;
+      } finally {
+        setIsUploadingPaste(false);
+      }
+    },
+    [canEdit, cardPublicId, excalidrawApi, importRemoteImageMutation, utils],
   );
 
   const enqueueImageImport = useCallback(
@@ -269,10 +326,20 @@ export function useCardCanvasImagePaste({
 
   const handleExcalidrawPaste = useCallback(
     (data: ClipboardData) => {
-      if (
-        (data.files && Object.keys(data.files).length > 0) ||
-        data.elements?.some((element) => element.type === "image")
-      ) {
+      const elementPasteAction = getCardCanvasNativePasteAction({
+        currentElementCount: excalidrawApi?.getSceneElements().length ?? 0,
+        elements: data.elements,
+        files: data.files,
+      });
+      if (elementPasteAction === "block") {
+        showPopup({
+          header: t`This paste exceeds the whiteboard limits`,
+          message: t`Remove some elements or images before pasting this content. No resources were imported.`,
+          icon: "error",
+        });
+        return false;
+      }
+      if (elementPasteAction === "image") {
         showPopup({
           header: t`Paste the source image instead`,
           message: t`Images copied from another scene must be uploaded as card resources first.`,
@@ -300,7 +367,7 @@ export function useCardCanvasImagePaste({
       }
       return true;
     },
-    [enqueueImageImport, showPopup],
+    [enqueueImageImport, excalidrawApi, showPopup],
   );
 
   return {
@@ -311,6 +378,8 @@ export function useCardCanvasImagePaste({
     handleDragOverCapture,
     handleDropCapture,
     handleExcalidrawPaste,
+    uploadImageResource,
+    importRemoteImageResource,
     importImageFile: (file: File) => importFiles([file]),
     confirmPublicImage: () => publicDecisionRef.current?.(true),
     cancelPublicImage: () => {

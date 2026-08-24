@@ -2,14 +2,21 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import * as cardRepo from "@kan/db/repository/card.repo";
+import * as cardAttachmentRepo from "@kan/db/repository/cardAttachment.repo";
 import * as cardResourceRepo from "@kan/db/repository/cardResource.repo";
 import { WorkspaceChangedError } from "@kan/db/repository/workspace-boundary";
 import {
+  deleteObject,
   isInlineAttachmentContentType,
   MAX_ATTACHMENT_SIZE,
+  putObject,
 } from "@kan/shared/utils";
 
-import { cardResourceListSchema, cardResourceSchema } from "../schemas";
+import {
+  cardResourceListSchema,
+  cardResourceSchema,
+  uploadCardResourceSchema,
+} from "../schemas";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { deleteCardResource } from "../utils/card-resource-delete";
 import {
@@ -17,9 +24,18 @@ import {
   driveFallbackTitle,
   normalizeDriveLink,
 } from "../utils/card-resource-drive";
+import {
+  fetchRemoteCardImage,
+  importRemoteCardImage,
+} from "../utils/card-resource-remote-image";
+import {
+  consumeRemoteImageImportRateLimit,
+  RemoteImageRateLimitError,
+} from "../utils/card-resource-remote-image-rate-limit";
 import { normalizeWebResourceOpenUrl } from "../utils/card-resource-web";
 import { assertPermission } from "../utils/permissions";
 import { fetchSafePreviewMetadata } from "../utils/safe-preview";
+import { SafePreviewError } from "../utils/safe-preview-types";
 import { attachmentRouter } from "./attachment";
 
 const publicId = z.string().regex(/^[a-z0-9]{12}$/);
@@ -97,6 +113,104 @@ function mapResource(
       : null,
     createdAt: resource.createdAt,
   };
+}
+
+function mapConfirmedUpload(attachment: {
+  publicId: string;
+  originalFilename: string;
+  contentType: string;
+  size: number;
+  createdAt: Date;
+}) {
+  return {
+    kind: "upload" as const,
+    publicId: attachment.publicId,
+    title: attachment.originalFilename,
+    originalFilename: attachment.originalFilename,
+    contentType: attachment.contentType,
+    size: attachment.size,
+    viewUrl: isInlineAttachmentContentType(attachment.contentType)
+      ? `/api/attachments/${attachment.publicId}/view`
+      : null,
+    downloadUrl: `/api/attachments/${attachment.publicId}/download`,
+    createdAt: attachment.createdAt,
+  };
+}
+
+function throwRemoteImageError(error: unknown): never {
+  if (error instanceof TRPCError) {
+    if (
+      error.code === "UNAUTHORIZED" ||
+      error.code === "FORBIDDEN" ||
+      error.code === "NOT_FOUND"
+    ) {
+      throw new TRPCError({ code: error.code, message: error.code });
+    }
+    if (
+      error.code === "PRECONDITION_FAILED" &&
+      error.message === "PUBLIC_VISIBILITY_ACKNOWLEDGEMENT_REQUIRED"
+    ) {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: "PUBLIC_VISIBILITY_ACKNOWLEDGEMENT_REQUIRED",
+      });
+    }
+    if (error.code === "BAD_REQUEST") {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "REMOTE_IMAGE_INVALID",
+      });
+    }
+    if (error.code === "CONFLICT") {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "REMOTE_IMAGE_IMPORT_CONFLICT",
+      });
+    }
+    if (error.code === "TOO_MANY_REQUESTS") {
+      throw new TRPCError({
+        code: "TOO_MANY_REQUESTS",
+        message: "REMOTE_IMAGE_IMPORT_UNAVAILABLE",
+      });
+    }
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "REMOTE_IMAGE_IMPORT_FAILED",
+    });
+  }
+  if (error instanceof SafePreviewError) {
+    if (error.code === "BODY_TOO_LARGE") {
+      throw new TRPCError({
+        code: "PAYLOAD_TOO_LARGE",
+        message: "REMOTE_IMAGE_TOO_LARGE",
+      });
+    }
+    if (error.code === "TIMEOUT") {
+      throw new TRPCError({
+        code: "GATEWAY_TIMEOUT",
+        message: "REMOTE_IMAGE_FETCH_TIMEOUT",
+      });
+    }
+    if (
+      error.code === "INVALID_URL" ||
+      error.code === "UNSAFE_TARGET" ||
+      error.code === "UNSUPPORTED_MIME" ||
+      error.code === "INVALID_IMAGE"
+    ) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "REMOTE_IMAGE_INVALID",
+      });
+    }
+    throw new TRPCError({
+      code: "BAD_GATEWAY",
+      message: "REMOTE_IMAGE_FETCH_FAILED",
+    });
+  }
+  throw new TRPCError({
+    code: "INTERNAL_SERVER_ERROR",
+    message: "REMOTE_IMAGE_IMPORT_FAILED",
+  });
 }
 
 async function getCardOrThrow(
@@ -203,19 +317,7 @@ export const cardResourceRouter = createTRPCRouter({
       const attachment = await attachmentRouter
         .createCaller(ctx)
         .confirm(input);
-      return {
-        kind: "upload" as const,
-        publicId: attachment.publicId,
-        title: attachment.originalFilename,
-        originalFilename: attachment.originalFilename,
-        contentType: attachment.contentType,
-        size: attachment.size,
-        viewUrl: isInlineAttachmentContentType(attachment.contentType)
-          ? `/api/attachments/${attachment.publicId}/view`
-          : null,
-        downloadUrl: `/api/attachments/${attachment.publicId}/download`,
-        createdAt: attachment.createdAt,
-      };
+      return mapConfirmedUpload(attachment);
     }),
 
   createDriveLink: protectedProcedure
@@ -412,6 +514,110 @@ export const cardResourceRouter = createTRPCRouter({
         }
       }
       return readWebResource(reservation.publicId);
+    }),
+
+  importRemoteImage: protectedProcedure
+    .meta({
+      openapi: {
+        summary: "Import a remote image as a card resource",
+        method: "POST",
+        path: "/cards/{cardPublicId}/resources/remote-image",
+        tags: ["Card resources"],
+        protect: true,
+      },
+    })
+    .input(
+      z.object({
+        cardPublicId: publicId,
+        url: z.string().min(1).max(2048),
+        publicVisibilityAcknowledged: visibilityAcknowledgement,
+      }),
+    )
+    .output(uploadCardResourceSchema)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user?.id;
+      if (!userId) throw new TRPCError({ code: "UNAUTHORIZED" });
+      const card = await getCardOrThrow(ctx.db, input.cardPublicId);
+      await assertPermission(ctx.db, userId, card.workspaceId, "card:edit");
+      if (
+        card.workspaceVisibility === "public" &&
+        !input.publicVisibilityAcknowledged
+      ) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "PUBLIC_VISIBILITY_ACKNOWLEDGEMENT_REQUIRED",
+        });
+      }
+
+      const bucket = process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME;
+      if (!bucket) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "REMOTE_IMAGE_IMPORT_FAILED",
+        });
+      }
+
+      try {
+        await consumeRemoteImageImportRateLimit(userId, input.cardPublicId);
+      } catch (error) {
+        if (error instanceof RemoteImageRateLimitError) {
+          throw new TRPCError({
+            code:
+              error.code === "LIMIT_EXCEEDED"
+                ? "TOO_MANY_REQUESTS"
+                : "SERVICE_UNAVAILABLE",
+            message:
+              error.code === "LIMIT_EXCEEDED"
+                ? "REMOTE_IMAGE_RATE_LIMIT_REACHED"
+                : "REMOTE_IMAGE_IMPORT_UNAVAILABLE",
+          });
+        }
+        throwRemoteImageError(error);
+      }
+
+      const attachmentCaller = attachmentRouter.createCaller(ctx);
+      try {
+        const attachment = await importRemoteCardImage(input.url, {
+          fetchImage: fetchRemoteCardImage,
+          createUpload: async (upload) =>
+            await attachmentCaller.generateUploadUrl({
+              cardPublicId: input.cardPublicId,
+              ...upload,
+              publicVisibilityAcknowledged: input.publicVisibilityAcknowledged,
+            }),
+          writeStagingObject: async ({ key, bytes, contentType }) => {
+            await putObject({
+              bucket,
+              key,
+              body: bytes,
+              contentType,
+            });
+          },
+          confirmUpload: async (uploadSessionPublicId) =>
+            await attachmentCaller.confirm({
+              cardPublicId: input.cardPublicId,
+              uploadSessionPublicId,
+              publicVisibilityAcknowledged: input.publicVisibilityAcknowledged,
+            }),
+          discardUpload: async ({ uploadSessionPublicId, stagingKey }) => {
+            const results = await Promise.allSettled([
+              deleteObject(bucket, stagingKey),
+              cardAttachmentRepo.deleteUnissuedUploadSession(ctx.db, {
+                publicId: uploadSessionPublicId,
+                cardId: card.id,
+                workspaceId: card.workspaceId,
+                userId,
+              }),
+            ]);
+            if (results.some((result) => result.status === "rejected")) {
+              throw new Error("REMOTE_IMAGE_CLEANUP_FAILED");
+            }
+          },
+        });
+        return mapConfirmedUpload(attachment);
+      } catch (error) {
+        throwRemoteImageError(error);
+      }
     }),
 
   delete: protectedProcedure

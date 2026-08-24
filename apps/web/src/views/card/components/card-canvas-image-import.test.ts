@@ -1,15 +1,50 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { MAX_CARD_CANVAS_IMAGE_BYTES } from "@kan/shared";
+import {
+  MAX_CARD_CANVAS_ELEMENTS,
+  MAX_CARD_CANVAS_IMAGE_BYTES,
+} from "@kan/shared";
 
 import {
   createCardCanvasImageImportQueue,
   downloadCardCanvasImageUrl,
   getCardCanvasImageFiles,
+  getCardCanvasNativePasteAction,
   hasCardCanvasImageDragItem,
 } from "./card-canvas-image-import";
 
 describe("card canvas image imports", () => {
+  it("allows a native paste that reaches exactly 5,000 elements", () => {
+    expect(
+      getCardCanvasNativePasteAction({
+        currentElementCount: MAX_CARD_CANVAS_ELEMENTS - 1,
+        elements: [{ type: "rectangle" }],
+        files: undefined,
+      }),
+    ).toBe("continue");
+  });
+
+  it("blocks a native paste over 5,000 elements before further processing", () => {
+    const elements = [{ type: "rectangle" }];
+    const inspectElements = vi.spyOn(elements, "some");
+    const inspectFiles = vi.fn(() => []);
+    const files = new Proxy<Record<string, unknown>>(
+      {},
+      { ownKeys: inspectFiles },
+    );
+
+    expect(
+      getCardCanvasNativePasteAction({
+        currentElementCount: MAX_CARD_CANVAS_ELEMENTS,
+        elements,
+        files,
+      }),
+    ).toBe("block");
+
+    expect(inspectElements).not.toHaveBeenCalled();
+    expect(inspectFiles).not.toHaveBeenCalled();
+  });
+
   it("rejects embedded credentials and non-standard ports before fetch", async () => {
     const fetchImage = vi.fn();
 

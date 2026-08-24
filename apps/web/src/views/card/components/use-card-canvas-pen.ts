@@ -1,8 +1,11 @@
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-export const activateCardCanvasPen = (api: ExcalidrawImperativeAPI) => {
+export const activateCardCanvasPen = (
+  api: ExcalidrawImperativeAPI,
+  isFirstPenPointer = !api.getAppState().penDetected,
+) => {
   const appState = api.getAppState();
   api.updateScene({
     appState: {
@@ -10,9 +13,17 @@ export const activateCardCanvasPen = (api: ExcalidrawImperativeAPI) => {
       penDetected: true,
     },
   });
-  if (appState.activeTool.type === "selection") {
+  if (isFirstPenPointer && appState.activeTool.type === "selection") {
     api.setActiveTool({ type: "freedraw" });
   }
+};
+
+export const detectFirstCardCanvasPenPointer = (state: {
+  current: boolean;
+}) => {
+  const isFirstPenPointer = !state.current;
+  state.current = true;
+  return isFirstPenPointer;
 };
 
 export function useCardCanvasPen({
@@ -26,6 +37,11 @@ export function useCardCanvasPen({
 }) {
   const [enabled, setEnabled] = useState(false);
   const [preferenceReady, setPreferenceReady] = useState(false);
+  const penPointerDetectedRef = useRef(false);
+
+  useEffect(() => {
+    penPointerDetectedRef.current = false;
+  }, [api, preferenceKey]);
 
   useEffect(() => {
     setPreferenceReady(false);
@@ -60,7 +76,10 @@ export function useCardCanvasPen({
   const handlePointerDownCapture = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (event.pointerType !== "pen" || !api || !canEdit) return;
-      activateCardCanvasPen(api);
+      const isFirstPenPointer = detectFirstCardCanvasPenPointer(
+        penPointerDetectedRef,
+      );
+      activateCardCanvasPen(api, isFirstPenPointer);
       setEnabled(true);
     },
     [api, canEdit],

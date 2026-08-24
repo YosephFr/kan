@@ -12662,5 +12662,171 @@
     "comments": [],
     "origin": [["src/views/card/components/CardCanvasWebResourceCard.tsx", 40]],
     "translation": ""
+  },
+  "o/54fr": {
+    "translation": "",
+    "message": "{0} images or links could not be imported safely. The original content remains unchanged.",
+    "placeholders": {
+      "0": ["result.skipped"]
+    },
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 158]]
+  },
+  "sQdEoe": {
+    "message": "{0} images or links could not be imported safely. Save private images and upload them manually from Files.",
+    "placeholders": {
+      "0": ["result.skipped"]
+    },
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 164]],
+    "translation": ""
+  },
+  "Jc/tbP": {
+    "translation": "",
+    "message": "{0} images or links need a connection. Text was kept on the whiteboard.",
+    "placeholders": {
+      "0": ["result.skipped"]
+    },
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 159]]
+  },
+  "o4cM2M": {
+    "translation": "",
+    "message": "Add pasted resources to a public board?",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasPasteBatchDialog.tsx", 38]]
+  },
+  "W2NRCr": {
+    "translation": "",
+    "message": "Clipboard access is unavailable",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 305]]
+  },
+  "nycwSa": {
+    "translation": "",
+    "message": "Clipboard content could not be pasted",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/use-card-canvas-clipboard.ts", 102],
+      ["src/views/card/components/use-card-canvas-clipboard.ts", 156],
+      ["src/views/card/components/use-card-canvas-clipboard.ts", 166],
+      ["src/views/card/components/use-card-canvas-clipboard.ts", 271]
+    ]
+  },
+  "z7UHR0": {
+    "translation": "",
+    "message": "Clipboard permission was not granted",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/use-card-canvas-clipboard.ts", 345],
+      ["src/views/card/components/use-card-canvas-clipboard.ts", 354]
+    ]
+  },
+  "3JGlKw": {
+    "translation": "",
+    "message": "Copy text, an image or a link and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 331]]
+  },
+  "/Yy1Bq": {
+    "translation": "",
+    "message": "I understand, add resources",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasPasteBatchDialog.tsx", 57]]
+  },
+  "UfljvD": {
+    "translation": "",
+    "message": "No changes were made. You can also use the browser Paste action or Cmd+V.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/use-card-canvas-clipboard.ts", 346],
+      ["src/views/card/components/use-card-canvas-clipboard.ts", 355]
+    ]
+  },
+  "LwcBib": {
+    "translation": "",
+    "message": "Nothing to paste",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 330]]
+  },
+  "OJEhHp": {
+    "translation": "",
+    "message": "Paste up to 20 items, including at most 10 images and 10 links, within the clipboard size limit.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 103]]
+  },
+  "poia71": {
+    "translation": "",
+    "message": "Remove some elements or images before pasting this content. No resources were imported.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 210]]
+  },
+  "gbN+BC": {
+    "translation": "",
+    "message": "Some pasted items were skipped",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 155]]
+  },
+  "EmJrun": {
+    "translation": "",
+    "message": "The clipboard content was not recognized safely. No changes were made.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 272]]
+  },
+  "M2O16W": {
+    "translation": "",
+    "message": "The Paste button is for content copied from other apps.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 322]]
+  },
+  "cQzm53": {
+    "translation": "",
+    "message": "The whiteboard was not changed. Any securely imported images or links remain available in Resources.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 167]]
+  },
+  "qRsO+O": {
+    "translation": "",
+    "message": "This paste exceeds the whiteboard limits",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 209]]
+  },
+  "o+GqbB": {
+    "translation": "",
+    "message": "This paste includes {resourceCount} images or links. Anyone who can open this public board will be able to view those resources.",
+    "placeholders": {
+      "resourceCount": ["resourceCount"]
+    },
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasPasteBatchDialog.tsx", 41]]
+  },
+  "Wcbw0z": {
+    "translation": "",
+    "message": "Use Cmd+V for whiteboard objects",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 321]]
+  },
+  "sCbAgH": {
+    "translation": "",
+    "message": "Use the browser Paste action or Cmd+V inside the whiteboard.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 306]]
   }
 }

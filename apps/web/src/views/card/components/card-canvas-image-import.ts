@@ -1,4 +1,7 @@
-import { MAX_CARD_CANVAS_IMAGE_BYTES } from "@kan/shared";
+import {
+  MAX_CARD_CANVAS_ELEMENTS,
+  MAX_CARD_CANVAS_IMAGE_BYTES,
+} from "@kan/shared";
 
 const IMAGE_EXTENSION_BY_TYPE: Record<string, string> = {
   "image/gif": "gif",
@@ -30,6 +33,27 @@ export const createCardCanvasImageImportQueue = () => {
     );
     return result;
   };
+};
+
+export const getCardCanvasNativePasteAction = ({
+  currentElementCount,
+  elements,
+  files,
+}: {
+  currentElementCount: number;
+  elements: readonly { type: string }[] | undefined;
+  files: Record<string, unknown> | undefined;
+}) => {
+  if (
+    elements &&
+    currentElementCount + elements.length > MAX_CARD_CANVAS_ELEMENTS
+  ) {
+    return "block" as const;
+  }
+  return (files && Object.keys(files).length > 0) ||
+    elements?.some((element) => element.type === "image")
+    ? ("image" as const)
+    : ("continue" as const);
 };
 
 export const downloadCardCanvasImageUrl = async (

@@ -90,6 +90,24 @@ export async function deleteObject(bucket: string, key: string) {
   );
 }
 
+export async function putObject(input: {
+  bucket: string;
+  key: string;
+  body: Uint8Array;
+  contentType: string;
+}) {
+  const client = createS3Client();
+  await client.send(
+    new PutObjectCommand({
+      Bucket: input.bucket,
+      Key: input.key,
+      Body: input.body,
+      ContentType: input.contentType,
+      ContentLength: input.body.byteLength,
+    }),
+  );
+}
+
 export function attachmentContentDisposition(
   disposition: "attachment" | "inline",
   filename: string,

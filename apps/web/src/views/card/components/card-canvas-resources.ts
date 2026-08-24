@@ -12,6 +12,7 @@ import type {
 import { convertToExcalidrawElements } from "@excalidraw/excalidraw";
 
 import {
+  MAX_CARD_CANVAS_ELEMENTS,
   MAX_CARD_CANVAS_IMAGE_BYTES,
   MAX_CARD_CANVAS_IMAGE_DIMENSION,
   MAX_CARD_CANVAS_IMAGE_PIXELS,
@@ -278,6 +279,57 @@ export const isImageResource = (
   resource.contentType.startsWith("image/") &&
   resource.viewUrl !== null;
 
+export const assertCardCanvasImageResourceBudget = ({
+  elements,
+  resources,
+  candidates = [],
+}: {
+  elements: readonly ExcalidrawElement[];
+  resources: readonly CardResource[];
+  candidates?: readonly CardResource[];
+}) => {
+  const imageResources = new Map(
+    [...resources, ...candidates]
+      .filter(isImageResource)
+      .map((resource) => [resource.publicId, resource]),
+  );
+  const imagePublicIds = new Set(
+    elements.flatMap((element) => {
+      if (element.type !== "image" || element.isDeleted) return [];
+      const publicId = getCanvasResourcePublicId(
+        element as unknown as CardCanvasElement,
+      );
+      return publicId ? [publicId] : [];
+    }),
+  );
+  candidates.filter(isImageResource).forEach((resource) => {
+    imagePublicIds.add(resource.publicId);
+  });
+  const resolvedImages = [...imagePublicIds].map((publicId) => {
+    const resource = imageResources.get(publicId);
+    if (!resource) throw new Error("IMAGE_RESOURCE_BUDGET_UNKNOWN");
+    return resource;
+  });
+  if (
+    resolvedImages.some(
+      (resource) => resource.size > MAX_CARD_CANVAS_IMAGE_BYTES,
+    ) ||
+    resolvedImages.length > MAX_CARD_CANVAS_IMAGE_RESOURCES ||
+    resolvedImages.reduce((total, resource) => total + resource.size, 0) >
+      MAX_CARD_CANVAS_TOTAL_IMAGE_BYTES
+  ) {
+    throw new Error("IMAGE_RESOURCE_BUDGET_EXCEEDED");
+  }
+};
+
+const assertCardCanvasElementCapacity = (
+  elements: readonly ExcalidrawElement[],
+) => {
+  if (elements.length >= MAX_CARD_CANVAS_ELEMENTS) {
+    throw new Error("CARD_CANVAS_ELEMENT_LIMIT_EXCEEDED");
+  }
+};
+
 export const hydrateCardCanvasImage = async (
   api: ExcalidrawImperativeAPI,
   resource: Extract<CardResource, { kind: "upload" }>,
@@ -351,8 +403,15 @@ export const hydrateCardCanvasImage = async (
 export const insertCardCanvasResource = async (
   api: ExcalidrawImperativeAPI,
   resource: CardResource,
+  resources: readonly CardResource[] = [resource],
 ) => {
+  assertCardCanvasElementCapacity(api.getSceneElements());
   if (isImageResource(resource)) {
+    assertCardCanvasImageResourceBudget({
+      elements: api.getSceneElements(),
+      resources,
+      candidates: [resource],
+    });
     const { fileId, dimensions } = await hydrateCardCanvasImage(api, resource);
     const point = getInsertionPoint(
       api.getAppState(),
@@ -374,6 +433,13 @@ export const insertCardCanvasResource = async (
       },
     ])[0];
     if (!element) throw new Error("IMAGE_ELEMENT_FAILED");
+    const currentElements = api.getSceneElements();
+    assertCardCanvasElementCapacity(currentElements);
+    assertCardCanvasImageResourceBudget({
+      elements: currentElements,
+      resources,
+      candidates: [resource],
+    });
     addElement(api, element);
     return element.id;
   }
@@ -401,6 +467,7 @@ export const insertCardCanvasResource = async (
     link: `kan-resource:${resource.publicId}`,
     customData: { kanResourcePublicId: resource.publicId },
   } as NonDeleted<ExcalidrawElement>;
+  assertCardCanvasElementCapacity(api.getSceneElements());
   addElement(api, element);
   return element.id;
 };

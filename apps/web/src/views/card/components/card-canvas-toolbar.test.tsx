@@ -69,10 +69,11 @@ describe("CardCanvasToolbar", () => {
     expect(markup).toContain('aria-pressed="true"');
   });
 
-  it("keeps image, link and pen actions primary with tablet-sized targets", () => {
+  it("keeps paste primary and moves image and link into the responsive group", () => {
     const markup = renderToStaticMarkup(
       <CardCanvasToolbar
         {...defaultProps}
+        onPaste={vi.fn()}
         onAddImage={vi.fn()}
         onAddLink={vi.fn()}
         onTogglePenMode={vi.fn()}
@@ -80,10 +81,25 @@ describe("CardCanvasToolbar", () => {
       />,
     );
 
+    expect(markup).toContain('aria-label="Paste"');
     expect(markup).toContain('aria-label="Image"');
     expect(markup).toContain('aria-label="Link"');
     expect(markup).toContain('aria-label="Disable pen mode"');
     expect(markup).toContain("h-11 min-w-11");
+    expect(markup).toContain("card-canvas-toolbar-creative-actions");
+    expect(markup.indexOf('aria-label="Paste"')).toBeLessThan(
+      markup.indexOf("card-canvas-toolbar-creative-actions"),
+    );
+  });
+
+  it("disables paste and exposes its busy state while clipboard work runs", () => {
+    const markup = renderToStaticMarkup(
+      <CardCanvasToolbar {...defaultProps} onPaste={vi.fn()} pasteBusy />,
+    );
+
+    expect(markup).toMatch(
+      /<button[^>]*disabled=""[^>]*aria-label="Paste"[^>]*aria-busy="true"/,
+    );
   });
 
   it("uses the canvas width to collapse secondary actions", () => {
@@ -94,7 +110,7 @@ describe("CardCanvasToolbar", () => {
     expect(markup).toContain('style="container-type:inline-size"');
     expect(markup).toContain("card-canvas-toolbar-more");
     expect(markup).toContain("card-canvas-toolbar-actions");
-    expect(markup).toContain("@container (min-width: 46rem)");
+    expect(markup).toContain("@container (min-width: 80rem)");
   });
 
   it("disables the image picker action while an import is in progress", () => {
@@ -109,6 +125,18 @@ describe("CardCanvasToolbar", () => {
     expect(markup).toMatch(/<button[^>]*disabled=""[^>]*aria-label="Image"/);
   });
 
+  it("disables link creation while another resource import is in progress", () => {
+    const markup = renderToStaticMarkup(
+      <CardCanvasToolbar
+        {...defaultProps}
+        onAddLink={vi.fn()}
+        linkImportDisabled
+      />,
+    );
+
+    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*aria-label="Link"/);
+  });
+
   it("does not expose mutation controls in view-only mode", () => {
     const markup = renderToStaticMarkup(
       <CardCanvasToolbar
@@ -116,12 +144,14 @@ describe("CardCanvasToolbar", () => {
         canEdit={false}
         onAddImage={vi.fn()}
         onAddLink={vi.fn()}
+        onPaste={vi.fn()}
         onTogglePenMode={vi.fn()}
       />,
     );
 
     expect(markup).not.toContain('aria-label="Image"');
     expect(markup).not.toContain('aria-label="Link"');
+    expect(markup).not.toContain('aria-label="Paste"');
     expect(markup).not.toContain("Enable pen mode");
     expect(markup).not.toContain(">Convert<");
     expect(markup).toContain('aria-label="More whiteboard actions"');

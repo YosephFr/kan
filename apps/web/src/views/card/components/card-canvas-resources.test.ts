@@ -3,6 +3,7 @@ import { convertToExcalidrawElements } from "@excalidraw/excalidraw";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  MAX_CARD_CANVAS_ELEMENTS,
   MAX_CARD_CANVAS_IMAGE_BYTES,
   MAX_CARD_CANVAS_IMAGE_RESOURCES,
   MAX_CARD_CANVAS_TOTAL_IMAGE_BYTES,
@@ -13,6 +14,7 @@ import type {
   WebCardResource,
 } from "./card-resource-types";
 import {
+  assertCardCanvasImageResourceBudget,
   hydrateCardCanvasImage,
   hydrateCardCanvasImages,
   insertCardCanvasResource,
@@ -61,6 +63,63 @@ const makeCanvasApi = (resources: UploadCardResource[]) =>
         customData: { kanResourcePublicId: resource.publicId },
       })),
   }) as unknown as ExcalidrawImperativeAPI;
+
+const deferExistingImageLoad = () => {
+  let release: (() => void) | undefined;
+  class DeferredImage {
+    naturalWidth = 100;
+    naturalHeight = 80;
+
+    addEventListener(
+      type: string,
+      listener: EventListenerOrEventListenerObject,
+    ) {
+      if (type !== "load") return;
+      release = () => {
+        const event = new Event("load");
+        if (typeof listener === "function") listener(event);
+        else listener.handleEvent(event);
+      };
+    }
+
+    set src(value: string) {
+      void value;
+    }
+  }
+  vi.stubGlobal("Image", DeferredImage);
+  return () => {
+    if (!release) throw new Error("IMAGE_LOAD_NOT_STARTED");
+    release();
+  };
+};
+
+const makeDeferredInsertionApi = (
+  elements: {
+    id: string;
+    type: string;
+    isDeleted?: boolean;
+    customData?: { kanResourcePublicId: string };
+  }[],
+  candidate: UploadCardResource,
+) => {
+  const updateScene = vi.fn();
+  const api = {
+    getSceneElements: () => elements,
+    getFiles: () => ({
+      [candidate.publicId]: { dataURL: "data:image/png;base64,AA==" },
+    }),
+    getAppState: () => ({
+      zoom: { value: 1 },
+      scrollX: 0,
+      scrollY: 0,
+      width: 1000,
+      height: 800,
+    }),
+    updateScene,
+    scrollToContent: vi.fn(),
+  } as unknown as ExcalidrawImperativeAPI;
+  return { api, updateScene };
+};
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -151,6 +210,105 @@ describe("card canvas image resources", () => {
         resources: existing,
       }),
     ).resolves.toEqual({ width: 1, height: 1 });
+  });
+
+  it("revalidates the current scene immediately before an image insertion", () => {
+    const current = Array.from(
+      { length: MAX_CARD_CANVAS_IMAGE_RESOURCES },
+      (_, index) => makeResource(`image${String(index).padStart(7, "0")}`, 1),
+    );
+    const candidate = makeResource("candidate001", 1);
+
+    expect(() =>
+      assertCardCanvasImageResourceBudget({
+        elements: makeCanvasApi(current).getSceneElements(),
+        resources: current,
+        candidates: [candidate],
+      }),
+    ).toThrow("IMAGE_RESOURCE_BUDGET_EXCEEDED");
+  });
+
+  it("rejects a direct image that becomes the fifty-first while hydration waits", async () => {
+    const releaseImage = deferExistingImageLoad();
+    vi.mocked(convertToExcalidrawElements).mockReturnValue([
+      { id: "candidate-element", type: "image" } as never,
+    ]);
+    const existing = Array.from(
+      { length: MAX_CARD_CANVAS_IMAGE_RESOURCES - 1 },
+      (_, index) => makeResource(`image${String(index).padStart(7, "0")}`, 1),
+    );
+    const concurrent = makeResource("concurrent01", 1);
+    const candidate = makeResource("candidate001", 1);
+    const elements = existing.map((resource) => ({
+      id: resource.publicId,
+      type: "image",
+      isDeleted: false,
+      customData: { kanResourcePublicId: resource.publicId },
+    }));
+    const { api, updateScene } = makeDeferredInsertionApi(elements, candidate);
+
+    const insertion = insertCardCanvasResource(api, candidate, [
+      ...existing,
+      concurrent,
+      candidate,
+    ]);
+    await Promise.resolve();
+    elements.push({
+      id: concurrent.publicId,
+      type: "image",
+      isDeleted: false,
+      customData: { kanResourcePublicId: concurrent.publicId },
+    });
+    releaseImage();
+
+    await expect(insertion).rejects.toThrow("IMAGE_RESOURCE_BUDGET_EXCEEDED");
+    expect(updateScene).not.toHaveBeenCalled();
+  });
+
+  it("rejects a direct resource when another element fills slot 5,000 during hydration", async () => {
+    const releaseImage = deferExistingImageLoad();
+    vi.mocked(convertToExcalidrawElements).mockReturnValue([
+      { id: "candidate-element", type: "image" } as never,
+    ]);
+    const candidate = makeResource("candidate001", 1);
+    const elements = Array.from(
+      { length: MAX_CARD_CANVAS_ELEMENTS - 1 },
+      (_, index) => ({ id: `element-${index}`, type: "rectangle" }),
+    );
+    const { api, updateScene } = makeDeferredInsertionApi(elements, candidate);
+
+    const insertion = insertCardCanvasResource(api, candidate, [candidate]);
+    await Promise.resolve();
+    elements.push({ id: "concurrent-element", type: "rectangle" });
+    releaseImage();
+
+    await expect(insertion).rejects.toThrow(
+      "CARD_CANVAS_ELEMENT_LIMIT_EXCEEDED",
+    );
+    expect(updateScene).not.toHaveBeenCalled();
+  });
+
+  it("allows a final image budget exactly at fifty resources and 20 MiB", () => {
+    const current = Array.from(
+      { length: MAX_CARD_CANVAS_IMAGE_RESOURCES - 1 },
+      (_, index) => makeResource(`image${String(index).padStart(7, "0")}`, 1),
+    );
+    current[0] = makeResource("image0000000", MAX_CARD_CANVAS_IMAGE_BYTES);
+    current[1] = makeResource(
+      "image0000001",
+      MAX_CARD_CANVAS_TOTAL_IMAGE_BYTES -
+        MAX_CARD_CANVAS_IMAGE_BYTES -
+        (current.length - 1),
+    );
+    const candidate = makeResource("candidate001", 1);
+
+    expect(() =>
+      assertCardCanvasImageResourceBudget({
+        elements: makeCanvasApi(current).getSceneElements(),
+        resources: current,
+        candidates: [candidate],
+      }),
+    ).not.toThrow();
   });
 
   it("rejects an oversized file before reading its header or scene", async () => {

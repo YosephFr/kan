@@ -4,6 +4,18 @@ import type {
 } from "./safe-preview-types";
 import { SAFE_PREVIEW_LIMITS, SafePreviewError } from "./safe-preview-types";
 
+export interface SafeImageValidationLimits {
+  maxBytes: number;
+  maxDimension: number;
+  maxPixels: number;
+}
+
+const defaultLimits: SafeImageValidationLimits = {
+  maxBytes: SAFE_PREVIEW_LIMITS.imageBytes,
+  maxDimension: SAFE_PREVIEW_LIMITS.imageMaxDimension,
+  maxPixels: SAFE_PREVIEW_LIMITS.imageMaxPixels,
+};
+
 const readUint24Le = (bytes: Uint8Array, offset: number) =>
   (bytes[offset] ?? 0) |
   ((bytes[offset + 1] ?? 0) << 8) |
@@ -124,8 +136,9 @@ const detectedContentType = (
 export const validateSafePreviewImage = (
   contentType: string,
   bytes: Uint8Array,
+  limits: SafeImageValidationLimits = defaultLimits,
 ): SafePreviewImageData => {
-  if (bytes.byteLength > SAFE_PREVIEW_LIMITS.imageBytes) {
+  if (bytes.byteLength > limits.maxBytes) {
     throw new SafePreviewError("BODY_TOO_LARGE");
   }
   const normalizedType = contentType.split(";", 1)[0]?.trim().toLowerCase();
@@ -143,9 +156,9 @@ export const validateSafePreviewImage = (
     !dimensions ||
     dimensions.width <= 0 ||
     dimensions.height <= 0 ||
-    dimensions.width > SAFE_PREVIEW_LIMITS.imageMaxDimension ||
-    dimensions.height > SAFE_PREVIEW_LIMITS.imageMaxDimension ||
-    dimensions.width * dimensions.height > SAFE_PREVIEW_LIMITS.imageMaxPixels
+    dimensions.width > limits.maxDimension ||
+    dimensions.height > limits.maxDimension ||
+    dimensions.width * dimensions.height > limits.maxPixels
   ) {
     throw new SafePreviewError("INVALID_IMAGE");
   }

@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   createTRPCRouter,
   getSafeProcedureErrorMessage,
+  isSensitiveProcedure,
   protectedProcedure,
 } from "./trpc";
 
@@ -21,6 +22,7 @@ const privateSceneMarker = "PRIVATE_WHITEBOARD_SCENE_MARKER";
 const privateErrorMarker = "PRIVATE_WHITEBOARD_ERROR_MARKER";
 const privateWebUrlMarker = "https://example.com/private?token=SECRET_QUERY";
 const privateWebMetadataMarker = "PRIVATE_WEB_METADATA_MARKER";
+const privateAttachmentHashMarker = "PRIVATE_ATTACHMENT_SHA256_MARKER";
 const cardCanvasLogTestRouter = createTRPCRouter({
   cardCanvas: createTRPCRouter({
     save: protectedProcedure
@@ -43,6 +45,19 @@ const cardCanvasLogTestRouter = createTRPCRouter({
         }
         return { status: "saved" as const };
       }),
+    importRemoteImage: protectedProcedure
+      .input(z.object({ url: z.string(), body: z.string() }))
+      .mutation(({ input }) => {
+        if (input.body === privateErrorMarker) {
+          throw new Error(`${privateErrorMarker}:${input.url}`);
+        }
+        return { status: "saved" as const };
+      }),
+  }),
+  attachment: createTRPCRouter({
+    generateUploadUrl: protectedProcedure
+      .input(z.object({ sha256: z.string() }))
+      .mutation(() => ({ status: "created" as const })),
   }),
 });
 const context = {
@@ -135,5 +150,59 @@ describe("tRPC card canvas logging", () => {
         message: `${privateErrorMarker}:${privateWebUrlMarker}`,
       }),
     ).toBe("INTERNAL_SERVER_ERROR");
+  });
+
+  it("omits remote image URLs, bytes and identity from logs", async () => {
+    await cardCanvasLogTestRouter
+      .createCaller(context as never)
+      .cardResource.importRemoteImage({
+        url: privateWebUrlMarker,
+        body: privateWebMetadataMarker,
+      });
+
+    const logs = JSON.stringify(mockLogger.info.mock.calls);
+    expect(logs).toContain("cardResource.importRemoteImage");
+    expect(logs).not.toContain(privateWebUrlMarker);
+    expect(logs).not.toContain("SECRET_QUERY");
+    expect(logs).not.toContain(privateWebMetadataMarker);
+    expect(logs).not.toContain(context.user.id);
+    expect(logs).not.toContain(context.user.email);
+  });
+
+  it("omits remote image failure details from logs and handler messages", async () => {
+    await expect(
+      cardCanvasLogTestRouter
+        .createCaller(context as never)
+        .cardResource.importRemoteImage({
+          url: privateWebUrlMarker,
+          body: privateErrorMarker,
+        }),
+    ).rejects.toThrow(privateErrorMarker);
+
+    const logs = JSON.stringify(mockLogger.error.mock.calls);
+    expect(logs).toContain("cardResource.importRemoteImage");
+    expect(logs).not.toContain(privateWebUrlMarker);
+    expect(logs).not.toContain("SECRET_QUERY");
+    expect(logs).not.toContain(privateErrorMarker);
+    expect(
+      getSafeProcedureErrorMessage("cardResource.importRemoteImage", {
+        code: "INTERNAL_SERVER_ERROR",
+        message: `${privateErrorMarker}:${privateWebUrlMarker}`,
+      }),
+    ).toBe("INTERNAL_SERVER_ERROR");
+  });
+
+  it("omits attachment fingerprints used by the remote import flow", async () => {
+    expect(isSensitiveProcedure("generateUploadUrl")).toBe(true);
+    expect(isSensitiveProcedure("attachment.generateUploadUrl")).toBe(true);
+    await cardCanvasLogTestRouter
+      .createCaller(context as never)
+      .attachment.generateUploadUrl({ sha256: privateAttachmentHashMarker });
+
+    const logs = JSON.stringify(mockLogger.info.mock.calls);
+    expect(logs).toContain("attachment.generateUploadUrl");
+    expect(logs).not.toContain(privateAttachmentHashMarker);
+    expect(logs).not.toContain(context.user.id);
+    expect(logs).not.toContain(context.user.email);
   });
 });

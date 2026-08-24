@@ -38,7 +38,9 @@ import {
   toExcalidrawAppState,
 } from "./card-canvas-excalidraw-adapter";
 import { exportCardCanvas } from "./card-canvas-export";
+import { hasCardCanvasImageDragItem } from "./card-canvas-image-import";
 import { getExcalidrawLanguage } from "./card-canvas-localization";
+import { insertCardCanvasPasteBatch } from "./card-canvas-paste-batch";
 import {
   hydrateCardCanvasImages,
   insertCardCanvasResource,
@@ -49,12 +51,14 @@ import { CardCanvasConvertDialog } from "./CardCanvasConvertDialog";
 import { CardCanvasEmbeddable } from "./CardCanvasEmbeddable";
 import { CardCanvasFrameOverlays } from "./CardCanvasFrameOverlays";
 import { CardCanvasHistoryDrawer } from "./CardCanvasHistoryDrawer";
+import { CardCanvasPasteBatchDialog } from "./CardCanvasPasteBatchDialog";
 import { CardCanvasPasteUploadDialog } from "./CardCanvasPasteUploadDialog";
 import { CardCanvasResourceDrawer } from "./CardCanvasResourceDrawer";
 import { CardCanvasToolbar } from "./CardCanvasToolbar";
 import { CardCanvasZonesDrawer } from "./CardCanvasZonesDrawer";
 import { CardWebLinkDialog } from "./CardWebLinkDialog";
 import { useCardCanvas } from "./use-card-canvas";
+import { useCardCanvasClipboard } from "./use-card-canvas-clipboard";
 import { useCardCanvasDrawers } from "./use-card-canvas-drawers";
 import { useCardCanvasImagePaste } from "./use-card-canvas-image-paste";
 import { useCardCanvasPen } from "./use-card-canvas-pen";
@@ -176,9 +180,12 @@ export function CardWhiteboardCanvas({
   const insertUploadedImage = useCallback(
     async (resource: CardResource) => {
       if (!excalidrawApi) return;
-      await insertCardCanvasResource(excalidrawApi, resource);
+      await insertCardCanvasResource(excalidrawApi, resource, [
+        ...resources,
+        resource,
+      ]);
     },
-    [excalidrawApi],
+    [excalidrawApi, resources],
   );
   const imagePaste = useCardCanvasImagePaste({
     cardPublicId,
@@ -194,6 +201,36 @@ export function CardWhiteboardCanvas({
     isPublicBoard,
     excalidrawApi,
   });
+  const resourceImportBusy =
+    imagePaste.isImageImportBusy ||
+    imagePaste.isUploadingPaste ||
+    webLinks.isPending;
+  const insertPastedBatch = useCallback(
+    async (
+      items: Parameters<typeof insertCardCanvasPasteBatch>[0]["items"],
+      anchor: Parameters<typeof insertCardCanvasPasteBatch>[0]["anchor"],
+    ) => {
+      if (!excalidrawApi) throw new Error("CANVAS_UNAVAILABLE");
+      await insertCardCanvasPasteBatch({
+        api: excalidrawApi,
+        items,
+        resources,
+        anchor,
+      });
+    },
+    [excalidrawApi, resources],
+  );
+  const clipboard = useCardCanvasClipboard({
+    api: excalidrawApi,
+    canEdit: effectiveCanEdit,
+    isPublicBoard,
+    resourceImportBusy,
+    resources,
+    uploadImageResource: imagePaste.uploadImageResource,
+    importRemoteImageResource: imagePaste.importRemoteImageResource,
+    createWebLinkResource: webLinks.createWebLinkResource,
+    insertBatch: insertPastedBatch,
+  });
   const drawers = useCardCanvasDrawers({
     api: excalidrawApi,
     extended,
@@ -201,7 +238,8 @@ export function CardWhiteboardCanvas({
       webLinks.isDialogOpen ||
       preparedConversion?.status === "ready" ||
       controller.saveState === "conflict" ||
-      imagePaste.pendingPublicImage !== null,
+      imagePaste.pendingPublicImage !== null ||
+      clipboard.pendingPublicPaste !== null,
     onExtendedChange,
   });
   const historyQuery = api.cardCanvas.listRevisions.useQuery(
@@ -391,7 +429,10 @@ export function CardWhiteboardCanvas({
   const insertResource = async (resource: CardResource) => {
     if (!excalidrawApi) return;
     try {
-      await insertCardCanvasResource(excalidrawApi, resource);
+      await insertCardCanvasResource(excalidrawApi, resource, [
+        ...resources,
+        resource,
+      ]);
       drawers.closeResources();
     } catch {
       showPopup({
@@ -637,8 +678,12 @@ export function CardWhiteboardCanvas({
         onAddImage={
           effectiveCanEdit ? () => imageInputRef.current?.click() : undefined
         }
-        imageImportDisabled={imagePaste.isImageImportBusy}
+        imageImportDisabled={clipboard.isBusy}
         onAddLink={effectiveCanEdit ? () => webLinks.openDialog() : undefined}
+        linkImportDisabled={clipboard.isBusy}
+        onPaste={effectiveCanEdit ? clipboard.pasteFromClipboard : undefined}
+        pasteDisabled={clipboard.isBusy}
+        pasteBusy={clipboard.isBusy}
         onTogglePenMode={effectiveCanEdit ? pen.toggle : undefined}
         onExport={(format) => void exportCanvas(format)}
         onExit={embedded ? undefined : leaveWhiteboard}
@@ -654,17 +699,41 @@ export function CardWhiteboardCanvas({
       <div
         ref={setCanvasContainer}
         className="relative min-h-0 flex-1"
-        onPasteCapture={imagePaste.handlePasteCapture}
-        onDragOverCapture={imagePaste.handleDragOverCapture}
-        onDropCapture={imagePaste.handleDropCapture}
-        onPointerDownCapture={pen.handlePointerDownCapture}
+        onPasteCapture={clipboard.handlePasteCapture}
+        onDragOverCapture={(event) => {
+          if (
+            clipboard.isBusy &&
+            hasCardCanvasImageDragItem(event.dataTransfer)
+          ) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "none";
+            return;
+          }
+          imagePaste.handleDragOverCapture(event);
+        }}
+        onDropCapture={(event) => {
+          if (
+            clipboard.isBusy &&
+            hasCardCanvasImageDragItem(event.dataTransfer)
+          ) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.nativeEvent.stopImmediatePropagation();
+            return;
+          }
+          imagePaste.handleDropCapture(event);
+        }}
+        onPointerDownCapture={(event) => {
+          clipboard.handlePointerDownCapture(event);
+          pen.handlePointerDownCapture(event);
+        }}
       >
         {effectiveCanEdit && (
           <input
             ref={imageInputRef}
             type="file"
             accept="image/*"
-            disabled={imagePaste.isImageImportBusy}
+            disabled={clipboard.isBusy}
             tabIndex={-1}
             className="sr-only"
             onChange={(event) => {
@@ -782,6 +851,13 @@ export function CardWhiteboardCanvas({
         isUploading={imagePaste.isUploadingPaste}
         onCancel={imagePaste.cancelPublicImage}
         onConfirm={imagePaste.confirmPublicImage}
+      />
+      <CardCanvasPasteBatchDialog
+        open={clipboard.pendingPublicPaste !== null}
+        resourceCount={clipboard.pendingPublicResourceCount}
+        isImporting={clipboard.isBusy}
+        onCancel={clipboard.cancelPublicPaste}
+        onConfirm={clipboard.confirmPublicPaste}
       />
       <CardWebLinkDialog
         cardPublicId={cardPublicId}

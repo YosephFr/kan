@@ -1,13 +1,20 @@
+import { TRPCError } from "@trpc/server";
 import { generateOpenApiDocument } from "trpc-to-openapi";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as cardRepo from "@kan/db/repository/card.repo";
 import * as cardResourceRepo from "@kan/db/repository/cardResource.repo";
 import { WorkspaceChangedError } from "@kan/db/repository/workspace-boundary";
 
+import type * as RemoteImageRateLimitModule from "../utils/card-resource-remote-image-rate-limit";
 import { createTRPCRouter } from "../trpc";
 import { deleteCardResource } from "../utils/card-resource-delete";
 import { normalizeDriveLink } from "../utils/card-resource-drive";
+import { importRemoteCardImage } from "../utils/card-resource-remote-image";
+import {
+  consumeRemoteImageImportRateLimit,
+  RemoteImageRateLimitError,
+} from "../utils/card-resource-remote-image-rate-limit";
 import { normalizeWebResourceOpenUrl } from "../utils/card-resource-web";
 import { assertPermission } from "../utils/permissions";
 import { fetchSafePreviewMetadata } from "../utils/safe-preview";
@@ -20,6 +27,9 @@ const { mockLogger } = vi.hoisted(() => ({
     error: vi.fn(),
   },
 }));
+
+const originalAttachmentsBucket =
+  process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME;
 
 vi.mock("@kan/logger", () => ({ createLogger: vi.fn(() => mockLogger) }));
 vi.mock("@kan/db/repository/card.repo", () => ({
@@ -34,6 +44,20 @@ vi.mock("@kan/db/repository/cardResource.repo", () => ({
 vi.mock("../utils/card-resource-delete", () => ({
   deleteCardResource: vi.fn(),
 }));
+vi.mock("../utils/card-resource-remote-image", () => ({
+  fetchRemoteCardImage: vi.fn(),
+  importRemoteCardImage: vi.fn(),
+}));
+vi.mock(
+  "../utils/card-resource-remote-image-rate-limit",
+  async (importOriginal) => {
+    const original = await importOriginal<typeof RemoteImageRateLimitModule>();
+    return {
+      ...original,
+      consumeRemoteImageImportRateLimit: vi.fn(),
+    };
+  },
+);
 vi.mock("../utils/permissions", () => ({ assertPermission: vi.fn() }));
 vi.mock("../utils/safe-preview", () => ({
   fetchSafePreviewMetadata: vi.fn(),
@@ -138,6 +162,23 @@ describe("cardResource router access", () => {
     vi.mocked(fetchSafePreviewMetadata).mockRejectedValue(
       new Error("Preview unavailable"),
     );
+    vi.mocked(consumeRemoteImageImportRateLimit).mockResolvedValue(undefined);
+    vi.mocked(importRemoteCardImage).mockResolvedValue({
+      publicId: "attachment01",
+      originalFilename: "imagen-pizarra.png",
+      contentType: "image/png",
+      size: 24,
+      createdAt: new Date("2026-08-24T12:00:00.000Z"),
+    });
+  });
+
+  afterEach(() => {
+    if (originalAttachmentsBucket === undefined) {
+      delete process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME;
+    } else {
+      process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME =
+        originalAttachmentsBucket;
+    }
   });
 
   it("allows anonymous reads only when the locked board is public", async () => {
@@ -737,6 +778,175 @@ describe("cardResource router access", () => {
     expect(JSON.stringify(result)).not.toContain("webImageUrl");
   });
 
+  it("imports a remote image only after edit permission and rate limiting", async () => {
+    process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME = "attachments";
+    const { cardResourceRouter } = await import("./card-resource");
+
+    const result = await cardResourceRouter
+      .createCaller({ db, user: { id: "user-1" } } as never)
+      .importRemoteImage({
+        cardPublicId: "cardpublic01",
+        url: "https://images.example.com/private.png?token=secret",
+        publicVisibilityAcknowledged: true,
+      });
+
+    expect(assertPermission).toHaveBeenCalledWith(
+      db,
+      "user-1",
+      card.workspaceId,
+      "card:edit",
+    );
+    expect(consumeRemoteImageImportRateLimit).toHaveBeenCalledWith(
+      "user-1",
+      "cardpublic01",
+    );
+    expect(importRemoteCardImage).toHaveBeenCalledOnce();
+    const importCall = vi.mocked(importRemoteCardImage).mock.calls[0];
+    expect(importCall?.[0]).toBe(
+      "https://images.example.com/private.png?token=secret",
+    );
+    expect(typeof importCall?.[1].fetchImage).toBe("function");
+    expect(typeof importCall?.[1].createUpload).toBe("function");
+    expect(typeof importCall?.[1].writeStagingObject).toBe("function");
+    expect(typeof importCall?.[1].confirmUpload).toBe("function");
+    expect(typeof importCall?.[1].discardUpload).toBe("function");
+    expect(result).toEqual({
+      kind: "upload",
+      publicId: "attachment01",
+      title: "imagen-pizarra.png",
+      originalFilename: "imagen-pizarra.png",
+      contentType: "image/png",
+      size: 24,
+      viewUrl: "/api/attachments/attachment01/view",
+      downloadUrl: "/api/attachments/attachment01/download",
+      createdAt: new Date("2026-08-24T12:00:00.000Z"),
+    });
+  });
+
+  it("stops before network import without permission or public acknowledgement", async () => {
+    process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME = "attachments";
+    const { cardResourceRouter } = await import("./card-resource");
+    const caller = cardResourceRouter.createCaller({
+      db,
+      user: { id: "user-1" },
+    } as never);
+
+    vi.mocked(assertPermission).mockRejectedValueOnce(
+      new Error("Permission denied"),
+    );
+    await expect(
+      caller.importRemoteImage({
+        cardPublicId: "cardpublic01",
+        url: "https://images.example.com/private.png",
+        publicVisibilityAcknowledged: true,
+      }),
+    ).rejects.toThrow("Permission denied");
+    expect(consumeRemoteImageImportRateLimit).not.toHaveBeenCalled();
+    expect(importRemoteCardImage).not.toHaveBeenCalled();
+
+    vi.mocked(assertPermission).mockResolvedValue(undefined);
+    vi.mocked(
+      cardRepo.getWorkspaceAndCardIdByCardPublicId,
+    ).mockResolvedValueOnce({
+      ...card,
+      workspaceVisibility: "public",
+    } as never);
+    await expect(
+      caller.importRemoteImage({
+        cardPublicId: "cardpublic01",
+        url: "https://images.example.com/private.png",
+        publicVisibilityAcknowledged: false,
+      }),
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: "PUBLIC_VISIBILITY_ACKNOWLEDGEMENT_REQUIRED",
+    });
+    expect(consumeRemoteImageImportRateLimit).not.toHaveBeenCalled();
+    expect(importRemoteCardImage).not.toHaveBeenCalled();
+  });
+
+  it("returns a safe response when the remote image limit is reached", async () => {
+    process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME = "attachments";
+    vi.mocked(consumeRemoteImageImportRateLimit).mockRejectedValueOnce(
+      new RemoteImageRateLimitError("LIMIT_EXCEEDED"),
+    );
+    const { cardResourceRouter } = await import("./card-resource");
+
+    await expect(
+      cardResourceRouter
+        .createCaller({ db, user: { id: "user-1" } } as never)
+        .importRemoteImage({
+          cardPublicId: "cardpublic01",
+          url: "https://images.example.com/private.png?token=secret",
+          publicVisibilityAcknowledged: true,
+        }),
+    ).rejects.toMatchObject({
+      code: "TOO_MANY_REQUESTS",
+      message: "REMOTE_IMAGE_RATE_LIMIT_REACHED",
+    });
+    expect(importRemoteCardImage).not.toHaveBeenCalled();
+  });
+
+  it("redacts the remote URL and unexpected import failures", async () => {
+    process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME = "attachments";
+    const privateMarker =
+      "PRIVATE_REMOTE_IMAGE:https://images.example.com/file.png?token=SECRET";
+    vi.mocked(importRemoteCardImage).mockRejectedValueOnce(
+      new Error(privateMarker),
+    );
+    const { cardResourceRouter } = await import("./card-resource");
+    const router = createTRPCRouter({ cardResource: cardResourceRouter });
+
+    const error = await router
+      .createCaller({ db, user: { id: "user-1" } } as never)
+      .cardResource.importRemoteImage({
+        cardPublicId: "cardpublic01",
+        url: "https://images.example.com/file.png?token=SECRET",
+        publicVisibilityAcknowledged: true,
+      })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "REMOTE_IMAGE_IMPORT_FAILED",
+    });
+    expect(JSON.stringify(error)).not.toContain(privateMarker);
+    expect(JSON.stringify(error)).not.toContain("SECRET");
+    const logs = JSON.stringify(mockLogger.error.mock.calls);
+    expect(logs).toContain("cardResource.importRemoteImage");
+    expect(logs).not.toContain(privateMarker);
+    expect(logs).not.toContain("SECRET");
+  });
+
+  it("sanitizes nested attachment TRPC errors and causes", async () => {
+    process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME = "attachments";
+    const privateMarker = "PRIVATE_NESTED_ATTACHMENT_ERROR";
+    vi.mocked(importRemoteCardImage).mockRejectedValueOnce(
+      new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: privateMarker,
+        cause: new Error(`${privateMarker}:S3_CAUSE`),
+      }),
+    );
+    const { cardResourceRouter } = await import("./card-resource");
+
+    const error = await cardResourceRouter
+      .createCaller({ db, user: { id: "user-1" } } as never)
+      .importRemoteImage({
+        cardPublicId: "cardpublic01",
+        url: "https://images.example.com/file.png",
+        publicVisibilityAcknowledged: true,
+      })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "REMOTE_IMAGE_IMPORT_FAILED",
+    });
+    expect(JSON.stringify(error)).not.toContain(privateMarker);
+    expect(JSON.stringify(error)).not.toContain("S3_CAUSE");
+  });
+
   it("publishes every resource adapter in the OpenAPI document", async () => {
     const { cardResourceRouter } = await import("./card-resource");
     const document = generateOpenApiDocument(
@@ -751,10 +961,69 @@ describe("cardResource router access", () => {
     expect(Object.keys(document.paths ?? {}).sort()).toEqual([
       "/cards/{cardPublicId}/resources",
       "/cards/{cardPublicId}/resources/drive",
+      "/cards/{cardPublicId}/resources/remote-image",
       "/cards/{cardPublicId}/resources/upload",
       "/cards/{cardPublicId}/resources/upload/confirm",
       "/cards/{cardPublicId}/resources/web",
       "/resources/{resourcePublicId}",
+    ]);
+  });
+
+  it("publishes remote image imports as upload resources", async () => {
+    const { cardResourceRouter } = await import("./card-resource");
+    const document = generateOpenApiDocument(
+      createTRPCRouter({ cardResource: cardResourceRouter }),
+      {
+        title: "Resources",
+        version: "1.0.0",
+        baseUrl: "https://example.test/api/v1",
+      },
+    );
+    const response = document.paths?.[
+      "/cards/{cardPublicId}/resources/remote-image"
+    ]?.post?.responses?.[200] as {
+      content?: Record<
+        string,
+        {
+          schema?: {
+            oneOf?: unknown;
+            properties?: Record<string, unknown>;
+            required?: string[];
+            type?: string;
+          };
+        }
+      >;
+    };
+    const schema = response.content?.["application/json"]?.schema;
+
+    expect(schema).toMatchObject({
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["upload"] },
+      },
+    });
+    expect(schema).not.toHaveProperty("oneOf");
+    expect(Object.keys(schema?.properties ?? {}).sort()).toEqual([
+      "contentType",
+      "createdAt",
+      "downloadUrl",
+      "kind",
+      "originalFilename",
+      "publicId",
+      "size",
+      "title",
+      "viewUrl",
+    ]);
+    expect([...(schema?.required ?? [])].sort()).toEqual([
+      "contentType",
+      "createdAt",
+      "downloadUrl",
+      "kind",
+      "originalFilename",
+      "publicId",
+      "size",
+      "title",
+      "viewUrl",
     ]);
   });
 });

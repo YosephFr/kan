@@ -28,7 +28,7 @@ export function useCardCanvasWebLinks({
   const { showPopup } = usePopup();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [initialUrl, setInitialUrl] = useState("");
-  const { createWebLink } = useCreateCardWebLink(cardPublicId);
+  const { createWebLink, isPending } = useCreateCardWebLink(cardPublicId);
 
   const insertCreatedWebLink = useCallback(
     async (resource: WebCardResource) => {
@@ -113,6 +113,8 @@ export function useCardCanvasWebLinks({
     openDialog,
     closeDialog,
     insertCreatedWebLink,
+    createWebLinkResource: createWebLink,
     handlePaste,
+    isPending,
   };
 }

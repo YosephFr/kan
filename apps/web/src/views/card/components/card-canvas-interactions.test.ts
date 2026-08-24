@@ -2,7 +2,10 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { describe, expect, it, vi } from "vitest";
 
 import { getCardCanvasEscapeAction } from "./use-card-canvas-drawers";
-import { activateCardCanvasPen } from "./use-card-canvas-pen";
+import {
+  activateCardCanvasPen,
+  detectFirstCardCanvasPenPointer,
+} from "./use-card-canvas-pen";
 
 const escapeState = {
   hasBlockingDialog: false,
@@ -77,6 +80,44 @@ describe("card canvas interactions", () => {
     } as unknown as ExcalidrawImperativeAPI;
 
     activateCardCanvasPen(api);
+
+    expect(setActiveTool).not.toHaveBeenCalled();
+  });
+
+  it("switches restored pen mode to drawing on the first physical Pencil pointer", () => {
+    const setActiveTool = vi.fn();
+    const pointerState = { current: false };
+    const api = {
+      getAppState: () => ({
+        activeTool: { type: "selection" },
+        penDetected: true,
+        penMode: true,
+      }),
+      updateScene: vi.fn(),
+      setActiveTool,
+    } as unknown as ExcalidrawImperativeAPI;
+
+    activateCardCanvasPen(api, detectFirstCardCanvasPenPointer(pointerState));
+
+    expect(setActiveTool).toHaveBeenCalledWith({ type: "freedraw" });
+
+    setActiveTool.mockClear();
+    activateCardCanvasPen(api, detectFirstCardCanvasPenPointer(pointerState));
+    expect(setActiveTool).not.toHaveBeenCalled();
+  });
+
+  it("keeps Selection active after Pencil has already been detected", () => {
+    const setActiveTool = vi.fn();
+    const api = {
+      getAppState: () => ({
+        activeTool: { type: "selection" },
+        penDetected: true,
+      }),
+      updateScene: vi.fn(),
+      setActiveTool,
+    } as unknown as ExcalidrawImperativeAPI;
+
+    activateCardCanvasPen(api, false);
 
     expect(setActiveTool).not.toHaveBeenCalled();
   });

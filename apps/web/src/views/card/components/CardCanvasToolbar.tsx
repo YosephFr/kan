@@ -4,6 +4,7 @@ import {
   HiArrowLeft,
   HiArrowsPointingOut,
   HiEllipsisHorizontal,
+  HiOutlineClipboard,
   HiOutlineClock,
   HiOutlineLink,
   HiOutlineMap,
@@ -26,6 +27,10 @@ interface CardCanvasToolbarProps {
   onAddImage?: () => void;
   imageImportDisabled?: boolean;
   onAddLink?: () => void;
+  linkImportDisabled?: boolean;
+  onPaste?: () => void;
+  pasteDisabled?: boolean;
+  pasteBusy?: boolean;
   onTogglePenMode?: () => void;
   onConvert: () => void;
   onExport: (format: CardCanvasExportFormat) => void;
@@ -59,6 +64,7 @@ const ToolbarButton = ({
   expanded,
   prominent = false,
   disabled = false,
+  busy = false,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -69,6 +75,7 @@ const ToolbarButton = ({
   expanded?: boolean;
   prominent?: boolean;
   disabled?: boolean;
+  busy?: boolean;
 }) => (
   <button
     id={id}
@@ -80,8 +87,9 @@ const ToolbarButton = ({
     aria-pressed={pressed}
     aria-controls={controls}
     aria-expanded={expanded}
+    aria-busy={busy || undefined}
   >
-    {icon}
+    <span className={busy ? "animate-pulse" : undefined}>{icon}</span>
     <span className={prominent ? "hidden sm:inline" : "hidden lg:inline"}>
       {label}
     </span>
@@ -98,6 +106,10 @@ export function CardCanvasToolbar({
   onAddImage,
   imageImportDisabled = false,
   onAddLink,
+  linkImportDisabled = false,
+  onPaste,
+  pasteDisabled = false,
+  pasteBusy = false,
   onTogglePenMode,
   onConvert,
   onExport,
@@ -139,21 +151,34 @@ export function CardCanvasToolbar({
             {cardTitle}
           </span>
         )}
-        {canEdit && onAddImage && (
+        {canEdit && onPaste && (
           <ToolbarButton
-            label={t`Image`}
-            icon={<HiOutlinePhoto className="h-4 w-4" />}
-            onClick={onAddImage}
-            disabled={imageImportDisabled}
+            label={t`Paste`}
+            icon={<HiOutlineClipboard className="h-4 w-4" />}
+            onClick={onPaste}
+            disabled={pasteDisabled || pasteBusy}
+            busy={pasteBusy}
+            prominent
           />
         )}
-        {canEdit && onAddLink && (
-          <ToolbarButton
-            label={t`Link`}
-            icon={<HiOutlineLink className="h-4 w-4" />}
-            onClick={onAddLink}
-          />
-        )}
+        <div className="card-canvas-toolbar-creative-actions items-center gap-0.5 sm:gap-1">
+          {canEdit && onAddImage && (
+            <ToolbarButton
+              label={t`Image`}
+              icon={<HiOutlinePhoto className="h-4 w-4" />}
+              onClick={onAddImage}
+              disabled={imageImportDisabled}
+            />
+          )}
+          {canEdit && onAddLink && (
+            <ToolbarButton
+              label={t`Link`}
+              icon={<HiOutlineLink className="h-4 w-4" />}
+              onClick={onAddLink}
+              disabled={linkImportDisabled}
+            />
+          )}
+        </div>
         {canEdit && onTogglePenMode && (
           <ToolbarButton
             label={penModeEnabled ? t`Disable pen mode` : t`Enable pen mode`}
@@ -170,6 +195,38 @@ export function CardCanvasToolbar({
             <HiEllipsisHorizontal className="h-5 w-5" />
           </summary>
           <div className="absolute left-0 top-12 z-50 w-52 overflow-hidden rounded-md border border-light-400 bg-light-50 py-1 shadow-lg dark:border-dark-500 dark:bg-dark-100">
+            {canEdit && onAddImage && (
+              <button
+                type="button"
+                disabled={imageImportDisabled}
+                onClick={(event) => {
+                  onAddImage();
+                  event.currentTarget
+                    .closest("details")
+                    ?.removeAttribute("open");
+                }}
+                className="flex min-h-11 w-full items-center gap-3 px-3 text-left text-xs text-light-900 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-light-800 disabled:cursor-not-allowed disabled:opacity-50 dark:text-dark-900 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800"
+              >
+                <HiOutlinePhoto className="h-4 w-4" />
+                {t`Image`}
+              </button>
+            )}
+            {canEdit && onAddLink && (
+              <button
+                type="button"
+                disabled={linkImportDisabled}
+                onClick={(event) => {
+                  onAddLink();
+                  event.currentTarget
+                    .closest("details")
+                    ?.removeAttribute("open");
+                }}
+                className="flex min-h-11 w-full items-center gap-3 px-3 text-left text-xs text-light-900 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-light-800 disabled:cursor-not-allowed disabled:opacity-50 dark:text-dark-900 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800"
+              >
+                <HiOutlineLink className="h-4 w-4" />
+                {t`Link`}
+              </button>
+            )}
             <button
               type="button"
               aria-controls="card-canvas-zones-drawer"
@@ -343,12 +400,20 @@ export function CardCanvasToolbar({
           display: none;
         }
 
-        @container (min-width: 46rem) {
+        .card-canvas-toolbar-creative-actions {
+          display: none;
+        }
+
+        @container (min-width: 80rem) {
           .card-canvas-toolbar-more {
             display: none;
           }
 
           .card-canvas-toolbar-actions {
+            display: flex;
+          }
+
+          .card-canvas-toolbar-creative-actions {
             display: flex;
           }
         }
