@@ -1,8 +1,6 @@
 import type { DropResult } from "react-beautiful-dnd";
-import { useParams } from "next/navigation";
 import { useRouter } from "next/router";
 import { t } from "@lingui/core/macro";
-import { keepPreviousData } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { DragDropContext } from "react-beautiful-dnd";
 import { useForm } from "react-hook-form";
@@ -28,6 +26,10 @@ import { useModal } from "~/providers/modal";
 import { usePopup } from "~/providers/popup";
 import { useWorkspace } from "~/providers/workspace";
 import { api } from "~/utils/api";
+import {
+  getBoardRoutePublicId,
+  keepCurrentBoardData,
+} from "~/utils/board-navigation";
 import { isCardPriority } from "~/utils/card-presentation";
 import { isOpenSubtasksConfirmationError } from "~/utils/card-workspace";
 import { formatToArray } from "~/utils/helpers";
@@ -57,7 +59,6 @@ import { UpdateBoardSlugForm } from "./components/UpdateBoardSlugForm";
 type PublicListId = string;
 
 export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
-  const params = useParams() as { boardId: string | string[] } | null;
   const router = useRouter();
   const utils = api.useUtils();
   const { showPopup } = usePopup();
@@ -101,11 +102,7 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
       group: "ACTIONS",
     });
 
-  const boardId = params?.boardId
-    ? Array.isArray(params.boardId)
-      ? params.boardId[0]
-      : params.boardId
-    : null;
+  const boardId = getBoardRoutePublicId(router.query.boardId);
 
   const updateBoard = api.board.update.useMutation();
 
@@ -153,7 +150,8 @@ export default function BoardPage({ isTemplate }: { isTemplate?: boolean }) {
     error,
   } = api.board.byId.useQuery(queryParams, {
     enabled: !!boardId,
-    placeholderData: keepPreviousData,
+    placeholderData: (previousBoard) =>
+      keepCurrentBoardData(previousBoard, boardId),
   });
 
   // Redirect to 404 if board doesn't exist

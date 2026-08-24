@@ -9,6 +9,7 @@ import { Tooltip } from "~/components/Tooltip";
 import { usePermissions } from "~/hooks/usePermissions";
 import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
+import { isBoardPublicId } from "~/utils/board-navigation";
 import { isPublicVisibilityAcknowledgementError } from "~/utils/card-workspace";
 import { getBoardResourceCount } from "~/utils/resource-summary";
 
@@ -43,7 +44,9 @@ const VisibilityButton = ({
     useState(false);
   const resourceBoardQuery = api.board.byId.useQuery(
     { boardPublicId, members: [], labels: [], lists: [] },
-    { enabled: stateVisibility === "private" },
+    {
+      enabled: isBoardPublicId(boardPublicId) && stateVisibility === "private",
+    },
   );
   const resourceCount = getBoardResourceCount(
     resourceBoardQuery.data?.lists ?? [],
