@@ -1,7 +1,18 @@
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
-import { boards, cards, lists, workspaces } from "@kan/db/schema";
+import type { Permission } from "@kan/shared";
+import {
+  boards,
+  cards,
+  lists,
+  workspaceMemberPermissions,
+  workspaceMembers,
+  workspaceRolePermissions,
+  workspaceRoles,
+  workspaces,
+} from "@kan/db/schema";
+import { getDefaultPermissions } from "@kan/shared";
 
 export type WorkspaceBoundaryTransaction = Parameters<
   Parameters<dbClient["transaction"]>[0]
@@ -14,7 +25,132 @@ export class WorkspaceChangedError extends Error {
   }
 }
 
+export class WorkspacePermissionChangedError extends Error {
+  constructor() {
+    super("Workspace permission changed");
+    this.name = "WorkspacePermissionChangedError";
+  }
+}
+
 type LockMode = "share" | "update";
+
+export async function lockActiveWorkspaceByPublicId(
+  tx: WorkspaceBoundaryTransaction,
+  input: {
+    workspacePublicId: string;
+    expectedWorkspaceId: number;
+    lock?: LockMode;
+  },
+) {
+  const [workspace] = await tx
+    .select({ id: workspaces.id, publicId: workspaces.publicId })
+    .from(workspaces)
+    .where(
+      and(
+        eq(workspaces.id, input.expectedWorkspaceId),
+        eq(workspaces.publicId, input.workspacePublicId),
+        isNull(workspaces.deletedAt),
+      ),
+    )
+    .limit(1)
+    .for(input.lock ?? "share");
+  if (!workspace) throw new WorkspaceChangedError();
+  return workspace;
+}
+
+export async function assertWorkspacePermissionTx(
+  tx: WorkspaceBoundaryTransaction,
+  input: {
+    workspaceId: number;
+    userId: string;
+    permission: Permission;
+  },
+) {
+  const [member] = await tx
+    .select({
+      id: workspaceMembers.id,
+      role: workspaceMembers.role,
+      roleId: workspaceMembers.roleId,
+    })
+    .from(workspaceMembers)
+    .where(
+      and(
+        eq(workspaceMembers.workspaceId, input.workspaceId),
+        eq(workspaceMembers.userId, input.userId),
+        eq(workspaceMembers.status, "active"),
+        isNull(workspaceMembers.deletedAt),
+      ),
+    )
+    .limit(1)
+    .for("share");
+  if (!member) throw new WorkspacePermissionChangedError();
+
+  const [override] = await tx
+    .select({ granted: workspaceMemberPermissions.granted })
+    .from(workspaceMemberPermissions)
+    .where(
+      and(
+        eq(workspaceMemberPermissions.workspaceMemberId, member.id),
+        eq(workspaceMemberPermissions.permission, input.permission),
+      ),
+    )
+    .limit(1)
+    .for("share");
+  if (override) {
+    if (!override.granted) throw new WorkspacePermissionChangedError();
+    return;
+  }
+
+  if (member.roleId === null) {
+    if (!getDefaultPermissions(member.role).includes(input.permission)) {
+      throw new WorkspacePermissionChangedError();
+    }
+    return;
+  }
+
+  const [role] = await tx
+    .select({ id: workspaceRoles.id })
+    .from(workspaceRoles)
+    .where(
+      and(
+        eq(workspaceRoles.id, member.roleId),
+        eq(workspaceRoles.workspaceId, input.workspaceId),
+      ),
+    )
+    .limit(1)
+    .for("share");
+  if (!role) throw new WorkspacePermissionChangedError();
+
+  const [rolePermission] = await tx
+    .select({ granted: workspaceRolePermissions.granted })
+    .from(workspaceRolePermissions)
+    .where(
+      and(
+        eq(workspaceRolePermissions.workspaceRoleId, role.id),
+        eq(workspaceRolePermissions.permission, input.permission),
+      ),
+    )
+    .limit(1)
+    .for("share");
+  if (!rolePermission?.granted) throw new WorkspacePermissionChangedError();
+}
+
+export async function hasWorkspacePermissionTx(
+  tx: WorkspaceBoundaryTransaction,
+  input: {
+    workspaceId: number;
+    userId: string;
+    permission: Permission;
+  },
+) {
+  try {
+    await assertWorkspacePermissionTx(tx, input);
+    return true;
+  } catch (error) {
+    if (error instanceof WorkspacePermissionChangedError) return false;
+    throw error;
+  }
+}
 
 interface BoardWorkspaceLockOptions {
   boardLock?: LockMode;

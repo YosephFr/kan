@@ -14,6 +14,7 @@ import LottieIcon from "~/components/LottieIcon";
 import { useKeyboardShortcut } from "~/providers/keyboard-shortcuts";
 import { useWorkspace } from "~/providers/workspace";
 import { api } from "~/utils/api";
+import { announceBoardsReentry } from "~/utils/boards-reentry";
 import { BOARDS_PATH, buildBoardPath, isBoardsPath } from "~/utils/navigation";
 
 interface BoardsNavigationProps {
@@ -143,7 +144,10 @@ export default function BoardsNavigation({
             <li>
               <Link
                 href={BOARDS_PATH}
-                onClick={closeMobileNavigation}
+                onClick={() => {
+                  if (currentPath === BOARDS_PATH) announceBoardsReentry();
+                  closeMobileNavigation();
+                }}
                 aria-current={currentPath === BOARDS_PATH ? "page" : undefined}
                 className={twMerge(
                   "flex min-h-8 items-center gap-2 rounded-md px-2 py-1 text-sm text-light-900 hover:bg-light-200 hover:text-light-1000 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-700 dark:text-dark-900 dark:hover:bg-dark-200 dark:hover:text-dark-1000 dark:focus-visible:ring-dark-700",

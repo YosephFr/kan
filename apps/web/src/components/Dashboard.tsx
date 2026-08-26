@@ -70,16 +70,17 @@ export default function Dashboard({
 
   const [isSideNavOpen, setIsSideNavOpen] = useState(false);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
-  const [surfaceMode, setSurfaceMode] = useState<"default" | "card-whiteboard">(
-    "default",
-  );
-  const whiteboardExtended = surfaceMode === "card-whiteboard";
+  const [surfaceMode, setSurfaceMode] = useState<
+    "default" | "card-whiteboard" | "workspace-whiteboard"
+  >("default");
+  const whiteboardExtended = surfaceMode !== "default";
 
   const sideNavRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
   const sideNavButtonRef = useRef<HTMLButtonElement>(null);
   const rightPanelButtonRef = useRef<HTMLButtonElement>(null);
   const lastRightPanelTriggerRef = useRef<HTMLElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const toggleSideNav = () => {
     setIsSideNavOpen(!isSideNavOpen);
@@ -304,6 +305,7 @@ export default function Dashboard({
           >
             <div className="relative flex h-full min-h-0 w-full overflow-hidden">
               <div
+                ref={scrollContainerRef}
                 className={`h-full min-w-0 flex-1 ${
                   whiteboardExtended ? "overflow-hidden" : "overflow-y-auto"
                 }`}
@@ -313,6 +315,7 @@ export default function Dashboard({
                     hasRightPanel: showRightPanel,
                     isRightPanelOpen,
                     mode: surfaceMode,
+                    scrollContainerRef,
                     setMode: setSurfaceMode,
                     toggleRightPanel,
                   }}
@@ -327,7 +330,11 @@ export default function Dashboard({
                   id="dashboard-card-details"
                   ref={rightPanelRef}
                   aria-hidden={!isRightPanelOpen || whiteboardExtended}
-                  inert={!isRightPanelOpen || whiteboardExtended || undefined}
+                  inert={
+                    (!isRightPanelOpen || whiteboardExtended
+                      ? "true"
+                      : undefined) as unknown as boolean
+                  }
                   className={`fixed right-0 top-12 z-40 h-[calc(100dvh-3rem)] w-80 transform overflow-y-auto overscroll-contain border-l border-light-300 bg-light-200 transition-transform duration-300 ease-in-out dark:border-dark-300 dark:bg-dark-100 md:right-3 md:top-3 md:h-[calc(100dvh-1.5rem)] md:w-[360px] xl:hidden ${
                     isRightPanelOpen ? "translate-x-0" : "translate-x-full"
                   } ${whiteboardExtended ? "hidden" : ""}`}

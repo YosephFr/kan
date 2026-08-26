@@ -7,11 +7,13 @@ export function useCardCanvasViewport({
   sectionRef,
   enabled,
   layoutKey,
+  scrollContainerRef,
 }: {
   api: ExcalidrawImperativeAPI | null;
   sectionRef: RefObject<HTMLElement | null>;
   enabled: boolean;
   layoutKey: boolean;
+  scrollContainerRef?: RefObject<HTMLElement | null>;
 }) {
   const resizeFrameRef = useRef<number | null>(null);
 
@@ -32,8 +34,12 @@ export function useCardCanvasViewport({
         : new ResizeObserver(refreshCanvas);
     if (sectionRef.current) observer?.observe(sectionRef.current);
     const viewport = window.visualViewport;
+    const scrollContainer = scrollContainerRef?.current;
     viewport?.addEventListener("resize", refreshCanvas);
     viewport?.addEventListener("scroll", refreshCanvas);
+    scrollContainer?.addEventListener("scroll", refreshCanvas, {
+      passive: true,
+    });
     window.addEventListener("orientationchange", refreshCanvas);
     refreshCanvas();
     const transitionTimer = window.setTimeout(refreshCanvas, 340);
@@ -42,11 +48,12 @@ export function useCardCanvasViewport({
       observer?.disconnect();
       viewport?.removeEventListener("resize", refreshCanvas);
       viewport?.removeEventListener("scroll", refreshCanvas);
+      scrollContainer?.removeEventListener("scroll", refreshCanvas);
       window.removeEventListener("orientationchange", refreshCanvas);
       if (resizeFrameRef.current !== null) {
         window.cancelAnimationFrame(resizeFrameRef.current);
       }
       window.clearTimeout(transitionTimer);
     };
-  }, [api, enabled, layoutKey, sectionRef]);
+  }, [api, enabled, layoutKey, scrollContainerRef, sectionRef]);
 }

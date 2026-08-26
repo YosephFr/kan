@@ -12835,5 +12835,244 @@
     "placeholders": {},
     "comments": [],
     "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 306]]
+  },
+  "DB4mLX": {
+    "translation": "Añade al menos un elemento visible e inténtalo de nuevo.",
+    "message": "Add at least one visible element and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 438]]
+  },
+  "w121rr": {
+    "translation": "Volver a los tableros",
+    "message": "Back to boards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsToolbar.tsx", 268]]
+  },
+  "sVGa3Q": {
+    "translation": "Volver al inicio",
+    "message": "Back to the beginning",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsToolbar.tsx", 172]]
+  },
+  "37WmYu": {
+    "translation": "Dibuja, pega texto y organiza las metas que esta empresa quiere alcanzar.",
+    "message": "Draw, paste text and organise the goals this company is working towards.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsSection.tsx", 102]]
+  },
+  "x3urGu": {
+    "translation": "No se pudo cargar el historial",
+    "message": "History could not be loaded",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasHistoryDrawer.tsx", 90]]
+  },
+  "qVPSwf": {
+    "translation": "No se pudieron añadir las imágenes",
+    "message": "Images could not be added",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 295]
+    ]
+  },
+  "uVGGIy": {
+    "translation": "Cargando imágenes de la pizarra…",
+    "message": "Loading whiteboard images…",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 716]]
+  },
+  "l5nCDH": {
+    "translation": "Abriendo la pizarra del espacio de trabajo…",
+    "message": "Opening workspace whiteboard…",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 594]]
+  },
+  "x/ntUp": {
+    "translation": "El pegado aún está en curso",
+    "message": "Paste is still in progress",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 85]
+    ]
+  },
+  "L+2G1b": {
+    "translation": "No se pudo cargar la pizarra remota",
+    "message": "Remote whiteboard could not be loaded",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 476]]
+  },
+  "Kdf2h0": {
+    "translation": "Pizarra remota cargada",
+    "message": "Remote whiteboard loaded",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 464]]
+  },
+  "i0ANtQ": {
+    "translation": "Se omitieron algunas imágenes",
+    "message": "Some images were skipped",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 294]
+    ]
+  },
+  "f9EbTB": {
+    "translation": "No se pudieron limpiar algunas imágenes locales sin usar. El contenido de tu pizarra está seguro.",
+    "message": "Some unused local images could not be cleaned up. Your whiteboard content is safe.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 465]]
+  },
+  "GJW48w": {
+    "translation": "No se pudieron cargar algunas imágenes de la pizarra",
+    "message": "Some whiteboard images could not be loaded",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 117]
+    ]
+  },
+  "jmXoOu": {
+    "translation": "No se pudieron cargar algunas imágenes de la pizarra.",
+    "message": "Some whiteboard images could not be loaded.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 724]]
+  },
+  "2EyO+p": {
+    "translation": "El texto se mantuvo editable. Las imágenes necesitan conexión para guardarse de forma segura.",
+    "message": "Text was kept editable. Images need a connection so they can be stored securely.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 298]
+    ]
+  },
+  "HUShhy": {
+    "translation": "El contenido del portapapeles superó los límites seguros de la pizarra.",
+    "message": "The clipboard content exceeded the safe whiteboard limits.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 385]
+    ]
+  },
+  "2jEq1t": {
+    "translation": "El contenido no cambió. Revisa los límites de la pizarra e inténtalo de nuevo.",
+    "message": "The content was not changed. Check the whiteboard limits and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 332]
+    ]
+  },
+  "hTYeWx": {
+    "translation": "La pizarra anterior del espacio de trabajo se conservó como punto de recuperación.",
+    "message": "The previous workspace whiteboard was preserved as a checkpoint.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 499]]
+  },
+  "XeN//4": {
+    "translation": "La pizarra no cambió. Revisa tu conexión e inténtalo de nuevo.",
+    "message": "The whiteboard was not changed. Check your connection and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasHistoryDrawer.tsx", 93]]
+  },
+  "Mipvn4": {
+    "translation": "Intentar guardar de nuevo",
+    "message": "Try saving again",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsToolbar.tsx", 284]]
+  },
+  "tpNckD": {
+    "translation": "Usa imágenes JPEG, PNG o WebP dentro de los límites de la pizarra.",
+    "message": "Use JPEG, PNG or WebP images within the whiteboard limits.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 297]
+    ]
+  },
+  "1vp/Fg": {
+    "translation": "Visión y metas de {workspaceName}",
+    "message": "Vision and goals for {workspaceName}",
+    "placeholders": {
+      "workspaceName": ["workspaceName"]
+    },
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 429],
+      ["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 603],
+      ["src/views/boards/components/WorkspaceGoalsSection.tsx", 99],
+      ["src/views/boards/components/WorkspaceGoalsToolbar.tsx", 138]
+    ]
+  },
+  "3jVFoW": {
+    "translation": "Espera a que terminen las imágenes actuales antes de añadir más contenido.",
+    "message": "Wait for the current images to finish before adding more content.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 86]
+    ]
+  },
+  "8icNDc": {
+    "translation": "Las imágenes del espacio de trabajo deben pasar por el almacenamiento seguro antes de entrar en la pizarra.",
+    "message": "Workspace images must pass secure storage before they enter the whiteboard.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 437]
+    ]
+  },
+  "WCBzyp": {
+    "translation": "No se pudo cargar la pizarra del espacio de trabajo",
+    "message": "Workspace whiteboard could not be loaded",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 571]]
+  },
+  "uxLG4P": {
+    "translation": "Tus ideas siguen guardadas. Revisa tu conexión e intenta volver a abrir este espacio de trabajo.",
+    "message": "Your ideas remain saved. Check your connection and try reopening this workspace.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 118]
+    ]
+  },
+  "C7sn4O": {
+    "translation": "Tu borrador local sigue disponible. Revisa tu conexión e inténtalo de nuevo.",
+    "message": "Your local draft remains available. Check your connection and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 477]]
+  },
+  "hic56R": {
+    "translation": "La revisión se restauró en el servidor",
+    "message": "Revision restored on the server",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 505]]
+  },
+  "kHK7Nv": {
+    "translation": "No se pudo actualizar esta vista. Carga la versión remota antes de volver a editar.",
+    "message": "This view could not be refreshed. Load the remote version before editing again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 506]]
   }
 }

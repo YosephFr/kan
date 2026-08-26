@@ -137,12 +137,40 @@ export async function getAttachmentObject(input: {
   );
 }
 
-export async function inspectObject(bucket: string, key: string) {
+export class ObjectInspectionSizeError extends Error {
+  constructor(
+    public readonly code:
+      | "OBJECT_SIZE_UNAVAILABLE"
+      | "OBJECT_SIZE_MISMATCH"
+      | "OBJECT_TOO_LARGE",
+  ) {
+    super(code);
+    this.name = "ObjectInspectionSizeError";
+  }
+}
+
+export async function inspectObject(
+  bucket: string,
+  key: string,
+  options: { maxBytes?: number; expectedBytes?: number } = {},
+) {
   const client = createS3Client();
   const head = await client.send(
     new HeadObjectCommand({ Bucket: bucket, Key: key }),
   );
   if (!head.ETag) throw new Error("Attachment object ETag is missing");
+  if (typeof head.ContentLength !== "number") {
+    throw new ObjectInspectionSizeError("OBJECT_SIZE_UNAVAILABLE");
+  }
+  if (options.maxBytes !== undefined && head.ContentLength > options.maxBytes) {
+    throw new ObjectInspectionSizeError("OBJECT_TOO_LARGE");
+  }
+  if (
+    options.expectedBytes !== undefined &&
+    head.ContentLength !== options.expectedBytes
+  ) {
+    throw new ObjectInspectionSizeError("OBJECT_SIZE_MISMATCH");
+  }
   const object = await client.send(
     new GetObjectCommand({
       Bucket: bucket,

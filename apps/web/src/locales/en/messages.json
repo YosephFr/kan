@@ -12835,5 +12835,244 @@
     "placeholders": {},
     "comments": [],
     "origin": [["src/views/card/components/use-card-canvas-clipboard.ts", 306]]
+  },
+  "DB4mLX": {
+    "translation": "Add at least one visible element and try again.",
+    "message": "Add at least one visible element and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 438]]
+  },
+  "w121rr": {
+    "translation": "Back to boards",
+    "message": "Back to boards",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsToolbar.tsx", 268]]
+  },
+  "sVGa3Q": {
+    "translation": "Back to the beginning",
+    "message": "Back to the beginning",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsToolbar.tsx", 172]]
+  },
+  "37WmYu": {
+    "translation": "Draw, paste text and organise the goals this company is working towards.",
+    "message": "Draw, paste text and organise the goals this company is working towards.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsSection.tsx", 102]]
+  },
+  "x3urGu": {
+    "translation": "History could not be loaded",
+    "message": "History could not be loaded",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasHistoryDrawer.tsx", 90]]
+  },
+  "qVPSwf": {
+    "translation": "Images could not be added",
+    "message": "Images could not be added",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 295]
+    ]
+  },
+  "uVGGIy": {
+    "translation": "Loading whiteboard images…",
+    "message": "Loading whiteboard images…",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 716]]
+  },
+  "l5nCDH": {
+    "translation": "Opening workspace whiteboard…",
+    "message": "Opening workspace whiteboard…",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 594]]
+  },
+  "x/ntUp": {
+    "translation": "Paste is still in progress",
+    "message": "Paste is still in progress",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 85]
+    ]
+  },
+  "L+2G1b": {
+    "translation": "Remote whiteboard could not be loaded",
+    "message": "Remote whiteboard could not be loaded",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 476]]
+  },
+  "Kdf2h0": {
+    "translation": "Remote whiteboard loaded",
+    "message": "Remote whiteboard loaded",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 464]]
+  },
+  "i0ANtQ": {
+    "translation": "Some images were skipped",
+    "message": "Some images were skipped",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 294]
+    ]
+  },
+  "f9EbTB": {
+    "translation": "Some unused local images could not be cleaned up. Your whiteboard content is safe.",
+    "message": "Some unused local images could not be cleaned up. Your whiteboard content is safe.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 465]]
+  },
+  "GJW48w": {
+    "translation": "Some whiteboard images could not be loaded",
+    "message": "Some whiteboard images could not be loaded",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 117]
+    ]
+  },
+  "jmXoOu": {
+    "translation": "Some whiteboard images could not be loaded.",
+    "message": "Some whiteboard images could not be loaded.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 724]]
+  },
+  "2EyO+p": {
+    "translation": "Text was kept editable. Images need a connection so they can be stored securely.",
+    "message": "Text was kept editable. Images need a connection so they can be stored securely.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 298]
+    ]
+  },
+  "HUShhy": {
+    "translation": "The clipboard content exceeded the safe whiteboard limits.",
+    "message": "The clipboard content exceeded the safe whiteboard limits.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 385]
+    ]
+  },
+  "2jEq1t": {
+    "translation": "The content was not changed. Check the whiteboard limits and try again.",
+    "message": "The content was not changed. Check the whiteboard limits and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 332]
+    ]
+  },
+  "hTYeWx": {
+    "translation": "The previous workspace whiteboard was preserved as a checkpoint.",
+    "message": "The previous workspace whiteboard was preserved as a checkpoint.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 499]]
+  },
+  "XeN//4": {
+    "translation": "The whiteboard was not changed. Check your connection and try again.",
+    "message": "The whiteboard was not changed. Check your connection and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardCanvasHistoryDrawer.tsx", 93]]
+  },
+  "Mipvn4": {
+    "translation": "Try saving again",
+    "message": "Try saving again",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsToolbar.tsx", 284]]
+  },
+  "tpNckD": {
+    "translation": "Use JPEG, PNG or WebP images within the whiteboard limits.",
+    "message": "Use JPEG, PNG or WebP images within the whiteboard limits.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 297]
+    ]
+  },
+  "1vp/Fg": {
+    "translation": "Vision and goals for {workspaceName}",
+    "message": "Vision and goals for {workspaceName}",
+    "placeholders": {
+      "workspaceName": ["workspaceName"]
+    },
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 429],
+      ["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 603],
+      ["src/views/boards/components/WorkspaceGoalsSection.tsx", 99],
+      ["src/views/boards/components/WorkspaceGoalsToolbar.tsx", 138]
+    ]
+  },
+  "3jVFoW": {
+    "translation": "Wait for the current images to finish before adding more content.",
+    "message": "Wait for the current images to finish before adding more content.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 86]
+    ]
+  },
+  "8icNDc": {
+    "translation": "Workspace images must pass secure storage before they enter the whiteboard.",
+    "message": "Workspace images must pass secure storage before they enter the whiteboard.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 437]
+    ]
+  },
+  "WCBzyp": {
+    "translation": "Workspace whiteboard could not be loaded",
+    "message": "Workspace whiteboard could not be loaded",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 571]]
+  },
+  "uxLG4P": {
+    "translation": "Your ideas remain saved. Check your connection and try reopening this workspace.",
+    "message": "Your ideas remain saved. Check your connection and try reopening this workspace.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 118]
+    ]
+  },
+  "C7sn4O": {
+    "translation": "Your local draft remains available. Check your connection and try again.",
+    "message": "Your local draft remains available. Check your connection and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 477]]
+  },
+  "hic56R": {
+    "translation": "Revision restored on the server",
+    "message": "Revision restored on the server",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 505]]
+  },
+  "kHK7Nv": {
+    "translation": "This view could not be refreshed. Load the remote version before editing again.",
+    "message": "This view could not be refreshed. Load the remote version before editing again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 506]]
   }
 }

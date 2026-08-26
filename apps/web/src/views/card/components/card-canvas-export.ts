@@ -29,6 +29,7 @@ interface CardCanvasExportOptions {
   title: string;
   format: CardCanvasExportFormat;
   elementIds?: string[];
+  maxImageDimension?: number;
   resourceTitles: ReadonlyMap<string, string>;
   subtaskTitles: ReadonlyMap<string, string>;
 }
@@ -40,6 +41,7 @@ interface ExcalidrawExportOptions {
   exportPadding: number;
   renderEmbeddables?: boolean;
   mimeType?: string;
+  maxWidthOrHeight?: number;
 }
 
 const exportSceneToSvg = exportToSvg as unknown as (
@@ -203,6 +205,7 @@ export const exportCardCanvas = async (options: CardCanvasExportOptions) => {
     files,
     mimeType: "image/png",
     exportPadding: 24,
+    maxWidthOrHeight: options.maxImageDimension,
   });
   downloadBlob(blob, `${filename}.png`);
 };

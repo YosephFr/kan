@@ -14,6 +14,8 @@ export * from "./lists";
 export * from "./users";
 export * from "./integrations";
 export * from "./workspaces";
+export * from "./workspace-canvas";
+export * from "./workspace-canvas-images";
 export * from "./subscriptions";
 export * from "./workspaceInviteLinks";
 export * from "./permissions";

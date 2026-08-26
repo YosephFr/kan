@@ -469,6 +469,44 @@ describe("insertCardCanvasPasteBatch", () => {
     expect(updateScene).not.toHaveBeenCalled();
   });
 
+  it("applies a surface constraint before the single undoable insertion", async () => {
+    const { api, updateScene } = makeApi({ elements: [] });
+    const transformElements = vi.fn(
+      (
+        elements: readonly ExcalidrawElement[],
+        selectedElementIds: Readonly<Record<string, true>>,
+      ) =>
+        elements.map((element) =>
+          selectedElementIds[element.id]
+            ? ({ ...element, x: 0 } as ExcalidrawElement)
+            : element,
+        ),
+    );
+
+    const ids = await insertCardCanvasPasteBatch({
+      api,
+      items: [{ kind: "text", text: "Wide goal" }],
+      resources: [],
+      anchor: { x: 1_300, y: -80 },
+      transformElements,
+    });
+
+    const insertedId = ids[0];
+    if (!insertedId) throw new Error("MISSING_INSERTED_ELEMENT");
+    expect(transformElements).toHaveBeenCalledOnce();
+    expect(transformElements.mock.calls[0]?.[1]).toEqual({
+      [insertedId]: true,
+    });
+    expect(updateScene).toHaveBeenCalledOnce();
+    expect(
+      (
+        updateScene.mock.calls[0]?.[0] as {
+          elements: ExcalidrawElement[];
+        }
+      ).elements[0]?.x,
+    ).toBe(0);
+  });
+
   it("does not overwrite a scene that crosses the limit during hydration", async () => {
     const before = Array.from(
       { length: MAX_CARD_CANVAS_ELEMENTS - 1 },

@@ -5,7 +5,7 @@ import {
   ListboxOptions,
 } from "@headlessui/react";
 import { t } from "@lingui/core/macro";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   HiArrowDownTray,
   HiChevronDown,
@@ -13,6 +13,7 @@ import {
 } from "react-icons/hi2";
 
 import Button from "~/components/Button";
+import { useDashboardSurface } from "~/components/DashboardSurfaceContext";
 import FeedbackModal from "~/components/FeedbackModal";
 import Modal from "~/components/modal";
 import { PageHead } from "~/components/PageHead";
@@ -21,9 +22,11 @@ import { usePermissions } from "~/hooks/usePermissions";
 import { useKeyboardShortcut } from "~/providers/keyboard-shortcuts";
 import { useModal } from "~/providers/modal";
 import { useWorkspace } from "~/providers/workspace";
+import { BOARDS_REENTRY_EVENT } from "~/utils/boards-reentry";
 import { BoardsList } from "./components/BoardsList";
 import { ImportBoardsForm } from "./components/ImportBoardsForm";
 import { NewBoardForm } from "./components/NewBoardForm";
+import { WorkspaceGoalsSection } from "./components/WorkspaceGoalsSection";
 
 const boardsTabs = [
   { key: "boards" as const, label: t`Active` },
@@ -34,7 +37,25 @@ export default function BoardsPage({ isTemplate }: { isTemplate?: boolean }) {
   const { openModal, modalContentType, isOpen } = useModal();
   const { workspace } = useWorkspace();
   const [activeTab, setActiveTab] = useState<"boards" | "archived">("boards");
-  const { canCreateBoard } = usePermissions();
+  const { canCreateBoard, canEditWorkspace, canViewWorkspace } =
+    usePermissions();
+  const { mode, scrollContainerRef } = useDashboardSurface();
+  const workspaceCanvasExtended = mode === "workspace-whiteboard";
+
+  useEffect(() => {
+    if (!workspace.publicId) return;
+    setActiveTab("boards");
+    scrollContainerRef.current?.scrollTo({ top: 0, left: 0 });
+  }, [scrollContainerRef, workspace.publicId]);
+
+  useEffect(() => {
+    const resetBoards = () => {
+      setActiveTab("boards");
+      scrollContainerRef.current?.scrollTo({ top: 0, left: 0 });
+    };
+    window.addEventListener(BOARDS_REENTRY_EVENT, resetBoards);
+    return () => window.removeEventListener(BOARDS_REENTRY_EVENT, resetBoards);
+  }, [scrollContainerRef]);
 
   const { tooltipContent: createModalShortcutTooltipContent } =
     useKeyboardShortcut({
@@ -50,8 +71,14 @@ export default function BoardsPage({ isTemplate }: { isTemplate?: boolean }) {
       <PageHead
         title={t`${isTemplate ? "Templates" : "Boards"} | ${workspace.name}`}
       />
-      <div className="m-auto h-full max-w-[1100px] p-8 px-5 md:px-28 md:py-12">
-        <div className="relative z-10 mb-8 flex w-full items-center justify-between">
+      <div className="m-auto min-h-full max-w-[1100px] p-8 px-5 md:px-28 md:py-12">
+        <div
+          aria-hidden={workspaceCanvasExtended || undefined}
+          inert={
+            (workspaceCanvasExtended ? "true" : undefined) as unknown as boolean
+          }
+          className="relative z-10 mb-8 flex w-full items-center justify-between"
+        >
           <h1 className="font-bold tracking-tight text-neutral-900 dark:text-dark-1000 sm:text-[1.2rem]">
             {t`${isTemplate ? "Templates" : "Boards"}`}
           </h1>
@@ -125,8 +152,16 @@ export default function BoardsPage({ isTemplate }: { isTemplate?: boolean }) {
         </>
 
         {!isTemplate ? (
-          <div className="flex h-full w-full flex-col">
-            <div className="focus:outline-none">
+          <div className="flex min-h-full w-full flex-col">
+            <div
+              aria-hidden={workspaceCanvasExtended || undefined}
+              inert={
+                (workspaceCanvasExtended
+                  ? "true"
+                  : undefined) as unknown as boolean
+              }
+              className="focus:outline-none"
+            >
               <div className="sm:hidden">
                 <Listbox
                   value={activeTab}
@@ -185,7 +220,15 @@ export default function BoardsPage({ isTemplate }: { isTemplate?: boolean }) {
                 </div>
               </div>
             </div>
-            <div className="flex h-full flex-row focus:outline-none">
+            <div
+              aria-hidden={workspaceCanvasExtended || undefined}
+              inert={
+                (workspaceCanvasExtended
+                  ? "true"
+                  : undefined) as unknown as boolean
+              }
+              className="min-h-[150px] w-full focus:outline-none"
+            >
               {activeTab === "boards" && (
                 <BoardsList isTemplate={false} archived={false} />
               )}
@@ -193,6 +236,13 @@ export default function BoardsPage({ isTemplate }: { isTemplate?: boolean }) {
                 <BoardsList isTemplate={false} archived={true} />
               )}
             </div>
+            {activeTab === "boards" && canViewWorkspace && (
+              <WorkspaceGoalsSection
+                workspacePublicId={workspace.publicId}
+                workspaceName={workspace.name}
+                canEdit={canEditWorkspace}
+              />
+            )}
           </div>
         ) : (
           <div className="flex h-full flex-row">

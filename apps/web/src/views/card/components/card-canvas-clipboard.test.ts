@@ -87,6 +87,34 @@ describe("card canvas clipboard normalization", () => {
     ]);
   });
 
+  it("keeps mixed text and links offline without validating omitted images", () => {
+    const result = normalizeCardCanvasClipboard(
+      {
+        html: [
+          "<p>Meta principal</p>",
+          '<img src="https://cdn.example.com/oversized.png">',
+          '<a href="https://example.com/plan">Plan editable</a>',
+        ].join(""),
+        images: [
+          {
+            file: makeSizedImage(MAX_CARD_CANVAS_IMAGE_BYTES + 1),
+          },
+        ],
+      },
+      { includeImages: false },
+    );
+
+    expect(result.items).toEqual([
+      { type: "text", text: "Meta principal" },
+      {
+        type: "link",
+        url: "https://example.com/plan",
+        label: "Plan editable",
+      },
+    ]);
+    expect(result.imagesOmitted).toBe(true);
+  });
+
   it("drops executable and hidden HTML while retaining visible unsafe-link labels", () => {
     const result = normalizeCardCanvasClipboard({
       html: [
@@ -536,6 +564,26 @@ describe("card canvas clipboard adapters", () => {
     expect(getData).not.toHaveBeenCalled();
   });
 
+  it("reads native text offline without inspecting an oversized image", () => {
+    const image = makeSizedImage(MAX_CARD_CANVAS_IMAGE_BYTES + 1);
+    const getData = vi.fn(() => "Idea que debe conservarse");
+    const input = getCardCanvasClipboardInputFromDataTransfer(
+      {
+        files: [image] as unknown as FileList,
+        getData,
+        types: ["Files", "text/plain"],
+      },
+      { includeImages: false },
+    );
+
+    expect(input).toMatchObject({
+      text: "Idea que debe conservarse",
+      images: [],
+      imagesOmitted: true,
+    });
+    expect(getData).toHaveBeenCalledOnce();
+  });
+
   it("reads rich ClipboardItems and chooses one preferred image representation", async () => {
     const getTextType = vi.fn((type: string) => {
       const values: Record<string, Blob> = {
@@ -591,6 +639,34 @@ describe("card canvas clipboard adapters", () => {
     expect(result.text).toBeUndefined();
     expect(getType).toHaveBeenCalledTimes(1);
     expect(getType).toHaveBeenCalledWith("text/uri-list");
+  });
+
+  it("does not read Async Clipboard image blobs offline", async () => {
+    const getText = vi.fn(() =>
+      Promise.resolve(new Blob(["Idea offline"], { type: "text/plain" })),
+    );
+    const getImage = vi.fn(() =>
+      Promise.resolve(
+        new Blob([new Uint8Array(MAX_CARD_CANVAS_IMAGE_BYTES + 1)], {
+          type: "image/png",
+        }),
+      ),
+    );
+
+    const input = await readCardCanvasClipboardItems(
+      [
+        { types: ["text/plain"], getType: getText },
+        { types: ["image/png"], getType: getImage },
+      ],
+      { includeImages: false },
+    );
+    const result = normalizeCardCanvasClipboard(input, {
+      includeImages: false,
+    });
+
+    expect(result.items).toEqual([{ type: "text", text: "Idea offline" }]);
+    expect(result.imagesOmitted).toBe(true);
+    expect(getImage).not.toHaveBeenCalled();
   });
 
   it("rejects oversized ClipboardItem text before reading its contents", async () => {

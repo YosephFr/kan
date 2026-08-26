@@ -4,7 +4,12 @@ import { z } from "zod";
 
 import type { WorkspacePlan } from "@kan/db/schema";
 import * as subscriptionRepo from "@kan/db/repository/subscription.repo";
+import {
+  WorkspaceChangedError,
+  WorkspacePermissionChangedError,
+} from "@kan/db/repository/workspace-boundary";
 import * as workspaceRepo from "@kan/db/repository/workspace.repo";
+import * as workspaceCanvasImageRepo from "@kan/db/repository/workspaceCanvasImage.repo";
 import * as workspaceSlugRepo from "@kan/db/repository/workspaceSlug.repo";
 import { createLogger } from "@kan/logger";
 import {
@@ -24,6 +29,7 @@ import {
 } from "../schemas";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { assertPermission } from "../utils/permissions";
+import { deleteReclaimedWorkspaceCanvasImageObjects } from "../utils/workspace-canvas-image-upload";
 
 const logger = createLogger("workspace-router");
 
@@ -566,7 +572,27 @@ export const workspaceRouter = createTRPCRouter({
         );
       }
 
-      await workspaceRepo.hardDelete(ctx.db, input.workspacePublicId);
+      let deletion;
+      try {
+        deletion =
+          await workspaceCanvasImageRepo.hardDeleteWorkspaceWithCanvasStorageOutbox(
+            ctx.db,
+            {
+              workspacePublicId: input.workspacePublicId,
+              expectedWorkspaceId: workspace.id,
+              userId,
+            },
+          );
+      } catch (error) {
+        if (error instanceof WorkspacePermissionChangedError) {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+        if (error instanceof WorkspaceChangedError) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+        throw error;
+      }
+      await deleteReclaimedWorkspaceCanvasImageObjects(ctx.db, deletion.s3Keys);
 
       const logoBucket = env("NEXT_PUBLIC_WORKSPACE_LOGOS_BUCKET_NAME");
       if (logoBucket && workspace.logo && !workspace.logo.startsWith("http")) {

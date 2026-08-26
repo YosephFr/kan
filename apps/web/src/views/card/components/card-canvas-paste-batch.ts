@@ -303,11 +303,16 @@ export const insertCardCanvasPasteBatch = async ({
   items,
   resources,
   anchor,
+  transformElements,
 }: {
   api: ExcalidrawImperativeAPI;
   items: readonly CardCanvasPasteBatchItem[];
   resources: readonly CardResource[];
   anchor?: CardCanvasPastePoint | null;
+  transformElements?: (
+    elements: readonly ExcalidrawElement[],
+    selectedElementIds: Readonly<Record<string, true>>,
+  ) => readonly ExcalidrawElement[];
 }) => {
   if (items.length === 0) return [];
   const initialElements = api.getSceneElements();
@@ -338,9 +343,14 @@ export const insertCardCanvasPasteBatch = async ({
     },
     {},
   );
+  const nextElements = [...currentElements, ...positioned];
+  const transformedElements = transformElements?.(
+    nextElements,
+    selectedElementIds,
+  );
   api.setActiveTool({ type: "selection" });
   api.updateScene({
-    elements: [...currentElements, ...positioned],
+    elements: transformedElements ? [...transformedElements] : nextElements,
     appState: { selectedElementIds, selectedGroupIds: {} },
     captureUpdate: "IMMEDIATELY",
   });

@@ -36,6 +36,19 @@ const cardCanvasLogTestRouter = createTRPCRouter({
         });
       }),
   }),
+  workspaceCanvas: createTRPCRouter({
+    save: protectedProcedure
+      .input(z.object({ scene: z.unknown() }))
+      .mutation(() => ({ status: "saved" as const })),
+    importRemoteImage: protectedProcedure
+      .input(z.object({ url: z.string(), body: z.string() }))
+      .mutation(({ input }) => {
+        if (input.body === privateErrorMarker) {
+          throw new Error(`${privateErrorMarker}:${input.url}`);
+        }
+        return { status: "saved" as const };
+      }),
+  }),
   cardResource: createTRPCRouter({
     createWebLink: protectedProcedure
       .input(z.object({ url: z.string(), metadata: z.string() }))
@@ -86,6 +99,54 @@ describe("tRPC card canvas logging", () => {
     expect(logs).not.toContain(privateSceneMarker);
     expect(logs).not.toContain(context.user.id);
     expect(logs).not.toContain(context.user.email);
+  });
+
+  it("omits workspace scene input and identity from logs", async () => {
+    await cardCanvasLogTestRouter
+      .createCaller(context as never)
+      .workspaceCanvas.save({
+        scene: { elements: [{ id: privateSceneMarker }] },
+      });
+
+    const logs = JSON.stringify(mockLogger.info.mock.calls);
+    expect(logs).toContain("workspaceCanvas.save");
+    expect(logs).not.toContain(privateSceneMarker);
+    expect(logs).not.toContain(context.user.id);
+    expect(logs).not.toContain(context.user.email);
+  });
+
+  it("omits workspace image URLs and copied content from logs", async () => {
+    await cardCanvasLogTestRouter
+      .createCaller(context as never)
+      .workspaceCanvas.importRemoteImage({
+        url: privateWebUrlMarker,
+        body: privateWebMetadataMarker,
+      });
+
+    const logs = JSON.stringify(mockLogger.info.mock.calls);
+    expect(logs).toContain("workspaceCanvas.importRemoteImage");
+    expect(logs).not.toContain(privateWebUrlMarker);
+    expect(logs).not.toContain("SECRET_QUERY");
+    expect(logs).not.toContain(privateWebMetadataMarker);
+    expect(logs).not.toContain(context.user.id);
+    expect(logs).not.toContain(context.user.email);
+  });
+
+  it("omits workspace image failure details from logs", async () => {
+    await expect(
+      cardCanvasLogTestRouter
+        .createCaller(context as never)
+        .workspaceCanvas.importRemoteImage({
+          url: privateWebUrlMarker,
+          body: privateErrorMarker,
+        }),
+    ).rejects.toThrow(privateErrorMarker);
+
+    const logs = JSON.stringify(mockLogger.error.mock.calls);
+    expect(logs).toContain("workspaceCanvas.importRemoteImage");
+    expect(logs).not.toContain(privateWebUrlMarker);
+    expect(logs).not.toContain("SECRET_QUERY");
+    expect(logs).not.toContain(privateErrorMarker);
   });
 
   it("omits private scene input and error details from failure logs", async () => {

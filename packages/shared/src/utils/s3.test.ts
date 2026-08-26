@@ -1,8 +1,11 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { Readable } from "node:stream";
+import { S3Client } from "@aws-sdk/client-s3";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   generateUploadUrl,
   generateWorkspaceLogoUrl,
+  inspectObject,
   resolveS3Endpoint,
 } from "./s3";
 
@@ -13,11 +16,50 @@ const originalSecretKey = process.env.S3_SECRET_ACCESS_KEY;
 const originalRegion = process.env.S3_REGION;
 
 afterEach(() => {
+  vi.restoreAllMocks();
   process.env.S3_ENDPOINT = originalInternalEndpoint;
   process.env.S3_PUBLIC_ENDPOINT = originalPublicEndpoint;
   process.env.S3_ACCESS_KEY_ID = originalAccessKey;
   process.env.S3_SECRET_ACCESS_KEY = originalSecretKey;
   process.env.S3_REGION = originalRegion;
+});
+
+describe("inspectObject", () => {
+  it("rejects an oversized object after HEAD without downloading it", async () => {
+    const send = vi.spyOn(S3Client.prototype, "send").mockResolvedValueOnce({
+      ETag: '"etag"',
+      ContentLength: 101,
+      ContentType: "image/png",
+    } as never);
+
+    await expect(
+      inspectObject("attachments", ".uploads/session/image.png", {
+        maxBytes: 100,
+        expectedBytes: 100,
+      }),
+    ).rejects.toMatchObject({ code: "OBJECT_TOO_LARGE" });
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("downloads an object whose HEAD size is exactly the limit", async () => {
+    const body = Readable.from([new Uint8Array([1, 2, 3])]);
+    const send = vi
+      .spyOn(S3Client.prototype, "send")
+      .mockResolvedValueOnce({
+        ETag: '"etag"',
+        ContentLength: 3,
+        ContentType: "image/png",
+      } as never)
+      .mockResolvedValueOnce({ Body: body } as never);
+
+    await expect(
+      inspectObject("attachments", ".uploads/session/image.png", {
+        maxBytes: 3,
+        expectedBytes: 3,
+      }),
+    ).resolves.toMatchObject({ size: 3 });
+    expect(send).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("generateUploadUrl", () => {

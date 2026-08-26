@@ -36,6 +36,7 @@ export interface CardCanvasClipboardInput {
   html?: string;
   uriList?: string;
   images?: readonly CardCanvasClipboardImageInput[];
+  imagesOmitted?: boolean;
   formats?: readonly string[];
 }
 
@@ -64,6 +65,7 @@ export type CardCanvasClipboardItem =
 
 export interface CardCanvasClipboardResult {
   items: CardCanvasClipboardItem[];
+  imagesOmitted?: boolean;
   counts: {
     objects: number;
     images: number;
@@ -321,7 +323,7 @@ const isTrackingPixel = (tag: string) => {
   return width !== null && height !== null && width <= 1 && height <= 1;
 };
 
-const parseCardCanvasClipboardHtml = (html: string) => {
+const parseCardCanvasClipboardHtml = (html: string, includeImages: boolean) => {
   const items: CardCanvasClipboardItem[] = [];
   const seenLinks = new Set<string>();
   const seenImages = new Set<string>();
@@ -438,6 +440,7 @@ const parseCardCanvasClipboardHtml = (html: string) => {
       continue;
     }
     if (!closing && tagName === "img") {
+      if (!includeImages) continue;
       if (isTrackingPixel(rawTag)) continue;
       const src = getAttribute(rawTag, "src");
       const url = src ? normalizeCardWebLink(src) : null;
@@ -563,19 +566,29 @@ const assertResultLimits = (items: readonly CardCanvasClipboardItem[]) => {
 
 export const normalizeCardCanvasClipboard = (
   input: CardCanvasClipboardInput,
+  options: { includeImages?: boolean } = {},
 ): CardCanvasClipboardResult => {
-  if ((input.images?.length ?? 0) > MAX_CARD_CANVAS_CLIPBOARD_IMAGES) {
+  const includeImages = options.includeImages ?? true;
+  if (
+    includeImages &&
+    (input.images?.length ?? 0) > MAX_CARD_CANVAS_CLIPBOARD_IMAGES
+  ) {
     throw new CardCanvasClipboardLimitError("CLIPBOARD_IMAGE_LIMIT_REACHED");
   }
-  (input.images ?? []).reduce(
-    (totalBytes, image) => addClipboardImageBytes(totalBytes, image.file.size),
-    0,
-  );
+  if (includeImages) {
+    (input.images ?? []).reduce(
+      (totalBytes, image) =>
+        addClipboardImageBytes(totalBytes, image.file.size),
+      0,
+    );
+  }
   assertClipboardTextSize([input.text, input.html, input.uriList]);
-  const binaryImages = normalizeBinaryImages(input.images ?? []);
+  const binaryImages = includeImages
+    ? normalizeBinaryImages(input.images ?? [])
+    : [];
   let contentItems: CardCanvasClipboardItem[] = [];
   if (input.html !== undefined) {
-    contentItems = parseCardCanvasClipboardHtml(input.html);
+    contentItems = parseCardCanvasClipboardHtml(input.html, includeImages);
   } else if (input.uriList) {
     contentItems = normalizeUriList(input.uriList);
   } else if (input.text) {
@@ -588,21 +601,36 @@ export const normalizeCardCanvasClipboard = (
       : [];
   }
   const items = combineImagesWithHtml(binaryImages, contentItems);
-  return { items, counts: assertResultLimits(items) };
+  const imagesOmitted =
+    !includeImages &&
+    (input.imagesOmitted === true ||
+      (input.images?.length ?? 0) > 0 ||
+      input.formats?.some((type) => type.startsWith("image/")) === true ||
+      (input.html !== undefined && /<img(?:\s|\/?>)/i.test(input.html)));
+  return {
+    items,
+    ...(imagesOmitted ? { imagesOmitted: true } : {}),
+    counts: assertResultLimits(items),
+  };
 };
 
 export const getCardCanvasClipboardInputFromDataTransfer = (
   dataTransfer: Pick<DataTransfer, "files" | "getData" | "types">,
+  options: { includeImages?: boolean } = {},
 ): CardCanvasClipboardInput => {
   const images: CardCanvasClipboardImageInput[] = [];
   let imageBytes = 0;
-  for (const file of dataTransfer.files) {
-    if (!file.type.startsWith("image/")) continue;
-    if (images.length >= MAX_CARD_CANVAS_CLIPBOARD_IMAGES) {
-      throw new CardCanvasClipboardLimitError("CLIPBOARD_IMAGE_LIMIT_REACHED");
+  if (options.includeImages ?? true) {
+    for (const file of dataTransfer.files) {
+      if (!file.type.startsWith("image/")) continue;
+      if (images.length >= MAX_CARD_CANVAS_CLIPBOARD_IMAGES) {
+        throw new CardCanvasClipboardLimitError(
+          "CLIPBOARD_IMAGE_LIMIT_REACHED",
+        );
+      }
+      imageBytes = addClipboardImageBytes(imageBytes, file.size);
+      images.push({ file });
     }
-    imageBytes = addClipboardImageBytes(imageBytes, file.size);
-    images.push({ file });
   }
   const formats = Array.from(dataTransfer.types);
   const textType = ["text/html", "text/uri-list", "text/plain"].find((type) =>
@@ -616,6 +644,12 @@ export const getCardCanvasClipboardInputFromDataTransfer = (
       ? { uriList: textValue }
       : {}),
     images,
+    ...(!(options.includeImages ?? true) &&
+    Array.from(dataTransfer.files).some((file) =>
+      file.type.startsWith("image/"),
+    )
+      ? { imagesOmitted: true }
+      : {}),
     formats,
   };
 };
@@ -626,18 +660,24 @@ const IMAGE_TYPE_ORDER = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
 export const readCardCanvasClipboardItems = async (
   clipboardItems: readonly ClipboardItemReader[],
+  options: { includeImages?: boolean } = {},
 ): Promise<CardCanvasClipboardInput> => {
+  const includeImages = options.includeImages ?? true;
   const imageTypes: { item: ClipboardItemReader; type: string }[] = [];
-  for (const item of clipboardItems) {
-    const available = new Set(item.types);
-    const preferred = IMAGE_TYPE_ORDER.find((type) => available.has(type));
-    const fallback = item.types.find((type) => type.startsWith("image/"));
-    const type = preferred ?? fallback;
-    if (!type) continue;
-    if (imageTypes.length >= MAX_CARD_CANVAS_CLIPBOARD_IMAGES) {
-      throw new CardCanvasClipboardLimitError("CLIPBOARD_IMAGE_LIMIT_REACHED");
+  if (includeImages) {
+    for (const item of clipboardItems) {
+      const available = new Set(item.types);
+      const preferred = IMAGE_TYPE_ORDER.find((type) => available.has(type));
+      const fallback = item.types.find((type) => type.startsWith("image/"));
+      const type = preferred ?? fallback;
+      if (!type) continue;
+      if (imageTypes.length >= MAX_CARD_CANVAS_CLIPBOARD_IMAGES) {
+        throw new CardCanvasClipboardLimitError(
+          "CLIPBOARD_IMAGE_LIMIT_REACHED",
+        );
+      }
+      imageTypes.push({ item, type });
     }
-    imageTypes.push({ item, type });
   }
   const textTypes = ["text/html", "text/uri-list", "text/plain"] as const;
   const textType = textTypes.find((type) =>

@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import React from "react";
 import {
   Dialog,
   DialogBackdrop,
@@ -7,7 +6,7 @@ import {
   DialogTitle,
 } from "@headlessui/react";
 import { t } from "@lingui/core/macro";
-import {
+import React, {
   createContext,
   useCallback,
   useContext,
@@ -176,6 +175,10 @@ export function KeyboardShortcutProvider({
   );
 
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    if (document.querySelector('[data-global-shortcuts-suspended="true"]')) {
+      currentNodeRef.current = treeRootRef.current;
+      return;
+    }
     if (isTypingInInput(event)) {
       return;
     }
@@ -490,7 +493,7 @@ function FormattedShortcut({ shortcut }: { shortcut: KeyboardShortcut }) {
       const keyedParts = strokeParts.map((part, partIndex) => {
         if (React.isValidElement(part)) {
           return React.cloneElement(part, {
-            key: `stroke-${strokeIndex}-${part.key || partIndex}`,
+            key: `stroke-${strokeIndex}-${part.key ?? partIndex}`,
           });
         }
         return part;

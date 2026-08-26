@@ -60,6 +60,23 @@ export {
 } from "./card-canvas";
 
 export {
+  workspaceCanvasCasResultSchema,
+  workspaceCanvasPublicIdSchema,
+  workspaceCanvasRevisionSchema,
+  workspaceCanvasSceneSchema,
+  workspaceCanvasSnapshotSchema,
+} from "./workspace-canvas";
+
+export {
+  workspaceCanvasImageContentTypeSchema,
+  workspaceCanvasImageListSchema,
+  workspaceCanvasImageSchema,
+  workspaceCanvasImageUploadFieldsSchema,
+  workspaceCanvasImageUploadRequestSchema,
+  workspaceCanvasImageUploadSessionSchema,
+} from "./workspace-canvas-image";
+
+export {
   cardPipelineSchema,
   cardPipelineStageSchema,
   legacyCardSubtaskAttachmentResourceSchema,

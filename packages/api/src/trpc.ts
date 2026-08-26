@@ -17,6 +17,8 @@ const log = createLogger("api");
 export const isSensitiveProcedure = (path: string) =>
   path === "cardCanvas" ||
   path.startsWith("cardCanvas.") ||
+  path === "workspaceCanvas" ||
+  path.startsWith("workspaceCanvas.") ||
   path === "generateUploadUrl" ||
   path === "attachment.generateUploadUrl" ||
   path === "cardResource.createWebLink" ||

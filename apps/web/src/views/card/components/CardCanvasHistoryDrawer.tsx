@@ -1,4 +1,5 @@
 import { t } from "@lingui/core/macro";
+import { useEffect, useRef } from "react";
 import { HiArrowPath, HiOutlineClock, HiXMark } from "react-icons/hi2";
 import { twMerge } from "tailwind-merge";
 
@@ -9,9 +10,11 @@ interface CardCanvasHistoryDrawerProps {
   open: boolean;
   revisions: CardCanvasRevisionView[];
   isLoading: boolean;
+  error?: boolean;
   isRestoring: boolean;
   disabled: boolean;
   onClose: () => void;
+  onRetry?: () => void;
   onRestore: (revisionPublicId: string) => void;
 }
 
@@ -19,11 +22,21 @@ export function CardCanvasHistoryDrawer({
   open,
   revisions,
   isLoading,
+  error = false,
   isRestoring,
   disabled,
   onClose,
+  onRetry,
   onRestore,
 }: CardCanvasHistoryDrawerProps) {
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const frame = requestAnimationFrame(() => closeButtonRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
+
   return (
     <aside
       id="card-canvas-history-drawer"
@@ -47,6 +60,7 @@ export function CardCanvasHistoryDrawer({
           </h2>
         </div>
         <button
+          ref={closeButtonRef}
           type="button"
           onClick={onClose}
           className="flex h-11 w-11 touch-manipulation items-center justify-center rounded-md text-light-700 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:text-dark-700 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800"
@@ -69,6 +83,25 @@ export function CardCanvasHistoryDrawer({
                 className="h-16 animate-pulse bg-light-200 dark:bg-dark-200"
               />
             ))}
+          </div>
+        ) : error ? (
+          <div className="px-5 py-10 text-center" role="alert">
+            <p className="text-sm font-medium text-light-900 dark:text-dark-900">
+              {t`History could not be loaded`}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-light-700 dark:text-dark-700">
+              {t`The whiteboard was not changed. Check your connection and try again.`}
+            </p>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-md border border-light-400 px-3 text-xs font-medium text-light-900 hover:bg-light-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:border-dark-500 dark:text-dark-900 dark:hover:bg-dark-200 dark:focus-visible:ring-dark-800"
+              >
+                <HiArrowPath className="h-4 w-4" />
+                {t`Try again`}
+              </button>
+            )}
           </div>
         ) : revisions.length === 0 ? (
           <div className="px-5 py-10 text-center">
@@ -107,7 +140,7 @@ export function CardCanvasHistoryDrawer({
                   type="button"
                   onClick={() => onRestore(revision.publicId)}
                   disabled={disabled || isRestoring}
-                  className="flex h-8 items-center gap-1.5 rounded-md border border-light-400 px-2 text-[11px] font-medium text-light-900 hover:bg-light-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-dark-500 dark:text-dark-900 dark:hover:bg-dark-200"
+                  className="flex min-h-11 items-center gap-1.5 rounded-md border border-light-400 px-3 text-[11px] font-medium text-light-900 hover:bg-light-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-dark-500 dark:text-dark-900 dark:hover:bg-dark-200"
                 >
                   <HiArrowPath className="h-3.5 w-3.5" />
                   {t`Restore`}

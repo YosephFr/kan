@@ -55,6 +55,10 @@
     "./utils/web-resource-preview-access": {
       "types": "./src/utils/web-resource-preview-access.ts",
       "default": "./src/utils/web-resource-preview-access.ts"
+    },
+    "./utils/workspace-canvas-image-access": {
+      "types": "./src/utils/workspace-canvas-image-access.ts",
+      "default": "./src/utils/workspace-canvas-image-access.ts"
     }
   },
   "license": "GPL-3.0",

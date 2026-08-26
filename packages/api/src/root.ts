@@ -20,6 +20,7 @@ import { pulseRouter } from "./routers/pulse";
 import { userRouter } from "./routers/user";
 import { webhookRouter } from "./routers/webhook";
 import { workspaceRouter } from "./routers/workspace";
+import { workspaceCanvasRouter } from "./routers/workspace-canvas";
 import { createTRPCRouter } from "./trpc";
 
 export const appRouter = createTRPCRouter({
@@ -44,6 +45,7 @@ export const appRouter = createTRPCRouter({
   user: userRouter,
   webhook: webhookRouter,
   workspace: workspaceRouter,
+  workspaceCanvas: workspaceCanvasRouter,
   integration: integrationRouter,
 });
 
