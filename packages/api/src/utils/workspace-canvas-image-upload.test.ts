@@ -3,14 +3,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as SharedUtils from "@kan/shared/utils";
 import * as workspaceCanvasImageRepo from "@kan/db/repository/workspaceCanvasImage.repo";
 import {
-  copyObject,
   deleteObject,
   generateUID,
   generateUploadUrl,
+  getAttachmentObject,
   inspectObject,
   ObjectInspectionSizeError,
+  putObject,
 } from "@kan/shared/utils";
 
+import {
+  loadAndOptimizeWorkspaceCanvasImage,
+  WorkspaceCanvasImageOptimizationError,
+} from "./workspace-canvas-image-optimizer";
 import {
   confirmWorkspaceCanvasImageUpload,
   createWorkspaceCanvasImageUpload,
@@ -18,15 +23,16 @@ import {
 } from "./workspace-canvas-image-upload";
 
 vi.mock("@kan/db/repository/workspaceCanvasImage.repo", () => ({
+  abandonClaimedUploadSession: vi.fn(),
   claimUploadSession: vi.fn(),
   consumeUploadSession: vi.fn(),
   createUploadSession: vi.fn(),
   deleteUnissuedUploadSession: vi.fn(),
-  enqueueWorkspaceCanvasStorageDeletionKeys: vi.fn(),
   listPendingWorkspaceCanvasStorageDeletionKeys: vi.fn(),
   markWorkspaceCanvasImageStorageDeleted: vi.fn(),
   markWorkspaceCanvasStorageDeletionAttempted: vi.fn(),
   releaseUploadSessionClaim: vi.fn(),
+  reserveUploadFinalObject: vi.fn(),
 }));
 
 vi.mock("@kan/logger", () => ({
@@ -42,13 +48,23 @@ vi.mock("@kan/shared/utils", async (importOriginal) => {
   const original = await importOriginal<typeof SharedUtils>();
   return {
     ...original,
-    copyObject: vi.fn(),
     deleteObject: vi.fn(),
     generateUID: vi.fn(),
     generateUploadUrl: vi.fn(),
+    getAttachmentObject: vi.fn(),
     inspectObject: vi.fn(),
+    putObject: vi.fn(),
   };
 });
+
+vi.mock("./workspace-canvas-image-optimizer", () => ({
+  loadAndOptimizeWorkspaceCanvasImage: vi.fn(),
+  WorkspaceCanvasImageOptimizationError: class extends Error {
+    constructor(readonly code: string) {
+      super(code);
+    }
+  },
+}));
 
 const originalBucket = process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME;
 const db = {} as never;
@@ -91,8 +107,11 @@ const inspected = {
 const image = {
   publicId: "canvasimg001",
   originalFilename: session.originalFilename,
-  contentType: session.contentType,
-  size: session.size,
+  contentType: "image/webp",
+  size: 96,
+  width: 640,
+  height: 480,
+  optimizedAt: new Date("2026-08-26T12:00:00.000Z"),
   createdAt: new Date("2026-08-26T12:00:00.000Z"),
 };
 
@@ -106,7 +125,25 @@ describe("workspace canvas image upload", () => {
       .mockReturnValueOnce("objectkey001");
     vi.mocked(generateUploadUrl).mockResolvedValue("https://upload.test/url");
     vi.mocked(inspectObject).mockResolvedValue(inspected);
-    vi.mocked(copyObject).mockResolvedValue(undefined);
+    vi.mocked(getAttachmentObject).mockResolvedValue({
+      Body: {
+        transformToByteArray: vi.fn().mockResolvedValue(new Uint8Array(24)),
+      },
+    } as never);
+    vi.mocked(loadAndOptimizeWorkspaceCanvasImage).mockImplementation(
+      async (_db, loadSource) => {
+        await loadSource();
+        return {
+          bytes: new Uint8Array(96),
+          contentType: "image/webp",
+          size: 96,
+          sha256: "d".repeat(64),
+          width: 640,
+          height: 480,
+        };
+      },
+    );
+    vi.mocked(putObject).mockResolvedValue(undefined);
     vi.mocked(deleteObject).mockResolvedValue(undefined);
     vi.mocked(
       workspaceCanvasImageRepo.markWorkspaceCanvasImageStorageDeleted,
@@ -118,8 +155,11 @@ describe("workspace canvas image upload", () => {
       workspaceCanvasImageRepo.markWorkspaceCanvasStorageDeletionAttempted,
     ).mockResolvedValue([]);
     vi.mocked(
-      workspaceCanvasImageRepo.enqueueWorkspaceCanvasStorageDeletionKeys,
-    ).mockResolvedValue([{ s3Key: ".objects/objectkey001" }]);
+      workspaceCanvasImageRepo.reserveUploadFinalObject,
+    ).mockResolvedValue({
+      status: "reserved",
+      reservation: { s3Key: ".objects/objectkey001" },
+    });
     vi.mocked(workspaceCanvasImageRepo.createUploadSession).mockResolvedValue({
       status: "created",
       session: { publicId: session.publicId },
@@ -141,6 +181,9 @@ describe("workspace canvas image upload", () => {
     vi.mocked(
       workspaceCanvasImageRepo.releaseUploadSessionClaim,
     ).mockResolvedValue({ publicId: session.publicId } as never);
+    vi.mocked(
+      workspaceCanvasImageRepo.abandonClaimedUploadSession,
+    ).mockResolvedValue({ status: "abandoned", s3Key: session.s3Key });
   });
 
   afterEach(() => {
@@ -196,7 +239,7 @@ describe("workspace canvas image upload", () => {
     expect(generateUploadUrl).not.toHaveBeenCalled();
   });
 
-  it("claims, inspects, copies, consumes and cleans staging in order", async () => {
+  it("claims, optimizes, writes, consumes and cleans staging in order", async () => {
     const result = await confirmWorkspaceCanvasImageUpload(db, {
       ...inputBoundary,
       uploadSessionPublicId: session.publicId,
@@ -216,16 +259,26 @@ describe("workspace canvas image upload", () => {
       maxBytes: 10 * 1024 * 1024,
       expectedBytes: session.size,
     });
-    expect(copyObject).toHaveBeenCalledWith({
+    expect(getAttachmentObject).toHaveBeenCalledWith({
       bucket: "attachments",
-      sourceKey: session.s3Key,
-      destinationKey: ".objects/objectkey001",
-      sourceEtag: inspected.etag,
-      contentType: session.contentType,
+      key: session.s3Key,
+      ifMatch: inspected.etag,
+    });
+    expect(putObject).toHaveBeenCalledWith({
+      bucket: "attachments",
+      key: ".objects/objectkey001",
+      body: expect.any(Uint8Array) as Uint8Array,
+      contentType: "image/webp",
     });
     expect(
-      workspaceCanvasImageRepo.enqueueWorkspaceCanvasStorageDeletionKeys,
-    ).toHaveBeenCalledWith(db, [".objects/objectkey001"], expect.any(Date));
+      workspaceCanvasImageRepo.reserveUploadFinalObject,
+    ).toHaveBeenCalledWith(db, {
+      sessionPublicId: session.publicId,
+      ...inputBoundary,
+      claimToken: "claimtoken01",
+      finalS3Key: ".objects/objectkey001",
+      finalSize: 96,
+    });
     expect(workspaceCanvasImageRepo.consumeUploadSession).toHaveBeenCalledWith(
       db,
       {
@@ -233,6 +286,12 @@ describe("workspace canvas image upload", () => {
         ...inputBoundary,
         claimToken: "claimtoken01",
         finalS3Key: ".objects/objectkey001",
+        finalContentType: "image/webp",
+        finalSize: 96,
+        finalSha256: "d".repeat(64),
+        width: 640,
+        height: 480,
+        optimizedAt: expect.any(Date) as Date,
       },
     );
     expect(deleteObject).toHaveBeenCalledWith("attachments", session.s3Key);
@@ -247,17 +306,17 @@ describe("workspace canvas image upload", () => {
       .mock.invocationCallOrder[0];
     const inspectOrder = vi.mocked(inspectObject).mock.invocationCallOrder[0];
     const reserveOrder = vi.mocked(
-      workspaceCanvasImageRepo.enqueueWorkspaceCanvasStorageDeletionKeys,
+      workspaceCanvasImageRepo.reserveUploadFinalObject,
     ).mock.invocationCallOrder[0];
-    const copyOrder = vi.mocked(copyObject).mock.invocationCallOrder[0];
+    const writeOrder = vi.mocked(putObject).mock.invocationCallOrder[0];
     const consumeOrder = vi.mocked(
       workspaceCanvasImageRepo.consumeUploadSession,
     ).mock.invocationCallOrder[0];
     const cleanupOrder = vi.mocked(deleteObject).mock.invocationCallOrder[0];
     expect(claimOrder).toBeLessThan(inspectOrder ?? 0);
     expect(inspectOrder).toBeLessThan(reserveOrder ?? 0);
-    expect(reserveOrder).toBeLessThan(copyOrder ?? 0);
-    expect(copyOrder).toBeLessThan(consumeOrder ?? 0);
+    expect(reserveOrder).toBeLessThan(writeOrder ?? 0);
+    expect(writeOrder).toBeLessThan(consumeOrder ?? 0);
     expect(consumeOrder).toBeLessThan(cleanupOrder ?? 0);
   });
 
@@ -280,17 +339,21 @@ describe("workspace canvas image upload", () => {
       message: "WORKSPACE_CANVAS_IMAGE_INVALID",
     });
 
-    expect(copyObject).not.toHaveBeenCalled();
+    expect(putObject).not.toHaveBeenCalled();
     expect(
       workspaceCanvasImageRepo.consumeUploadSession,
     ).not.toHaveBeenCalled();
     expect(
       workspaceCanvasImageRepo.releaseUploadSessionClaim,
+    ).not.toHaveBeenCalled();
+    expect(
+      workspaceCanvasImageRepo.abandonClaimedUploadSession,
     ).toHaveBeenCalledWith(db, {
       publicId: session.publicId,
+      ...inputBoundary,
       claimToken: "claimtoken01",
     });
-    expect(deleteObject).not.toHaveBeenCalled();
+    expect(deleteObject).toHaveBeenCalledWith("attachments", session.s3Key);
   });
 
   it("maps an oversized HEAD response without copying the object", async () => {
@@ -307,7 +370,64 @@ describe("workspace canvas image upload", () => {
       code: "BAD_REQUEST",
       message: "WORKSPACE_CANVAS_IMAGE_INVALID",
     });
-    expect(copyObject).not.toHaveBeenCalled();
+    expect(putObject).not.toHaveBeenCalled();
+    expect(
+      workspaceCanvasImageRepo.releaseUploadSessionClaim,
+    ).not.toHaveBeenCalled();
+    expect(
+      workspaceCanvasImageRepo.abandonClaimedUploadSession,
+    ).toHaveBeenCalledWith(db, {
+      publicId: session.publicId,
+      ...inputBoundary,
+      claimToken: "claimtoken01",
+    });
+    expect(deleteObject).toHaveBeenCalledWith("attachments", session.s3Key);
+  });
+
+  it("abandons staging after a deterministic optimization failure", async () => {
+    vi.mocked(loadAndOptimizeWorkspaceCanvasImage).mockRejectedValueOnce(
+      new WorkspaceCanvasImageOptimizationError("IMAGE_OPTIMIZATION_FAILED"),
+    );
+
+    await expect(
+      confirmWorkspaceCanvasImageUpload(db, {
+        ...inputBoundary,
+        uploadSessionPublicId: session.publicId,
+      }),
+    ).rejects.toMatchObject({
+      code: "UNPROCESSABLE_CONTENT",
+      message: "WORKSPACE_CANVAS_IMAGE_OPTIMIZATION_FAILED",
+    });
+    expect(
+      workspaceCanvasImageRepo.abandonClaimedUploadSession,
+    ).toHaveBeenCalledWith(db, {
+      publicId: session.publicId,
+      ...inputBoundary,
+      claimToken: "claimtoken01",
+    });
+    expect(
+      workspaceCanvasImageRepo.releaseUploadSessionClaim,
+    ).not.toHaveBeenCalled();
+    expect(deleteObject).toHaveBeenCalledWith("attachments", session.s3Key);
+  });
+
+  it("returns a safe retryable error when optimization capacity is busy", async () => {
+    vi.mocked(loadAndOptimizeWorkspaceCanvasImage).mockRejectedValueOnce(
+      new WorkspaceCanvasImageOptimizationError("IMAGE_OPTIMIZATION_BUSY"),
+    );
+
+    await expect(
+      confirmWorkspaceCanvasImageUpload(db, {
+        ...inputBoundary,
+        uploadSessionPublicId: session.publicId,
+      }),
+    ).rejects.toMatchObject({
+      code: "SERVICE_UNAVAILABLE",
+      message: "WORKSPACE_CANVAS_IMAGE_OPTIMIZATION_BUSY",
+    });
+    expect(inspectObject).not.toHaveBeenCalled();
+    expect(putObject).not.toHaveBeenCalled();
+    expect(getAttachmentObject).not.toHaveBeenCalled();
     expect(
       workspaceCanvasImageRepo.releaseUploadSessionClaim,
     ).toHaveBeenCalledWith(db, {
@@ -316,10 +436,10 @@ describe("workspace canvas image upload", () => {
     });
   });
 
-  it("durably schedules a copied object for cleanup when consumption fails", async () => {
+  it("rejects the physical budget before writing the optimized object", async () => {
     vi.mocked(
-      workspaceCanvasImageRepo.consumeUploadSession,
-    ).mockResolvedValueOnce({ status: "image_limit" });
+      workspaceCanvasImageRepo.reserveUploadFinalObject,
+    ).mockResolvedValueOnce({ status: "storage_budget" });
 
     await expect(
       confirmWorkspaceCanvasImageUpload(db, {
@@ -328,11 +448,51 @@ describe("workspace canvas image upload", () => {
       }),
     ).rejects.toMatchObject({
       code: "PRECONDITION_FAILED",
-      message: "WORKSPACE_CANVAS_IMAGE_LIMIT_REACHED",
+      message: "WORKSPACE_CANVAS_IMAGE_STORAGE_LIMIT_REACHED",
+    });
+
+    expect(putObject).not.toHaveBeenCalled();
+    expect(
+      workspaceCanvasImageRepo.consumeUploadSession,
+    ).not.toHaveBeenCalled();
+    expect(
+      workspaceCanvasImageRepo.releaseUploadSessionClaim,
+    ).toHaveBeenCalledWith(db, {
+      publicId: session.publicId,
+      claimToken: "claimtoken01",
     });
     expect(
-      workspaceCanvasImageRepo.enqueueWorkspaceCanvasStorageDeletionKeys,
-    ).toHaveBeenCalledWith(db, [".objects/objectkey001"], expect.any(Date));
+      workspaceCanvasImageRepo.abandonClaimedUploadSession,
+    ).not.toHaveBeenCalled();
+    expect(deleteObject).not.toHaveBeenCalledWith(
+      "attachments",
+      ".objects/objectkey001",
+    );
+  });
+
+  it("durably schedules a copied object for cleanup when consumption fails", async () => {
+    vi.mocked(
+      workspaceCanvasImageRepo.consumeUploadSession,
+    ).mockResolvedValueOnce({ status: "image_budget" });
+
+    await expect(
+      confirmWorkspaceCanvasImageUpload(db, {
+        ...inputBoundary,
+        uploadSessionPublicId: session.publicId,
+      }),
+    ).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: "WORKSPACE_CANVAS_IMAGE_TOTAL_LIMIT_REACHED",
+    });
+    expect(
+      workspaceCanvasImageRepo.reserveUploadFinalObject,
+    ).toHaveBeenCalledWith(db, {
+      sessionPublicId: session.publicId,
+      ...inputBoundary,
+      claimToken: "claimtoken01",
+      finalS3Key: ".objects/objectkey001",
+      finalSize: 96,
+    });
     expect(deleteObject).toHaveBeenCalledWith(
       "attachments",
       ".objects/objectkey001",
@@ -360,8 +520,14 @@ describe("workspace canvas image upload", () => {
       message: "WORKSPACE_CANVAS_UPLOAD_FAILED",
     });
     expect(
-      workspaceCanvasImageRepo.enqueueWorkspaceCanvasStorageDeletionKeys,
-    ).toHaveBeenCalledWith(db, [".objects/objectkey001"], expect.any(Date));
+      workspaceCanvasImageRepo.reserveUploadFinalObject,
+    ).toHaveBeenCalledWith(db, {
+      sessionPublicId: session.publicId,
+      ...inputBoundary,
+      claimToken: "claimtoken01",
+      finalS3Key: ".objects/objectkey001",
+      finalSize: 96,
+    });
     expect(deleteObject).not.toHaveBeenCalledWith(
       "attachments",
       ".objects/objectkey001",
@@ -384,7 +550,7 @@ describe("workspace canvas image upload", () => {
     ).resolves.toEqual(image);
 
     expect(inspectObject).not.toHaveBeenCalled();
-    expect(copyObject).not.toHaveBeenCalled();
+    expect(putObject).not.toHaveBeenCalled();
     expect(
       workspaceCanvasImageRepo.consumeUploadSession,
     ).not.toHaveBeenCalled();
@@ -414,5 +580,40 @@ describe("workspace canvas image upload", () => {
     expect(
       workspaceCanvasImageRepo.markWorkspaceCanvasImageStorageDeleted,
     ).toHaveBeenCalledWith(db, [s3Key]);
+  });
+
+  it("bounds concurrent storage deletion for large workspace cleanup batches", async () => {
+    const s3Keys = Array.from(
+      { length: 61 },
+      (_, index) => `.objects/batch-${index}`,
+    );
+    let active = 0;
+    let maximumActive = 0;
+    vi.mocked(
+      workspaceCanvasImageRepo.listPendingWorkspaceCanvasStorageDeletionKeys,
+    ).mockResolvedValue([]);
+    vi.mocked(deleteObject).mockImplementation(async () => {
+      active += 1;
+      maximumActive = Math.max(maximumActive, active);
+      await Promise.resolve();
+      active -= 1;
+    });
+
+    await deleteReclaimedWorkspaceCanvasImageObjects(db, s3Keys);
+
+    expect(maximumActive).toBe(20);
+    expect(deleteObject).toHaveBeenCalledTimes(61);
+    expect(
+      vi
+        .mocked(
+          workspaceCanvasImageRepo.markWorkspaceCanvasStorageDeletionAttempted,
+        )
+        .mock.calls.map((call) => call[1].length),
+    ).toEqual([20, 20, 20, 1]);
+    expect(
+      vi
+        .mocked(workspaceCanvasImageRepo.markWorkspaceCanvasImageStorageDeleted)
+        .mock.calls.map((call) => call[1].length),
+    ).toEqual([20, 20, 20, 1]);
   });
 });

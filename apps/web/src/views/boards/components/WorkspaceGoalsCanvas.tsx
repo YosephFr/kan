@@ -7,10 +7,11 @@ import { Excalidraw } from "@excalidraw/excalidraw";
 import { t } from "@lingui/core/macro";
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { HiArrowPath, HiOutlineExclamationTriangle } from "react-icons/hi2";
 
 import { authClient } from "@kan/auth/client";
 
+import type { WorkspaceCanvasImageViewportSnapshot } from "./workspace-canvas-image-loader";
+import type { WorkspaceGoalsCanvasProps } from "./WorkspaceGoalsCanvasStatus";
 import type { CardCanvasExportFormat } from "~/views/card/components/card-canvas-export";
 import { useDashboardSurface } from "~/components/DashboardSurfaceContext";
 import { useLocalisation } from "~/hooks/useLocalisation";
@@ -33,8 +34,10 @@ import { CardCanvasHistoryDrawer } from "~/views/card/components/CardCanvasHisto
 import { useCardCanvasPen } from "~/views/card/components/use-card-canvas-pen";
 import { useCardCanvasViewport } from "~/views/card/components/use-card-canvas-viewport";
 import { useWorkspaceCanvas } from "./use-workspace-canvas";
+import { useWorkspaceCanvasImages } from "./use-workspace-canvas-images";
 import { useWorkspaceCanvasPaste } from "./use-workspace-canvas-paste";
 import { getWorkspaceCanvasImagePublicIds } from "./workspace-canvas-image-ids";
+import { createWorkspaceCanvasImageViewportScheduler } from "./workspace-canvas-image-loader";
 import { restoreWorkspaceCanvasRevision } from "./workspace-canvas-restore";
 import {
   isWorkspaceCanvasToolForbidden,
@@ -50,13 +53,12 @@ import {
   constrainWorkspaceCanvasSelection,
   getWorkspaceCanvasHomeCamera,
 } from "./workspace-canvas-vertical-track";
+import {
+  WorkspaceGoalsCanvasLoadState,
+  WorkspaceGoalsCanvasStatus,
+  WorkspaceGoalsCanvasThemeStyle,
+} from "./WorkspaceGoalsCanvasStatus";
 import { WorkspaceGoalsToolbar } from "./WorkspaceGoalsToolbar";
-
-interface WorkspaceGoalsCanvasProps {
-  workspacePublicId: string;
-  workspaceName: string;
-  canEdit: boolean;
-}
 
 const WORKSPACE_CANVAS_EXPORT_MAX_DIMENSION = 4_096;
 
@@ -77,6 +79,9 @@ export function WorkspaceGoalsCanvas({
   const sectionRef = useRef<HTMLElement | null>(null);
   const applyingSceneRef = useRef(false);
   const viewportFrameRef = useRef<number | null>(null);
+  const imageViewportSchedulerRef = useRef<ReturnType<
+    typeof createWorkspaceCanvasImageViewportScheduler
+  > | null>(null);
   const homeEpochRef = useRef<string | null>(null);
   const previousScrollTopRef = useRef(0);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -134,12 +139,48 @@ export function WorkspaceGoalsCanvas({
     canEdit: effectiveCanEdit,
     preferenceKey: penPreferenceKey,
   });
-  const paste = useWorkspaceCanvasPaste({
+  const workspaceImages = useWorkspaceCanvasImages({
     workspacePublicId,
     imagePublicIds,
     canvasApi: excalidrawApi,
-    canEdit: effectiveCanEdit,
   });
+  const updateWorkspaceImagesViewport = workspaceImages.updateViewport;
+  const retryWorkspaceImages = workspaceImages.retryFailed;
+  const paste = useWorkspaceCanvasPaste({
+    workspacePublicId,
+    knownUsageBytes: workspaceImages.knownUsageBytes,
+    quotaBytes: workspaceImages.quotaBytes,
+    canvasApi: excalidrawApi,
+    canEdit: effectiveCanEdit,
+    onImagesChanged: retryWorkspaceImages,
+  });
+
+  useEffect(() => {
+    const scheduler = createWorkspaceCanvasImageViewportScheduler({
+      onFrame: ({ elements, appState }) =>
+        updateWorkspaceImagesViewport(elements, appState),
+      requestFrame: window.requestAnimationFrame.bind(window),
+      cancelFrame: window.cancelAnimationFrame.bind(window),
+    });
+    imageViewportSchedulerRef.current = scheduler;
+    return () => {
+      scheduler.dispose();
+      if (imageViewportSchedulerRef.current === scheduler) {
+        imageViewportSchedulerRef.current = null;
+      }
+    };
+  }, [updateWorkspaceImagesViewport]);
+
+  const scheduleWorkspaceImagesViewport = useCallback(
+    (elements: readonly ExcalidrawElement[], appState: AppState) => {
+      const snapshot: WorkspaceCanvasImageViewportSnapshot = {
+        elements,
+        appState,
+      };
+      imageViewportSchedulerRef.current?.schedule(snapshot);
+    },
+    [],
+  );
 
   const historyQuery = api.workspaceCanvas.listRevisions.useQuery(
     { workspacePublicId },
@@ -192,18 +233,21 @@ export function WorkspaceGoalsCanvas({
     const home = getWorkspaceCanvasHomeCamera({
       viewportWidth: excalidrawApi.getAppState().width,
     });
+    const appState = {
+      ...excalidrawApi.getAppState(),
+      scrollX: home.scrollX,
+      scrollY: home.scrollY,
+      zoom: home.zoom,
+    };
     applyingSceneRef.current = true;
     excalidrawApi.updateScene({
-      appState: {
-        scrollX: home.scrollX,
-        scrollY: home.scrollY,
-        zoom: home.zoom,
-      },
+      appState,
     });
+    updateWorkspaceImagesViewport(excalidrawApi.getSceneElements(), appState);
     queueMicrotask(() => {
       applyingSceneRef.current = false;
     });
-  }, [excalidrawApi]);
+  }, [excalidrawApi, updateWorkspaceImagesViewport]);
 
   useEffect(() => {
     window.addEventListener(BOARDS_REENTRY_EVENT, goHome);
@@ -243,6 +287,10 @@ export function WorkspaceGoalsCanvas({
     const refresh = () => {
       excalidrawApi.refresh();
       applyViewportBounds();
+      updateWorkspaceImagesViewport(
+        excalidrawApi.getSceneElements(),
+        excalidrawApi.getAppState(),
+      );
     };
     const observer =
       typeof ResizeObserver === "undefined"
@@ -250,7 +298,7 @@ export function WorkspaceGoalsCanvas({
         : new ResizeObserver(refresh);
     observer?.observe(sectionRef.current);
     return () => observer?.disconnect();
-  }, [applyViewportBounds, excalidrawApi]);
+  }, [applyViewportBounds, excalidrawApi, updateWorkspaceImagesViewport]);
 
   useEffect(
     () => () => {
@@ -337,6 +385,7 @@ export function WorkspaceGoalsCanvas({
   const handleSceneChange = useCallback(
     (elements: readonly ExcalidrawElement[], appState: AppState) => {
       if (!excalidrawApi || applyingSceneRef.current) return;
+      scheduleWorkspaceImagesViewport(elements, appState);
       applyViewportBounds(appState);
       if (isWorkspaceCanvasToolForbidden(appState.activeTool.type)) {
         excalidrawApi.setActiveTool({ type: "selection" });
@@ -418,30 +467,67 @@ export function WorkspaceGoalsCanvas({
       );
       controller.onSceneChange(adapted.scene);
     },
-    [applyViewportBounds, controller, documentSnapshotKey, excalidrawApi],
+    [
+      applyViewportBounds,
+      controller,
+      documentSnapshotKey,
+      excalidrawApi,
+      scheduleWorkspaceImagesViewport,
+    ],
   );
 
   const exportCanvas = useCallback(
     async (format: CardCanvasExportFormat) => {
       if (!excalidrawApi) return;
+      const exportStage = { imagesLoaded: false };
+      const selectedElementIds = Object.keys(
+        excalidrawApi.getAppState().selectedElementIds,
+      );
+      const selectedElementIdSet = new Set(selectedElementIds);
+      const exportElements =
+        selectedElementIds.length > 0
+          ? excalidrawApi
+              .getSceneElements()
+              .filter((element) => selectedElementIdSet.has(element.id))
+          : excalidrawApi.getSceneElements();
+      const exportImagePublicIds = [
+        ...getWorkspaceCanvasImagePublicIds(exportElements),
+      ];
       try {
-        await exportCardCanvas({
-          api: excalidrawApi,
-          title: t`Vision and goals for ${workspaceName}`,
-          format,
-          maxImageDimension: WORKSPACE_CANVAS_EXPORT_MAX_DIMENSION,
-          resourceTitles: new Map(),
-          subtaskTitles: new Map(),
-        });
-      } catch {
+        await workspaceImages.withAllImages(async (files) => {
+          exportStage.imagesLoaded = true;
+          await exportCardCanvas({
+            api: excalidrawApi,
+            files,
+            title: t`Vision and goals for ${workspaceName}`,
+            format,
+            elementIds:
+              selectedElementIds.length > 0 ? selectedElementIds : undefined,
+            maxImageDimension: WORKSPACE_CANVAS_EXPORT_MAX_DIMENSION,
+            resourceTitles: new Map(),
+            subtaskTitles: new Map(),
+          });
+        }, exportImagePublicIds);
+      } catch (error) {
+        const memoryLimitReached =
+          error instanceof Error &&
+          error.message === "WORKSPACE_CANVAS_EXPORT_MEMORY_LIMIT";
         showPopup({
-          header: t`Whiteboard could not be exported`,
-          message: t`Add at least one visible element and try again.`,
+          header: memoryLimitReached
+            ? t`Too many images for one export`
+            : exportStage.imagesLoaded
+              ? t`Whiteboard could not be exported`
+              : t`Whiteboard images could not be loaded`,
+          message: memoryLimitReached
+            ? t`Select a smaller area of the whiteboard and export it separately.`
+            : exportStage.imagesLoaded
+              ? t`Add at least one visible element and try again.`
+              : t`Check your connection, retry the failed images and export again.`,
           icon: "error",
         });
       }
     },
-    [excalidrawApi, showPopup, workspaceName],
+    [excalidrawApi, showPopup, workspaceImages, workspaceName],
   );
 
   const loadRemoteAndCleanupDraftImages = useCallback(async () => {
@@ -459,7 +545,7 @@ export function WorkspaceGoalsCanvas({
           (publicId) => !remoteImagePublicIds.has(publicId),
         ),
       );
-      await paste.refreshImages();
+      retryWorkspaceImages();
     } catch {
       showPopup({
         header: t`Remote whiteboard loaded`,
@@ -468,7 +554,7 @@ export function WorkspaceGoalsCanvas({
       });
     }
     return true;
-  }, [controller, excalidrawApi, paste, showPopup]);
+  }, [controller, excalidrawApi, paste, showPopup, retryWorkspaceImages]);
 
   const loadRemoteAfterConflict = useCallback(async () => {
     try {
@@ -576,38 +662,12 @@ export function WorkspaceGoalsCanvas({
     [closeHistory, excalidrawApi, extended, historyOpen, toggleExtended],
   );
 
-  if (controller.error) {
+  if (controller.error || controller.isLoading || !controller.scene) {
     return (
-      <div className="flex h-[70dvh] min-h-[28rem] items-center justify-center bg-light-100 p-6 text-center dark:bg-dark-50">
-        <div>
-          <HiOutlineExclamationTriangle className="mx-auto h-7 w-7 text-red-600 dark:text-red-400" />
-          <p className="mt-3 text-sm font-medium text-light-1000 dark:text-dark-1000">
-            {t`Workspace whiteboard could not be loaded`}
-          </p>
-          <button
-            type="button"
-            onClick={() => void controller.retryInitialLoad()}
-            className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-md border border-light-500 px-3 py-2 text-xs font-medium text-light-900 hover:bg-light-200 dark:border-dark-500 dark:text-dark-900 dark:hover:bg-dark-200"
-          >
-            <HiArrowPath className="h-4 w-4" />
-            {t`Try again`}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (controller.isLoading || !controller.scene) {
-    return (
-      <div
-        className="flex h-[70dvh] min-h-[28rem] items-center justify-center bg-light-100 dark:bg-dark-50"
-        role="status"
-      >
-        <div className="flex items-center gap-2 text-sm text-light-700 dark:text-dark-700">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-light-400 border-t-light-900 dark:border-dark-400 dark:border-t-dark-900" />
-          {t`Opening workspace whiteboard…`}
-        </div>
-      </div>
+      <WorkspaceGoalsCanvasLoadState
+        error={Boolean(controller.error)}
+        onRetry={() => void controller.retryInitialLoad()}
+      />
     );
   }
 
@@ -666,6 +726,7 @@ export function WorkspaceGoalsCanvas({
         onPointerDownCapture={pen.handlePointerDownCapture}
       >
         <Excalidraw
+          key={workspacePublicId}
           excalidrawAPI={setExcalidrawApi}
           initialData={{
             elements: controller.scene
@@ -710,43 +771,18 @@ export function WorkspaceGoalsCanvas({
             }
           />
         )}
-        {(controller.validationError !== null ||
-          paste.isLoadingImages ||
-          paste.imageLoadError) && (
-          <div className="absolute bottom-3 left-1/2 z-30 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col gap-2">
-            {controller.validationError && (
-              <div
-                className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800 shadow-sm dark:border-red-900 dark:bg-red-950/60 dark:text-red-300"
-                role="alert"
-              >
-                {t`This scene contains unsupported or unsafe content and cannot be saved.`}
-              </div>
-            )}
-            {paste.isLoadingImages && (
-              <div
-                className="rounded-md border border-light-400 bg-light-50 px-3 py-2 text-xs text-light-800 shadow-sm dark:border-dark-500 dark:bg-dark-100 dark:text-dark-800"
-                role="status"
-              >
-                {t`Loading whiteboard images…`}
-              </div>
-            )}
-            {paste.imageLoadError && (
-              <div
-                className="flex items-center gap-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-sm dark:border-amber-900 dark:bg-amber-950/60 dark:text-amber-200"
-                role="alert"
-              >
-                <span>{t`Some whiteboard images could not be loaded.`}</span>
-                <button
-                  type="button"
-                  onClick={() => void paste.refreshImages()}
-                  className="min-h-11 shrink-0 rounded-md border border-amber-400 px-3 font-medium hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700 dark:border-amber-800 dark:hover:bg-amber-900/50"
-                >
-                  {t`Try again`}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        <WorkspaceGoalsCanvasStatus
+          validationError={controller.validationError !== null}
+          imagesLoading={workspaceImages.isLoading}
+          imagesLoaded={workspaceImages.loaded}
+          imagesTotal={workspaceImages.total}
+          imageLoadError={workspaceImages.imageLoadError}
+          failedImageCount={paste.failedImageCount}
+          pasteBusy={paste.isBusy}
+          online={controller.isOnline}
+          onRetryImages={retryWorkspaceImages}
+          onRetryFailedPaste={paste.retryFailedImages}
+        />
       </div>
       <CardCanvasConflictDialog
         open={controller.saveState === "conflict"}
@@ -755,17 +791,7 @@ export function WorkspaceGoalsCanvas({
         onDownloadLocal={() => void exportCanvas("excalidraw")}
         onLoadRemote={() => void loadRemoteAfterConflict()}
       />
-      <style jsx global>{`
-        .kan-workspace-canvas [data-testid="toolbar-frame"],
-        .kan-workspace-canvas [data-testid="toolbar-embeddable"],
-        .kan-workspace-canvas [data-testid="toolbar-magicframe"] {
-          display: none !important;
-        }
-        .kan-workspace-canvas .excalidraw,
-        .kan-workspace-canvas .excalidraw .App-menu_top {
-          --color-primary: ${resolvedTheme === "dark" ? "#f0f0f0" : "#202020"};
-        }
-      `}</style>
+      <WorkspaceGoalsCanvasThemeStyle dark={resolvedTheme === "dark"} />
     </section>
   );
 }

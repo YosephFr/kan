@@ -5,10 +5,14 @@ import type {
   DragEvent as ReactDragEvent,
 } from "react";
 import { t } from "@lingui/core/macro";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { RouterOutputs } from "~/utils/api";
-import type { CardResource } from "~/views/card/components/card-resource-types";
+import { MAX_CARD_CANVAS_ELEMENTS } from "@kan/shared";
+
+import type { WorkspaceCanvasImageCleanupTarget } from "./workspace-canvas-image-cleanup";
+import type { WorkspaceCanvasImageResource } from "./workspace-canvas-image-loader";
+import type { WorkspaceCanvasPasteBatchItem } from "./workspace-canvas-paste-batch";
+import type { CardCanvasClipboardResult } from "~/views/card/components/card-canvas-clipboard";
 import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
 import {
@@ -24,61 +28,174 @@ import {
   hasCardCanvasImageDragItem,
 } from "~/views/card/components/card-canvas-image-import";
 import {
-  assertCardCanvasPasteInputBudget,
-  insertCardCanvasPasteBatch,
-} from "~/views/card/components/card-canvas-paste-batch";
-import {
-  hydrateCardCanvasImages,
-  preflightCardCanvasImageFile,
-} from "~/views/card/components/card-canvas-resources";
-import {
   hashResourceFile,
   uploadResourceFile,
 } from "~/views/card/components/resource-upload-queue";
 import {
+  discardWorkspaceCanvasImage,
+  drainWorkspaceCanvasImageCleanup,
+  getWorkspaceCanvasImageCleanupKey,
+} from "./workspace-canvas-image-cleanup";
+import {
+  addWorkspaceCanvasImageBlob,
+  hydrateWorkspaceCanvasImage,
+  runWorkspaceCanvasImageQueue,
+} from "./workspace-canvas-image-loader";
+import { prepareWorkspaceCanvasLocalImage } from "./workspace-canvas-local-image";
+import {
+  makeWorkspaceCanvasFilePasteItems,
   toWorkspaceCanvasPasteText,
-  validateWorkspaceCanvasImageFile,
 } from "./workspace-canvas-paste";
+import { insertWorkspaceCanvasPasteBatch } from "./workspace-canvas-paste-batch";
 import { constrainWorkspaceCanvasSelection } from "./workspace-canvas-vertical-track";
 
-type WorkspaceCanvasImage =
-  RouterOutputs["workspaceCanvas"]["listImages"]["images"][number];
+interface PendingWorkspaceCanvasUpload {
+  workspacePublicId: string;
+  prepared: Awaited<ReturnType<typeof prepareWorkspaceCanvasLocalImage>>;
+  sha256: string;
+  session?: {
+    url: string;
+    uploadSessionPublicId: string;
+    expiresAt: Date;
+  };
+  uploadComplete: boolean;
+}
+
+const isErrorCode = (error: unknown, code: string) =>
+  error instanceof Error &&
+  (error.message.includes(code) || error.name.includes(code));
+
+const shouldForgetPendingUpload = (error: unknown) =>
+  [
+    "WORKSPACE_CANVAS_IMAGE_INVALID",
+    "WORKSPACE_CANVAS_IMAGE_DIMENSIONS_INVALID",
+    "WORKSPACE_CANVAS_IMAGE_OPTIMIZATION_FAILED",
+  ].some((code) => isErrorCode(error, code));
+
+const assertNotAborted = (signal: AbortSignal) => {
+  if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+};
+
+const getClipboardImageOnlyFiles = async (items: readonly ClipboardItem[]) => {
+  if (
+    items.length === 0 ||
+    items.some((item) =>
+      item.types.some((type) =>
+        ["text/html", "text/plain", "text/uri-list"].includes(type),
+      ),
+    )
+  ) {
+    return null;
+  }
+  const files: File[] = [];
+  for (const [index, item] of items.entries()) {
+    const contentType = item.types.find((type) => type.startsWith("image/"));
+    if (!contentType) return null;
+    const blob = await item.getType(contentType);
+    const extension =
+      contentType === "image/jpeg"
+        ? "jpg"
+        : contentType === "image/png"
+          ? "png"
+          : "webp";
+    files.push(
+      new File([blob], `pizarra-${index + 1}.${extension}`, {
+        type: contentType,
+      }),
+    );
+  }
+  return files;
+};
 
 export function useWorkspaceCanvasPaste({
   workspacePublicId,
-  imagePublicIds,
+  knownUsageBytes,
+  quotaBytes,
   canvasApi,
   canEdit,
+  onImagesChanged,
 }: {
   workspacePublicId: string;
-  imagePublicIds: readonly string[];
+  knownUsageBytes: number;
+  quotaBytes: number;
   canvasApi: ExcalidrawImperativeAPI | null;
   canEdit: boolean;
+  onImagesChanged: () => void;
 }) {
   const { showPopup } = usePopup();
   const utils = api.useUtils();
   const [isBusy, setIsBusy] = useState(false);
-  const [hydrationFailed, setHydrationFailed] = useState(false);
+  const [failedImageItems, setFailedImageItems] = useState<
+    CardCanvasClipboardResult["items"]
+  >([]);
   const busyRef = useRef(false);
   const mountedRef = useRef(true);
   const workspaceRef = useRef(workspacePublicId);
-  const abortRef = useRef<AbortController | null>(null);
-  const hydrationFailureRef = useRef<string | null>(null);
-  const imagesQuery = api.workspaceCanvas.listImages.useQuery(
-    { workspacePublicId, imagePublicIds: [...imagePublicIds] },
-    {
-      enabled: workspacePublicId.length === 12 && imagePublicIds.length > 0,
-      retry: 1,
-    },
+  const abortControllersRef = useRef(new Set<AbortController>());
+  const pendingUploadsRef = useRef(
+    new WeakMap<File, PendingWorkspaceCanvasUpload>(),
+  );
+  const cleanupPendingRef = useRef(
+    new Map<string, WorkspaceCanvasImageCleanupTarget>(),
   );
   const createUpload = api.workspaceCanvas.createImageUpload.useMutation();
   const confirmUpload = api.workspaceCanvas.confirmImageUpload.useMutation();
   const importRemoteImage = api.workspaceCanvas.importRemoteImage.useMutation();
   const deleteImage = api.workspaceCanvas.deleteImage.useMutation();
-  const images: CardResource[] = useMemo(
-    () => (imagePublicIds.length > 0 ? (imagesQuery.data?.images ?? []) : []),
-    [imagePublicIds, imagesQuery.data?.images],
+
+  const drainPendingImages = useCallback(
+    async (targetWorkspacePublicId: string) => {
+      const targets = [...cleanupPendingRef.current.values()].filter(
+        (target) => target.workspacePublicId === targetWorkspacePublicId,
+      );
+      const failed = await drainWorkspaceCanvasImageCleanup({
+        targets,
+        remove: (target) =>
+          deleteImage.mutateAsync({
+            workspacePublicId: target.workspacePublicId,
+            imagePublicId: target.imagePublicId,
+          }),
+      });
+      const failedKeys = new Set(failed.map(getWorkspaceCanvasImageCleanupKey));
+      for (const target of targets) {
+        const key = getWorkspaceCanvasImageCleanupKey(target);
+        if (!failedKeys.has(key)) cleanupPendingRef.current.delete(key);
+      }
+      return failed;
+    },
+    [deleteImage],
   );
+
+  const discardCreatedImage = useCallback(
+    async (target: WorkspaceCanvasImageCleanupTarget) => {
+      const key = getWorkspaceCanvasImageCleanupKey(target);
+      cleanupPendingRef.current.set(key, target);
+      const removed = await discardWorkspaceCanvasImage({
+        target,
+        remove: (candidate) =>
+          deleteImage.mutateAsync({
+            workspacePublicId: candidate.workspacePublicId,
+            imagePublicId: candidate.imagePublicId,
+          }),
+      });
+      if (removed) cleanupPendingRef.current.delete(key);
+      return removed;
+    },
+    [deleteImage],
+  );
+
+  useEffect(() => {
+    const abortControllers = abortControllersRef.current;
+    mountedRef.current = true;
+    workspaceRef.current = workspacePublicId;
+    setFailedImageItems([]);
+    return () => {
+      mountedRef.current = false;
+      for (const controller of abortControllers) controller.abort();
+      abortControllers.clear();
+    };
+  }, [workspacePublicId]);
+
   const showBusyPopup = useCallback(
     () =>
       showPopup({
@@ -89,176 +206,264 @@ export function useWorkspaceCanvasPaste({
     [showPopup],
   );
 
-  useEffect(() => {
-    if (!canvasApi || !imagesQuery.data || imagePublicIds.length === 0) return;
-    const hydrationKey = `${workspacePublicId}:${imagesQuery.data.images
-      .map((image) => image.publicId)
-      .join(",")}`;
-    const returnedPublicIds = new Set(
-      imagesQuery.data.images.map((image) => image.publicId),
-    );
-    void (async () => {
-      try {
-        if (
-          imagePublicIds.some((publicId) => !returnedPublicIds.has(publicId))
-        ) {
-          throw new Error("WORKSPACE_CANVAS_IMAGE_MISSING");
-        }
-        await hydrateCardCanvasImages(canvasApi, imagesQuery.data.images);
-        if (!mountedRef.current) return;
-        hydrationFailureRef.current = null;
-        setHydrationFailed(false);
-      } catch {
-        if (!mountedRef.current) return;
-        setHydrationFailed(true);
-        if (hydrationFailureRef.current === hydrationKey) return;
-        hydrationFailureRef.current = hydrationKey;
-        showPopup({
-          header: t`Some whiteboard images could not be loaded`,
-          message: t`Your ideas remain saved. Check your connection and try reopening this workspace.`,
-          icon: "error",
-        });
-      }
-    })();
-  }, [
-    canvasApi,
-    imagePublicIds,
-    imagesQuery.data,
-    showPopup,
-    workspacePublicId,
-  ]);
+  const showQuotaPopup = useCallback(
+    (partial: boolean, usage = knownUsageBytes, quota = quotaBytes) => {
+      const usedMiB = (usage / 1024 / 1024).toFixed(1);
+      const quotaMiB = Math.round(quota / 1024 / 1024);
+      showPopup({
+        header: partial
+          ? t`Some images were skipped`
+          : t`Image storage is full`,
+        message: t`This whiteboard is using ${usedMiB} MiB of its ${quotaMiB} MiB image storage. Remove images before adding more.`,
+        icon: partial ? "success" : "error",
+      });
+    },
+    [knownUsageBytes, quotaBytes, showPopup],
+  );
 
-  useEffect(() => {
-    mountedRef.current = true;
-    workspaceRef.current = workspacePublicId;
-    setHydrationFailed(false);
-    hydrationFailureRef.current = null;
-    return () => {
-      mountedRef.current = false;
-      abortRef.current?.abort();
-    };
-  }, [workspacePublicId]);
+  const showPhysicalStoragePopup = useCallback(
+    (partial: boolean) =>
+      showPopup({
+        header: partial
+          ? t`Some images were skipped`
+          : t`Image storage is full`,
+        message: t`Remove some elements before pasting more content.`,
+        icon: partial ? "success" : "error",
+      }),
+    [showPopup],
+  );
 
   const uploadFile = useCallback(
-    async (file: File, knownImages: readonly CardResource[]) => {
+    async (
+      file: File,
+      onCreated: (resource: WorkspaceCanvasImageResource) => void,
+    ) => {
       if (!canvasApi || !canEdit || !navigator.onLine) {
         throw new Error("WORKSPACE_CANVAS_IMAGE_UNAVAILABLE");
       }
-      const contentType = validateWorkspaceCanvasImageFile(file);
-      await preflightCardCanvasImageFile({
-        file,
-        contentType,
-        api: canvasApi,
-        resources: [...knownImages],
-      });
-      const sha256 = await hashResourceFile(file);
-      const session = await createUpload.mutateAsync({
-        workspacePublicId,
-        filename: file.name,
-        contentType,
-        size: file.size,
-        sha256,
-      });
       const abortController = new AbortController();
-      abortRef.current = abortController;
+      abortControllersRef.current.add(abortController);
       try {
-        await uploadResourceFile(
-          session.url,
-          file,
-          contentType,
-          abortController.signal,
-          () => undefined,
-        );
-        return await confirmUpload.mutateAsync({
+        let pending = pendingUploadsRef.current.get(file);
+        if (!pending || pending.workspacePublicId !== workspacePublicId) {
+          const [prepared, sha256] = await Promise.all([
+            prepareWorkspaceCanvasLocalImage(file, abortController.signal),
+            hashResourceFile(file),
+          ]);
+          pending = {
+            workspacePublicId,
+            prepared,
+            sha256,
+            uploadComplete: false,
+          };
+          pendingUploadsRef.current.set(file, pending);
+        }
+        assertNotAborted(abortController.signal);
+        if (
+          pending.session &&
+          pending.session.expiresAt.getTime() <= Date.now()
+        ) {
+          pending.session = undefined;
+          pending.uploadComplete = false;
+        }
+        pending.session ??= await createUpload.mutateAsync({
           workspacePublicId,
-          uploadSessionPublicId: session.uploadSessionPublicId,
+          filename: file.name,
+          contentType: pending.prepared.contentType,
+          size: file.size,
+          sha256: pending.sha256,
         });
+        assertNotAborted(abortController.signal);
+        if (!pending.uploadComplete) {
+          await uploadResourceFile(
+            pending.session.url,
+            file,
+            pending.prepared.contentType,
+            abortController.signal,
+            () => undefined,
+          );
+          pending.uploadComplete = true;
+        }
+        let resource: WorkspaceCanvasImageResource;
+        try {
+          resource = (await confirmUpload.mutateAsync({
+            workspacePublicId,
+            uploadSessionPublicId: pending.session.uploadSessionPublicId,
+          })) as WorkspaceCanvasImageResource;
+        } catch (error) {
+          if (shouldForgetPendingUpload(error)) {
+            pendingUploadsRef.current.delete(file);
+          }
+          throw error;
+        }
+        pendingUploadsRef.current.delete(file);
+        onCreated(resource);
+        try {
+          await addWorkspaceCanvasImageBlob({
+            api: canvasApi,
+            resource,
+            blob: pending.prepared.displayBlob,
+            signal: abortController.signal,
+          });
+        } catch (error) {
+          await discardCreatedImage({
+            workspacePublicId,
+            imagePublicId: resource.publicId,
+          });
+          throw error;
+        }
+        return {
+          resource,
+          dimensions: pending.prepared.displayDimensions,
+        };
       } finally {
-        abortRef.current = null;
+        abortControllersRef.current.delete(abortController);
       }
     },
-    [canEdit, canvasApi, confirmUpload, createUpload, workspacePublicId],
+    [
+      canEdit,
+      canvasApi,
+      confirmUpload,
+      createUpload,
+      discardCreatedImage,
+      workspacePublicId,
+    ],
   );
 
-  const processClipboard = useCallback(
-    async (input: ReturnType<typeof normalizeCardCanvasClipboard>) => {
+  const processItems = useCallback(
+    async ({
+      items,
+      imagesOmitted,
+    }: Pick<CardCanvasClipboardResult, "items" | "imagesOmitted">) => {
       if (!canvasApi || !canEdit) return;
+      const online = navigator.onLine;
+      const processableItems = online
+        ? items
+        : items.filter((item) => item.type !== "image");
+      const hasImages = processableItems.some((item) => item.type === "image");
+      if (
+        hasImages &&
+        (await drainPendingImages(workspacePublicId)).length > 0
+      ) {
+        throw new Error("WORKSPACE_CANVAS_IMAGE_CLEANUP_PENDING");
+      }
+      if (
+        canvasApi.getSceneElements().length + processableItems.length >
+        MAX_CARD_CANVAS_ELEMENTS
+      ) {
+        throw new Error("CARD_CANVAS_ELEMENT_LIMIT_EXCEEDED");
+      }
       const operationWorkspacePublicId = workspacePublicId;
       const shouldContinue = () =>
         mountedRef.current &&
         workspaceRef.current === operationWorkspacePublicId;
-      const online = navigator.onLine;
-      const processableItems = online
-        ? input.items
-        : input.items.filter((item) => item.type !== "image");
+      setFailedImageItems([]);
       const offlineImageCount = online
         ? 0
-        : input.items.filter((item) => item.type === "image").length;
-      const localImageSizes = processableItems.flatMap((item) =>
-        item.type === "image" && item.source === "file" ? [item.file.size] : [],
+        : items.filter((item) => item.type === "image").length;
+      const pasteItems: (WorkspaceCanvasPasteBatchItem | undefined)[] =
+        Array.from({ length: processableItems.length });
+      const imageTasks = processableItems.flatMap((item, index) =>
+        item.type === "image" ? [{ item, index }] : [],
       );
-      if (
-        processableItems.some((item) => item.type === "image") &&
-        imagePublicIds.length > 0 &&
-        !imagesQuery.data
-      ) {
-        throw new Error("WORKSPACE_CANVAS_IMAGES_NOT_READY");
-      }
-      assertCardCanvasPasteInputBudget({
-        elements: canvasApi.getSceneElements(),
-        objectCount: processableItems.length,
-        imageSizes: localImageSizes,
-        resources: images,
-      });
-
-      const createdImages: WorkspaceCanvasImage[] = [];
-      const pasteItems: (
-        | { kind: "text"; text: string }
-        | { kind: "resource"; resource: WorkspaceCanvasImage }
-      )[] = [];
-      let skippedImages = input.imagesOmitted ? 1 : offlineImageCount;
-      for (const item of processableItems) {
-        if (!shouldContinue()) break;
+      processableItems.forEach((item, index) => {
         if (item.type === "text" || item.type === "link") {
-          pasteItems.push({
+          pasteItems[index] = {
             kind: "text",
             text: toWorkspaceCanvasPasteText(item),
-          });
-          continue;
+          };
         }
-        try {
-          const resource =
-            item.source === "file"
-              ? await uploadFile(item.file, [...images, ...createdImages])
-              : await importRemoteImage.mutateAsync({
-                  workspacePublicId,
-                  url: item.url,
-                });
-          createdImages.push(resource);
-          if (!shouldContinue()) break;
-          pasteItems.push({ kind: "resource", resource });
-        } catch {
-          if (!shouldContinue()) break;
-          skippedImages += 1;
-        }
+      });
+
+      const createdImages = new Map<string, WorkspaceCanvasImageResource>();
+      const rememberCreatedImage = (resource: WorkspaceCanvasImageResource) => {
+        createdImages.set(resource.publicId, resource);
+      };
+      const failures: unknown[] = [];
+      const failedItems: CardCanvasClipboardResult["items"] = [];
+      await runWorkspaceCanvasImageQueue({
+        items: imageTasks,
+        worker: async ({ item, index }) => {
+          if (!shouldContinue()) {
+            throw new Error("WORKSPACE_CANVAS_PASTE_CANCELLED");
+          }
+          if (item.source === "file") {
+            const uploaded = await uploadFile(item.file, rememberCreatedImage);
+            pasteItems[index] = {
+              kind: "resource",
+              resource: uploaded.resource,
+              dimensions: uploaded.dimensions,
+            };
+            return;
+          }
+          const resource = (await importRemoteImage.mutateAsync({
+            workspacePublicId,
+            url: item.url,
+          })) as WorkspaceCanvasImageResource;
+          rememberCreatedImage(resource);
+          if (!shouldContinue()) {
+            await discardCreatedImage({
+              workspacePublicId,
+              imagePublicId: resource.publicId,
+            });
+            throw new Error("WORKSPACE_CANVAS_PASTE_CANCELLED");
+          }
+          const abortController = new AbortController();
+          abortControllersRef.current.add(abortController);
+          let dimensions: { width: number; height: number };
+          try {
+            dimensions = await hydrateWorkspaceCanvasImage({
+              api: canvasApi,
+              resource,
+              signal: abortController.signal,
+            });
+          } catch (error) {
+            await discardCreatedImage({
+              workspacePublicId,
+              imagePublicId: resource.publicId,
+            });
+            throw error;
+          } finally {
+            abortControllersRef.current.delete(abortController);
+          }
+          pasteItems[index] = { kind: "resource", resource, dimensions };
+        },
+        onSettled: (task, error) => {
+          if (error) {
+            failures.push(error);
+            failedItems.push(task.item);
+          }
+        },
+      });
+      const offlineItems = online
+        ? []
+        : items.filter((item) => item.type === "image");
+      if (shouldContinue()) {
+        setFailedImageItems([...offlineItems, ...failedItems]);
       }
+
+      const cleanup = async () => {
+        await Promise.all(
+          [...createdImages.values()].map((image) =>
+            discardCreatedImage({
+              workspacePublicId: operationWorkspacePublicId,
+              imagePublicId: image.publicId,
+            }),
+          ),
+        );
+      };
+      if (!shouldContinue()) {
+        await cleanup();
+        return;
+      }
+      const resolvedItems = pasteItems.filter(
+        (item): item is WorkspaceCanvasPasteBatchItem => Boolean(item),
+      );
       try {
-        if (!shouldContinue()) {
-          await Promise.allSettled(
-            createdImages.map((image) =>
-              deleteImage.mutateAsync({
-                workspacePublicId: operationWorkspacePublicId,
-                imagePublicId: image.publicId,
-              }),
-            ),
-          );
-          return;
-        }
-        if (pasteItems.length > 0) {
-          await insertCardCanvasPasteBatch({
+        if (resolvedItems.length > 0) {
+          insertWorkspaceCanvasPasteBatch({
             api: canvasApi,
-            items: pasteItems,
-            resources: [...images, ...createdImages],
+            items: resolvedItems,
             transformElements: (elements, selectedElementIds) => {
               if (!shouldContinue()) {
                 throw new Error("WORKSPACE_CANVAS_PASTE_CANCELLED");
@@ -271,44 +476,69 @@ export function useWorkspaceCanvasPaste({
           });
         }
       } catch (error) {
-        await Promise.allSettled(
-          createdImages.map((image) =>
-            deleteImage.mutateAsync({
-              workspacePublicId,
-              imagePublicId: image.publicId,
-            }),
-          ),
-        );
+        await cleanup();
         throw error;
       }
-      if (createdImages.length > 0 && shouldContinue()) {
-        await utils.workspaceCanvas.listImages.invalidate({
-          workspacePublicId,
-          imagePublicIds: [...imagePublicIds],
-        });
+      if (createdImages.size > 0) {
+        await utils.workspaceCanvas.listImages.invalidate();
+        onImagesChanged();
       }
-      if (skippedImages > 0 && shouldContinue()) {
-        showPopup({
-          header:
-            pasteItems.length > 0
-              ? t`Some images were skipped`
-              : t`Images could not be added`,
-          message: navigator.onLine
-            ? t`Use JPEG, PNG or WebP images within the whiteboard limits.`
-            : t`Text was kept editable. Images need a connection so they can be stored securely.`,
-          icon: pasteItems.length > 0 ? "success" : "error",
-        });
+
+      const skippedImages =
+        (imagesOmitted ? 1 : 0) + offlineImageCount + failures.length;
+      if (skippedImages === 0) return;
+      if (
+        failures.some((error) =>
+          isErrorCode(error, "WORKSPACE_CANVAS_IMAGE_STORAGE_LIMIT_REACHED"),
+        )
+      ) {
+        showPhysicalStoragePopup(resolvedItems.length > 0);
+        return;
       }
+      if (
+        failures.some((error) =>
+          isErrorCode(error, "WORKSPACE_CANVAS_IMAGE_TOTAL_LIMIT_REACHED"),
+        ) ||
+        knownUsageBytes >= quotaBytes
+      ) {
+        try {
+          const storage = await utils.workspaceCanvas.listImages.fetch({
+            workspacePublicId,
+            imagePublicIds: [],
+          });
+          showQuotaPopup(
+            resolvedItems.length > 0,
+            storage.usageBytes,
+            storage.quotaBytes,
+          );
+        } catch {
+          showQuotaPopup(resolvedItems.length > 0);
+        }
+        return;
+      }
+      showPopup({
+        header:
+          resolvedItems.length > 0
+            ? t`Some images were skipped`
+            : t`Images could not be added`,
+        message: navigator.onLine
+          ? t`Use JPEG, PNG or WebP images up to 10 MiB each.`
+          : t`Text was kept editable. Images need a connection so they can be stored securely.`,
+        icon: resolvedItems.length > 0 ? "success" : "error",
+      });
     },
     [
       canEdit,
       canvasApi,
-      deleteImage,
-      images,
-      imagePublicIds,
-      imagesQuery.data,
+      discardCreatedImage,
+      drainPendingImages,
       importRemoteImage,
+      knownUsageBytes,
+      quotaBytes,
+      onImagesChanged,
       showPopup,
+      showPhysicalStoragePopup,
+      showQuotaPopup,
       uploadFile,
       utils.workspaceCanvas.listImages,
       workspacePublicId,
@@ -325,11 +555,46 @@ export function useWorkspaceCanvasPaste({
       setIsBusy(true);
       void Promise.resolve()
         .then(operation)
-        .catch(() => {
+        .catch((error: unknown) => {
           if (!mountedRef.current) return;
+          if (
+            isErrorCode(error, "WORKSPACE_CANVAS_IMAGE_STORAGE_LIMIT_REACHED")
+          ) {
+            showPhysicalStoragePopup(false);
+            return;
+          }
+          if (
+            isErrorCode(error, "WORKSPACE_CANVAS_IMAGE_TOTAL_LIMIT_REACHED")
+          ) {
+            showQuotaPopup(false);
+            return;
+          }
+          if (isErrorCode(error, "CARD_CANVAS_ELEMENT_LIMIT_EXCEEDED")) {
+            showPopup({
+              header: t`This paste exceeds the whiteboard limits`,
+              message: t`Remove some elements before pasting more content.`,
+              icon: "error",
+            });
+            return;
+          }
+          if (isErrorCode(error, "WORKSPACE_CANVAS_IMAGE_CLEANUP_PENDING")) {
+            showPopup({
+              header: t`Images could not be added`,
+              message: t`Some unused local images could not be cleaned up. Your whiteboard content is safe.`,
+              icon: "error",
+            });
+            return;
+          }
+          const permissionDenied =
+            error instanceof DOMException &&
+            ["NotAllowedError", "SecurityError"].includes(error.name);
           showPopup({
-            header: t`Clipboard content could not be pasted`,
-            message: t`The content was not changed. Check the whiteboard limits and try again.`,
+            header: permissionDenied
+              ? t`Clipboard permission was not granted`
+              : t`Clipboard content could not be pasted`,
+            message: permissionDenied
+              ? t`Use the browser Paste action or Cmd+V inside the whiteboard.`
+              : t`The whiteboard was not changed. Try again or add the images from your device.`,
             icon: "error",
           });
         })
@@ -338,8 +603,24 @@ export function useWorkspaceCanvasPaste({
           if (mountedRef.current) setIsBusy(false);
         });
     },
-    [showBusyPopup, showPopup],
+    [showBusyPopup, showPhysicalStoragePopup, showPopup, showQuotaPopup],
   );
+
+  const importFiles = useCallback(
+    (files: File[]) => {
+      if (!canEdit || files.length === 0) return;
+      run(() =>
+        processItems({ items: makeWorkspaceCanvasFilePasteItems(files) }),
+      );
+    },
+    [canEdit, processItems, run],
+  );
+
+  const retryFailedImages = useCallback(() => {
+    if (!canEdit || failedImageItems.length === 0) return;
+    const items = failedImageItems;
+    run(() => processItems({ items }));
+  }, [canEdit, failedImageItems, processItems, run]);
 
   const pasteFromClipboard = useCallback(() => {
     if (!canEdit) return;
@@ -349,22 +630,47 @@ export function useWorkspaceCanvasPaste({
         readText: Clipboard["readText"];
       };
       const includeImages = navigator.onLine;
-      const input = clipboard.read
-        ? await readCardCanvasClipboardItems(await clipboard.read(), {
-            includeImages,
-          })
-        : { text: await clipboard.readText() };
-      const normalized = normalizeCardCanvasClipboard(input, {
-        includeImages,
+      if (clipboard.read) {
+        const clipboardItems = await clipboard.read();
+        const imageFiles = includeImages
+          ? await getClipboardImageOnlyFiles(clipboardItems)
+          : null;
+        if (imageFiles) {
+          await processItems({
+            items: makeWorkspaceCanvasFilePasteItems(imageFiles),
+          });
+          return;
+        }
+        const input = await readCardCanvasClipboardItems(clipboardItems, {
+          includeImages,
+        });
+        const normalized = normalizeCardCanvasClipboard(input, {
+          includeImages,
+        });
+        if (normalized.items.length === 0) throw new Error("EMPTY_CLIPBOARD");
+        await processItems(normalized);
+        return;
+      }
+      const normalized = normalizeCardCanvasClipboard({
+        text: await clipboard.readText(),
       });
       if (normalized.items.length === 0) throw new Error("EMPTY_CLIPBOARD");
-      await processClipboard(normalized);
+      await processItems(normalized);
     });
-  }, [canEdit, processClipboard, run]);
+  }, [canEdit, processItems, run]);
 
   const handlePasteCapture = useCallback(
     (event: ReactClipboardEvent<HTMLDivElement>) => {
       if (!canEdit || canvasApi?.getAppState().editingTextElement) return;
+      const directFiles = getCardCanvasImageFiles(event.clipboardData.files);
+      const hasText = Array.from(event.clipboardData.types).some((type) =>
+        ["text/html", "text/plain", "text/uri-list"].includes(type),
+      );
+      if (directFiles.length > 0 && !hasText) {
+        consumeCardCanvasExternalPaste(event);
+        importFiles(directFiles);
+        return;
+      }
       try {
         const includeImages = navigator.onLine;
         const input = getCardCanvasClipboardInputFromDataTransfer(
@@ -374,9 +680,7 @@ export function useWorkspaceCanvasPaste({
         if (isCardCanvasInternalClipboard(input)) return;
         consumeCardCanvasExternalPaste(event);
         run(() =>
-          processClipboard(
-            normalizeCardCanvasClipboard(input, { includeImages }),
-          ),
+          processItems(normalizeCardCanvasClipboard(input, { includeImages })),
         );
       } catch {
         consumeCardCanvasExternalPaste(event);
@@ -387,21 +691,7 @@ export function useWorkspaceCanvasPaste({
         });
       }
     },
-    [canEdit, canvasApi, processClipboard, run, showPopup],
-  );
-
-  const importFiles = useCallback(
-    (files: File[]) => {
-      if (!canEdit || files.length === 0) return;
-      run(() =>
-        processClipboard(
-          normalizeCardCanvasClipboard({
-            images: files.map((file) => ({ file })),
-          }),
-        ),
-      );
-    },
-    [canEdit, processClipboard, run],
+    [canEdit, canvasApi, importFiles, processItems, run, showPopup],
   );
 
   const handleDragOverCapture = useCallback(
@@ -445,49 +735,42 @@ export function useWorkspaceCanvasPaste({
   const deleteUnusedImages = useCallback(
     async (publicIds: readonly string[]) => {
       if (publicIds.length === 0) return;
-      await Promise.allSettled(
-        publicIds.map((imagePublicId) =>
-          deleteImage.mutateAsync({ workspacePublicId, imagePublicId }),
-        ),
-      );
-      await utils.workspaceCanvas.listImages.invalidate({
+      const targets = publicIds.map((imagePublicId) => ({
         workspacePublicId,
-        imagePublicIds: [...imagePublicIds],
+        imagePublicId,
+      }));
+      const failed = await drainWorkspaceCanvasImageCleanup({
+        targets,
+        remove: (target) =>
+          deleteImage.mutateAsync({
+            workspacePublicId: target.workspacePublicId,
+            imagePublicId: target.imagePublicId,
+          }),
       });
+      await utils.workspaceCanvas.listImages.invalidate();
+      onImagesChanged();
+      if (failed.length > 0) {
+        for (const target of failed) {
+          cleanupPendingRef.current.set(
+            getWorkspaceCanvasImageCleanupKey(target),
+            target,
+          );
+        }
+        throw new Error("WORKSPACE_CANVAS_IMAGE_CLEANUP_PENDING");
+      }
     },
     [
       deleteImage,
-      imagePublicIds,
+      onImagesChanged,
       utils.workspaceCanvas.listImages,
       workspacePublicId,
     ],
   );
 
-  const refreshImages = useCallback(async () => {
-    setHydrationFailed(false);
-    hydrationFailureRef.current = null;
-    const result = await imagesQuery.refetch();
-    if (!canvasApi || !result.data || imagePublicIds.length === 0) return;
-    const returnedPublicIds = new Set(
-      result.data.images.map((image) => image.publicId),
-    );
-    if (imagePublicIds.some((publicId) => !returnedPublicIds.has(publicId))) {
-      setHydrationFailed(true);
-      return;
-    }
-    try {
-      await hydrateCardCanvasImages(canvasApi, result.data.images);
-    } catch {
-      setHydrationFailed(true);
-    }
-  }, [canvasApi, imagePublicIds, imagesQuery]);
-
   return {
     isBusy,
-    imageLoadError:
-      imagePublicIds.length > 0 && (imagesQuery.isError || hydrationFailed),
-    isLoadingImages:
-      imagePublicIds.length > 0 && imagesQuery.isLoading && !imagesQuery.data,
+    failedImageCount: failedImageItems.length,
+    retryFailedImages,
     pasteFromClipboard,
     importFiles,
     handlePasteCapture,
@@ -495,6 +778,5 @@ export function useWorkspaceCanvasPaste({
     handleDropCapture,
     handleExcalidrawPaste,
     deleteUnusedImages,
-    refreshImages,
   };
 }

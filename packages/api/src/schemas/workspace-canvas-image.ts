@@ -3,8 +3,10 @@ import { z } from "zod";
 import {
   isAttachmentFilenameContentTypeCompatible,
   isValidAttachmentSha256,
-  MAX_CARD_CANVAS_IMAGE_BYTES,
-  MAX_CARD_CANVAS_IMAGE_RESOURCES,
+  MAX_WORKSPACE_CANVAS_ACTIVE_IMAGE_BYTES,
+  MAX_WORKSPACE_CANVAS_IMAGE_LIST_BATCH,
+  MAX_WORKSPACE_CANVAS_SOURCE_IMAGE_BYTES,
+  MAX_WORKSPACE_CANVAS_SOURCE_IMAGE_DIMENSION,
   normalizeAttachmentContentType,
 } from "@kan/shared";
 
@@ -18,7 +20,11 @@ export const workspaceCanvasImageContentTypeSchema = z
 export const workspaceCanvasImageUploadFieldsSchema = z.object({
   filename: z.string().min(1).max(255),
   contentType: workspaceCanvasImageContentTypeSchema,
-  size: z.number().int().positive().max(MAX_CARD_CANVAS_IMAGE_BYTES),
+  size: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_WORKSPACE_CANVAS_SOURCE_IMAGE_BYTES),
   sha256: z
     .string()
     .length(64)
@@ -48,7 +54,24 @@ export const workspaceCanvasImageSchema = z.object({
   title: z.string(),
   originalFilename: z.string(),
   contentType: z.enum(["image/jpeg", "image/png", "image/webp"]),
-  size: z.number().int().positive().max(MAX_CARD_CANVAS_IMAGE_BYTES),
+  size: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_WORKSPACE_CANVAS_SOURCE_IMAGE_BYTES),
+  width: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_WORKSPACE_CANVAS_SOURCE_IMAGE_DIMENSION)
+    .nullable(),
+  height: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_WORKSPACE_CANVAS_SOURCE_IMAGE_DIMENSION)
+    .nullable(),
+  optimizedAt: z.date().nullable(),
   viewUrl: z.string().regex(/^\/(?!\/)/),
   downloadUrl: z.string().regex(/^\/(?!\/)/),
   createdAt: z.date(),
@@ -57,5 +80,7 @@ export const workspaceCanvasImageSchema = z.object({
 export const workspaceCanvasImageListSchema = z.object({
   images: z
     .array(workspaceCanvasImageSchema)
-    .max(MAX_CARD_CANVAS_IMAGE_RESOURCES),
+    .max(MAX_WORKSPACE_CANVAS_IMAGE_LIST_BATCH),
+  usageBytes: z.number().int().min(0),
+  quotaBytes: z.literal(MAX_WORKSPACE_CANVAS_ACTIVE_IMAGE_BYTES),
 });

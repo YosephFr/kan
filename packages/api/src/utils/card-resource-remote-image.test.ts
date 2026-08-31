@@ -228,8 +228,26 @@ describe("remote card image staging", () => {
       bytes: imageBytes,
       contentType: "image/png",
     });
-    expect(dependencies.confirmUpload).toHaveBeenCalledWith("uploadsess01");
+    expect(dependencies.confirmUpload.mock.calls[0]).toEqual(["uploadsess01"]);
     expect(dependencies.discardUpload).not.toHaveBeenCalled();
+  });
+
+  it("releases a failed staging upload before confirmation", async () => {
+    const dependencies = createDependencies();
+    const failure = new Error("staging failed");
+    dependencies.writeStagingObject.mockRejectedValueOnce(failure);
+
+    await expect(
+      importRemoteCardImage(
+        "https://cdn.example.com/private.png?token=secret",
+        dependencies,
+      ),
+    ).rejects.toBe(failure);
+    expect(dependencies.confirmUpload).not.toHaveBeenCalled();
+    expect(dependencies.discardUpload).toHaveBeenCalledWith({
+      uploadSessionPublicId: "uploadsess01",
+      stagingKey: ".uploads/uploadsess01/imagen-pizarra.png",
+    });
   });
 
   it("cleans the staging object and session when confirmation fails", async () => {

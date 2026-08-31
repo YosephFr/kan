@@ -17,8 +17,11 @@ import {
   workspaces,
 } from "@kan/db/schema";
 import {
-  MAX_CARD_CANVAS_IMAGE_RESOURCES,
-  MAX_CARD_CANVAS_TOTAL_IMAGE_BYTES,
+  getWorkspaceCanvasImageQuotaBytes,
+  hasWorkspaceCanvasActiveCapacity,
+  MAX_WORKSPACE_CANVAS_ACTIVE_IMAGE_BYTES,
+  MAX_WORKSPACE_CANVAS_IMAGE_LIST_BATCH,
+  MAX_WORKSPACE_CANVAS_PHYSICAL_IMAGE_BYTES,
 } from "@kan/shared";
 
 import type { DbTransaction } from "./workspaceCanvasImage.internal";
@@ -28,13 +31,11 @@ import {
   lockActiveWorkspaceByPublicId,
 } from "./workspace-boundary";
 import {
-  getActorImageUsage,
+  getActiveImageUsage,
   getPhysicalImageUsage,
   hasHeadReference,
   hasRevisionReference,
   lockEditableWorkspace,
-  MAX_WORKSPACE_CANVAS_STORED_IMAGE_BYTES,
-  MAX_WORKSPACE_CANVAS_STORED_IMAGES,
   reclaimWorkspaceCanvasImagesTx,
   withReclaimedS3Keys,
   WORKSPACE_CANVAS_IMAGE_SHARED_RETENTION_MS,
@@ -58,12 +59,19 @@ export const listByWorkspacePublicId = async (
       permission: "workspace:view",
     });
     const imagePublicIds = [...new Set(input.imagePublicIds)];
-    if (imagePublicIds.length > MAX_CARD_CANVAS_IMAGE_RESOURCES) {
+    if (imagePublicIds.length > MAX_WORKSPACE_CANVAS_IMAGE_LIST_BATCH) {
       throw new WorkspaceCanvasImageReferenceError(
         "IMAGE_RESOURCE_BUDGET_EXCEEDED",
       );
     }
-    if (imagePublicIds.length === 0) return [];
+    const usage = await getActiveImageUsage(tx, workspace.id);
+    if (imagePublicIds.length === 0) {
+      return {
+        images: [],
+        usageBytes: usage.totalBytes,
+        quotaBytes: MAX_WORKSPACE_CANVAS_ACTIVE_IMAGE_BYTES,
+      };
+    }
     const canEdit = await hasWorkspacePermissionTx(tx, {
       workspaceId: workspace.id,
       userId: input.userId,
@@ -77,13 +85,16 @@ export const listByWorkspacePublicId = async (
           eq(workspaceCanvasImageReferences.imageId, workspaceCanvasImages.id),
         ),
     );
-    return tx
+    const images = await tx
       .select({
         publicId: workspaceCanvasImages.publicId,
         title: workspaceCanvasImages.title,
         originalFilename: workspaceCanvasImages.originalFilename,
         contentType: workspaceCanvasImages.contentType,
         size: workspaceCanvasImages.size,
+        width: workspaceCanvasImages.width,
+        height: workspaceCanvasImages.height,
+        optimizedAt: workspaceCanvasImages.optimizedAt,
         createdAt: workspaceCanvasImages.createdAt,
       })
       .from(workspaceCanvasImages)
@@ -102,7 +113,12 @@ export const listByWorkspacePublicId = async (
         ),
       )
       .orderBy(desc(referencedByHead), desc(workspaceCanvasImages.createdAt))
-      .limit(MAX_CARD_CANVAS_IMAGE_RESOURCES);
+      .limit(MAX_WORKSPACE_CANVAS_IMAGE_LIST_BATCH);
+    return {
+      images,
+      usageBytes: usage.totalBytes,
+      quotaBytes: MAX_WORKSPACE_CANVAS_ACTIVE_IMAGE_BYTES,
+    };
   });
 
 export const softDeleteUnreferenced = async (
@@ -203,36 +219,14 @@ export const preflightImageImport = async (
       tx,
       boundary.workspace.id,
     );
-    if (physicalUsage.pendingConsumedCleanupCount > 0) {
-      return withReclaimedS3Keys(
-        { status: "storage_cleanup" as const },
-        reclaimedS3Keys,
-      );
-    }
-    if (physicalUsage.count >= MAX_WORKSPACE_CANVAS_STORED_IMAGES) {
-      return withReclaimedS3Keys(
-        { status: "storage_limit" as const },
-        reclaimedS3Keys,
-      );
-    }
-    if (physicalUsage.totalBytes >= MAX_WORKSPACE_CANVAS_STORED_IMAGE_BYTES) {
+    if (physicalUsage.totalBytes >= MAX_WORKSPACE_CANVAS_PHYSICAL_IMAGE_BYTES) {
       return withReclaimedS3Keys(
         { status: "storage_budget" as const },
         reclaimedS3Keys,
       );
     }
-    const usage = await getActorImageUsage(
-      tx,
-      boundary.workspace.id,
-      input.userId,
-    );
-    if (usage.count >= MAX_CARD_CANVAS_IMAGE_RESOURCES) {
-      return withReclaimedS3Keys(
-        { status: "image_limit" as const },
-        reclaimedS3Keys,
-      );
-    }
-    if (usage.totalBytes >= MAX_CARD_CANVAS_TOTAL_IMAGE_BYTES) {
+    const usage = await getActiveImageUsage(tx, boundary.workspace.id);
+    if (!hasWorkspaceCanvasActiveCapacity(usage.totalBytes, 0)) {
       return withReclaimedS3Keys(
         { status: "image_budget" as const },
         reclaimedS3Keys,
@@ -356,25 +350,16 @@ export const syncReferences = async (
   if (images.length !== publicIds.length) {
     throw new WorkspaceCanvasImageReferenceError("IMAGE_REFERENCE_INVALID");
   }
-  const currentReferenceImageIds =
-    images.length === 0
-      ? new Set<number>()
-      : new Set(
-          (
-            await tx
-              .select({ imageId: workspaceCanvasImageReferences.imageId })
-              .from(workspaceCanvasImageReferences)
-              .where(
-                and(
-                  eq(workspaceCanvasImageReferences.canvasId, input.canvasId),
-                  inArray(
-                    workspaceCanvasImageReferences.imageId,
-                    images.map((image) => image.id),
-                  ),
-                ),
-              )
-          ).map((reference) => reference.imageId),
-        );
+  const currentReferences = await tx
+    .select({
+      elementId: workspaceCanvasImageReferences.elementId,
+      imageId: workspaceCanvasImageReferences.imageId,
+    })
+    .from(workspaceCanvasImageReferences)
+    .where(eq(workspaceCanvasImageReferences.canvasId, input.canvasId));
+  const currentReferenceImageIds = new Set(
+    currentReferences.map((reference) => reference.imageId),
+  );
   if (
     images.some(
       (image) =>
@@ -385,10 +370,29 @@ export const syncReferences = async (
   ) {
     throw new WorkspaceCanvasImageReferenceError("IMAGE_REFERENCE_INVALID");
   }
+  const privateImages = await tx
+    .select({
+      id: workspaceCanvasImages.id,
+      size: workspaceCanvasImages.size,
+    })
+    .from(workspaceCanvasImages)
+    .where(
+      and(
+        eq(workspaceCanvasImages.workspaceId, input.workspaceId),
+        isNull(workspaceCanvasImages.sharedAt),
+        isNull(workspaceCanvasImages.deletedAt),
+      ),
+    )
+    .for("share");
+  const activeImages = new Map<number, { id: number; size: number }>();
+  for (const image of [...images, ...privateImages]) {
+    activeImages.set(image.id, image);
+  }
   if (
-    images.length > 50 ||
-    images.some((image) => image.size > 10 * 1024 * 1024) ||
-    images.reduce((total, image) => total + image.size, 0) > 20 * 1024 * 1024
+    [...activeImages.values()].reduce(
+      (total, image) => total + getWorkspaceCanvasImageQuotaBytes(image.size),
+      0,
+    ) > MAX_WORKSPACE_CANVAS_ACTIVE_IMAGE_BYTES
   ) {
     throw new WorkspaceCanvasImageReferenceError(
       "IMAGE_RESOURCE_BUDGET_EXCEEDED",
@@ -404,18 +408,57 @@ export const syncReferences = async (
         sharedAt: sql`coalesce(${workspaceCanvasImages.sharedAt}, now())`,
       })
       .where(
-        inArray(
-          workspaceCanvasImages.id,
-          images.map((image) => image.id),
+        and(
+          inArray(
+            workspaceCanvasImages.id,
+            images.map((image) => image.id),
+          ),
+          isNull(workspaceCanvasImages.sharedAt),
         ),
       );
   }
-  await tx
-    .delete(workspaceCanvasImageReferences)
-    .where(eq(workspaceCanvasImageReferences.canvasId, input.canvasId));
-  if (input.references.length > 0) {
+  const desiredByElementId = new Map(
+    input.references.map((reference) => {
+      const imageId = imageByPublicId.get(reference.publicId);
+      if (!imageId) {
+        throw new WorkspaceCanvasImageReferenceError("IMAGE_REFERENCE_INVALID");
+      }
+      return [reference.elementId, imageId] as const;
+    }),
+  );
+  if (desiredByElementId.size !== input.references.length) {
+    throw new WorkspaceCanvasImageReferenceError("IMAGE_REFERENCE_INVALID");
+  }
+  const currentByElementId = new Map(
+    currentReferences.map((reference) => [
+      reference.elementId,
+      reference.imageId,
+    ]),
+  );
+  const elementIdsToDelete = currentReferences
+    .filter(
+      (reference) =>
+        desiredByElementId.get(reference.elementId) !== reference.imageId,
+    )
+    .map((reference) => reference.elementId);
+  if (elementIdsToDelete.length > 0) {
+    await tx
+      .delete(workspaceCanvasImageReferences)
+      .where(
+        and(
+          eq(workspaceCanvasImageReferences.canvasId, input.canvasId),
+          inArray(workspaceCanvasImageReferences.elementId, elementIdsToDelete),
+        ),
+      );
+  }
+  const referencesToInsert = input.references.filter(
+    (reference) =>
+      currentByElementId.get(reference.elementId) !==
+      imageByPublicId.get(reference.publicId),
+  );
+  if (referencesToInsert.length > 0) {
     await tx.insert(workspaceCanvasImageReferences).values(
-      input.references.map((reference) => {
+      referencesToInsert.map((reference) => {
         const imageId = imageByPublicId.get(reference.publicId);
         if (!imageId) {
           throw new WorkspaceCanvasImageReferenceError(
@@ -433,12 +476,13 @@ export const syncReferences = async (
 };
 
 export {
-  MAX_WORKSPACE_CANVAS_STORED_IMAGE_BYTES,
-  MAX_WORKSPACE_CANVAS_STORED_IMAGES,
+  MAX_WORKSPACE_CANVAS_ACTIVE_IMAGE_BYTES,
+  MAX_WORKSPACE_CANVAS_PHYSICAL_IMAGE_BYTES,
   reclaimWorkspaceCanvasImagesTx,
   WorkspaceCanvasImageReferenceError,
 };
 export {
+  countPendingWorkspaceCanvasStorageDeletions,
   enqueueWorkspaceCanvasStorageDeletionKeys,
   hardDeleteWorkspaceWithCanvasStorageOutbox,
   listPendingWorkspaceCanvasStorageDeletionKeys,
@@ -446,9 +490,17 @@ export {
   markWorkspaceCanvasStorageDeletionAttempted,
 } from "./workspaceCanvasImageStorage.repo";
 export {
+  claimWorkspaceCanvasImageOptimizationBatch,
+  completeWorkspaceCanvasImageOptimization,
+  reconcileWorkspaceCanvasImageOptimization,
+  reserveWorkspaceCanvasImageOptimizationObject,
+} from "./workspaceCanvasImageOptimization.repo";
+export {
+  abandonClaimedUploadSession,
   claimUploadSession,
   consumeUploadSession,
   createUploadSession,
   deleteUnissuedUploadSession,
   releaseUploadSessionClaim,
+  reserveUploadFinalObject,
 } from "./workspaceCanvasImageUpload.repo";

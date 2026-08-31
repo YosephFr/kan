@@ -1,6 +1,10 @@
 import { RateLimiterMemory, RateLimiterRedis } from "rate-limiter-flexible";
 
 import { getRedisClient } from "@kan/db/redis";
+import {
+  MAX_WORKSPACE_CANVAS_ACTIVE_IMAGE_BYTES,
+  MIN_WORKSPACE_CANVAS_IMAGE_QUOTA_BYTES,
+} from "@kan/shared";
 
 interface WorkspaceCanvasImageRateLimiter {
   consume: (key: string) => Promise<unknown>;
@@ -8,6 +12,19 @@ interface WorkspaceCanvasImageRateLimiter {
 
 export const WORKSPACE_CANVAS_IMAGE_RATE_LIMIT = {
   points: 10,
+  durationSeconds: 60,
+} as const;
+
+export const WORKSPACE_CANVAS_IMAGE_VIEW_RATE_LIMIT = {
+  points:
+    MAX_WORKSPACE_CANVAS_ACTIVE_IMAGE_BYTES /
+      MIN_WORKSPACE_CANVAS_IMAGE_QUOTA_BYTES +
+    400,
+  durationSeconds: 60,
+} as const;
+
+export const WORKSPACE_CANVAS_IMAGE_UPLOAD_RATE_LIMIT = {
+  points: 600,
   durationSeconds: 60,
 } as const;
 
@@ -54,7 +71,45 @@ const createDefaultLimiter = (): WorkspaceCanvasImageRateLimiter => {
   });
 };
 
+const createDefaultViewLimiter = (): WorkspaceCanvasImageRateLimiter => {
+  const redis = getRedisClient();
+  if (redis) {
+    return new RateLimiterRedis({
+      storeClient: redis,
+      keyPrefix: "kan:workspace-canvas:image:view",
+      points: WORKSPACE_CANVAS_IMAGE_VIEW_RATE_LIMIT.points,
+      duration: WORKSPACE_CANVAS_IMAGE_VIEW_RATE_LIMIT.durationSeconds,
+    });
+  }
+  return new RateLimiterMemory({
+    points: WORKSPACE_CANVAS_IMAGE_VIEW_RATE_LIMIT.points,
+    duration: WORKSPACE_CANVAS_IMAGE_VIEW_RATE_LIMIT.durationSeconds,
+  });
+};
+
+const createDefaultUploadLimiter = (): WorkspaceCanvasImageRateLimiter => {
+  const redis = getRedisClient();
+  if (redis) {
+    return new RateLimiterRedis({
+      storeClient: redis,
+      keyPrefix: "kan:workspace-canvas:image:upload",
+      points: WORKSPACE_CANVAS_IMAGE_UPLOAD_RATE_LIMIT.points,
+      duration: WORKSPACE_CANVAS_IMAGE_UPLOAD_RATE_LIMIT.durationSeconds,
+    });
+  }
+  return new RateLimiterMemory({
+    points: WORKSPACE_CANVAS_IMAGE_UPLOAD_RATE_LIMIT.points,
+    duration: WORKSPACE_CANVAS_IMAGE_UPLOAD_RATE_LIMIT.durationSeconds,
+  });
+};
+
 let defaultConsumer:
+  | ReturnType<typeof createWorkspaceCanvasImageRateLimitConsumer>
+  | undefined;
+let defaultViewConsumer:
+  | ReturnType<typeof createWorkspaceCanvasImageRateLimitConsumer>
+  | undefined;
+let defaultUploadConsumer:
   | ReturnType<typeof createWorkspaceCanvasImageRateLimitConsumer>
   | undefined;
 
@@ -66,4 +121,24 @@ export const consumeWorkspaceCanvasImageRateLimit = (
     createDefaultLimiter(),
   );
   return defaultConsumer(userId, workspacePublicId);
+};
+
+export const consumeWorkspaceCanvasImageViewRateLimit = (
+  userId: string,
+  workspacePublicId: string,
+) => {
+  defaultViewConsumer ??= createWorkspaceCanvasImageRateLimitConsumer(
+    createDefaultViewLimiter(),
+  );
+  return defaultViewConsumer(userId, workspacePublicId);
+};
+
+export const consumeWorkspaceCanvasImageUploadRateLimit = (
+  userId: string,
+  workspacePublicId: string,
+) => {
+  defaultUploadConsumer ??= createWorkspaceCanvasImageRateLimitConsumer(
+    createDefaultUploadLimiter(),
+  );
+  return defaultUploadConsumer(userId, workspacePublicId);
 };

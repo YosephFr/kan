@@ -79,6 +79,9 @@ export const workspaceCanvasImages = pgTable(
     originalFilename: varchar("originalFilename", { length: 255 }).notNull(),
     contentType: varchar("contentType", { length: 100 }).notNull(),
     size: bigint("size", { mode: "number" }).notNull(),
+    width: integer("width"),
+    height: integer("height"),
+    optimizedAt: timestamp("optimizedAt", { withTimezone: true }),
     s3Key: varchar("s3Key", { length: 500 }).notNull().unique(),
     sha256: varchar("sha256", { length: 64 }).notNull(),
     uploadSessionId: bigint("uploadSessionId", { mode: "number" })
@@ -108,6 +111,14 @@ export const workspaceCanvasImages = pgTable(
       "workspace_canvas_image_type_check",
       sql`${table.contentType} in ('image/jpeg', 'image/png', 'image/webp')`,
     ),
+    check(
+      "workspace_canvas_image_dimensions_check",
+      sql`(${table.width} is null and ${table.height} is null) or (${table.width} is not null and ${table.height} is not null and ${table.width} between 1 and 8192 and ${table.height} between 1 and 8192 and ${table.width}::bigint * ${table.height}::bigint <= 16777216)`,
+    ),
+    check(
+      "workspace_canvas_image_optimized_check",
+      sql`${table.optimizedAt} is null or (${table.contentType} = 'image/webp' and ${table.width} is not null and ${table.height} is not null and ${table.width} between 1 and 1280 and ${table.height} between 1 and 1280 and ${table.size} <= 768000)`,
+    ),
     index("workspace_canvas_image_workspace_deleted_idx").on(
       table.workspaceId,
       table.deletedAt,
@@ -130,6 +141,11 @@ export const workspaceCanvasImageStorageDeletions = pgTable(
   {
     id: bigserial("id", { mode: "number" }).primaryKey(),
     s3Key: varchar("s3Key", { length: 500 }).notNull().unique(),
+    workspaceId: bigint("workspaceId", { mode: "number" }).references(
+      () => workspaces.id,
+      { onDelete: "set null" },
+    ),
+    size: bigint("size", { mode: "number" }),
     attempts: integer("attempts").default(0).notNull(),
     lastAttemptAt: timestamp("lastAttemptAt", { withTimezone: true }),
     availableAt: timestamp("availableAt", { withTimezone: true })
@@ -145,10 +161,18 @@ export const workspaceCanvasImageStorageDeletions = pgTable(
       "workspace_canvas_image_storage_deletion_attempts_check",
       sql`${table.attempts} >= 0`,
     ),
+    check(
+      "workspace_canvas_image_storage_deletion_size_check",
+      sql`${table.size} is null or ${table.size} > 0`,
+    ),
     index("workspace_canvas_image_storage_deletion_pending_idx").on(
       table.completedAt,
       table.availableAt,
       table.createdAt,
+    ),
+    index("workspace_canvas_image_storage_deletion_workspace_idx").on(
+      table.workspaceId,
+      table.completedAt,
     ),
   ],
 ).enableRLS();

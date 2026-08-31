@@ -6,7 +6,6 @@ import {
   isNotNull,
   isNull,
   lte,
-  or,
   sql,
 } from "drizzle-orm";
 
@@ -52,10 +51,7 @@ export const markWorkspaceCanvasImageStorageDeleted = async (
       and(
         inArray(workspaceCanvasImageUploadSessions.s3Key, uniqueS3Keys),
         isNull(workspaceCanvasImageUploadSessions.storageDeletedAt),
-        or(
-          isNotNull(workspaceCanvasImageUploadSessions.consumedAt),
-          lte(workspaceCanvasImageUploadSessions.expiresAt, now),
-        ),
+        lte(workspaceCanvasImageUploadSessions.expiresAt, now),
       ),
     )
     .returning({ s3Key: workspaceCanvasImageUploadSessions.s3Key });
@@ -93,16 +89,38 @@ export const listPendingWorkspaceCanvasStorageDeletionKeys = async (
     )
     .limit(limit);
 
+export const countPendingWorkspaceCanvasStorageDeletions = async (
+  db: dbClient,
+) => {
+  const [result] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(workspaceCanvasImageStorageDeletions)
+    .where(
+      and(
+        isNull(workspaceCanvasImageStorageDeletions.completedAt),
+        lte(workspaceCanvasImageStorageDeletions.availableAt, new Date()),
+      ),
+    );
+  return result?.count ?? 0;
+};
+
 export const enqueueWorkspaceCanvasStorageDeletionKeys = async (
   db: dbClient,
-  s3Keys: string[],
+  items: (string | { s3Key: string; workspaceId: number; size: number })[],
   availableAt = new Date(),
 ) => {
-  const uniqueS3Keys = [...new Set(s3Keys)];
-  if (uniqueS3Keys.length === 0) return [];
+  const uniqueItems = [
+    ...new Map(
+      items.map((item) => [
+        typeof item === "string" ? item : item.s3Key,
+        typeof item === "string" ? { s3Key: item } : item,
+      ]),
+    ).values(),
+  ];
+  if (uniqueItems.length === 0) return [];
   return db
     .insert(workspaceCanvasImageStorageDeletions)
-    .values(uniqueS3Keys.map((s3Key) => ({ s3Key, availableAt })))
+    .values(uniqueItems.map((item) => ({ ...item, availableAt })))
     .onConflictDoNothing()
     .returning({ s3Key: workspaceCanvasImageStorageDeletions.s3Key });
 };
@@ -149,7 +167,10 @@ export const hardDeleteWorkspaceWithCanvasStorageOutbox = async (
       permission: "workspace:delete",
     });
     const images = await tx
-      .select({ s3Key: workspaceCanvasImages.s3Key })
+      .select({
+        s3Key: workspaceCanvasImages.s3Key,
+        size: workspaceCanvasImages.size,
+      })
       .from(workspaceCanvasImages)
       .where(
         and(
@@ -160,6 +181,7 @@ export const hardDeleteWorkspaceWithCanvasStorageOutbox = async (
     const uploads = await tx
       .select({
         s3Key: workspaceCanvasImageUploadSessions.s3Key,
+        size: workspaceCanvasImageUploadSessions.size,
         expiresAt: workspaceCanvasImageUploadSessions.expiresAt,
       })
       .from(workspaceCanvasImageUploadSessions)
@@ -171,9 +193,16 @@ export const hardDeleteWorkspaceWithCanvasStorageOutbox = async (
       );
     const now = new Date();
     const deletionItems = [
-      ...images.map((image) => ({ s3Key: image.s3Key, availableAt: now })),
+      ...images.map((image) => ({
+        s3Key: image.s3Key,
+        workspaceId: workspace.id,
+        size: image.size,
+        availableAt: now,
+      })),
       ...uploads.map((upload) => ({
         s3Key: upload.s3Key,
+        workspaceId: workspace.id,
+        size: upload.size,
         availableAt: new Date(
           upload.expiresAt.getTime() + WORKSPACE_CANVAS_UPLOAD_OUTBOX_GRACE_MS,
         ),
@@ -187,6 +216,8 @@ export const hardDeleteWorkspaceWithCanvasStorageOutbox = async (
           target: workspaceCanvasImageStorageDeletions.s3Key,
           set: {
             availableAt: sql`excluded."availableAt"`,
+            workspaceId: sql`excluded."workspaceId"`,
+            size: sql`excluded."size"`,
             completedAt: null,
           },
         });

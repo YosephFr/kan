@@ -108,7 +108,21 @@ export interface RemoteCardImageImportDependencies {
   }) => Promise<void>;
 }
 
-export const importRemoteCardImage = async (
+const discardRemoteImageUpload = async (
+  dependencies: RemoteCardImageImportDependencies,
+  input: { uploadSessionPublicId: string; stagingKey: string },
+) => {
+  try {
+    await dependencies.discardUpload(input);
+  } catch {
+    log.warn(
+      { uploadSessionPublicId: input.uploadSessionPublicId },
+      "Failed to discard a remote image upload session",
+    );
+  }
+};
+
+const stageRemoteCardImage = async (
   url: string,
   dependencies: RemoteCardImageImportDependencies,
 ) => {
@@ -122,26 +136,34 @@ export const importRemoteCardImage = async (
     sha256: createHash("sha256").update(image.bytes).digest("hex"),
   });
   const stagingKey = `.uploads/${session.uploadSessionPublicId}/${filename}`;
-
   try {
     await dependencies.writeStagingObject({
       key: stagingKey,
       bytes: image.bytes,
       contentType: image.contentType,
     });
-    return await dependencies.confirmUpload(session.uploadSessionPublicId);
   } catch (error) {
-    try {
-      await dependencies.discardUpload({
-        uploadSessionPublicId: session.uploadSessionPublicId,
-        stagingKey,
-      });
-    } catch {
-      log.warn(
-        { uploadSessionPublicId: session.uploadSessionPublicId },
-        "Failed to discard a remote image upload session",
-      );
-    }
+    await discardRemoteImageUpload(dependencies, {
+      uploadSessionPublicId: session.uploadSessionPublicId,
+      stagingKey,
+    });
+    throw error;
+  }
+  return {
+    uploadSessionPublicId: session.uploadSessionPublicId,
+    stagingKey,
+  };
+};
+
+export const importRemoteCardImage = async (
+  url: string,
+  dependencies: RemoteCardImageImportDependencies,
+) => {
+  const staged = await stageRemoteCardImage(url, dependencies);
+  try {
+    return await dependencies.confirmUpload(staged.uploadSessionPublicId);
+  } catch (error) {
+    await discardRemoteImageUpload(dependencies, staged);
     throw error;
   }
 };

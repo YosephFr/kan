@@ -4,30 +4,31 @@ import { TRPCError } from "@trpc/server";
 import type { dbClient } from "@kan/db/client";
 import * as workspaceCanvasImageRepo from "@kan/db/repository/workspaceCanvasImage.repo";
 import { createLogger } from "@kan/logger";
-import {
-  MAX_CARD_CANVAS_IMAGE_BYTES,
-  MAX_CARD_CANVAS_IMAGE_DIMENSION,
-  MAX_CARD_CANVAS_IMAGE_PIXELS,
-} from "@kan/shared";
+import { MAX_WORKSPACE_CANVAS_SOURCE_IMAGE_BYTES } from "@kan/shared";
 import {
   ATTACHMENT_UPLOAD_CLAIM_TTL_MS,
   ATTACHMENT_UPLOAD_TTL_MS,
-  copyObject,
   deleteObject,
   generateUID,
   generateUploadUrl,
+  getAttachmentObject,
   hasDetectableActiveAttachmentContent,
   hasValidAttachmentSignature,
   inspectObject,
   normalizeAttachmentContentType,
   ObjectInspectionSizeError,
+  putObject,
   sanitizeAttachmentFilename,
 } from "@kan/shared/utils";
 
 import { workspaceCanvasImageContentTypeSchema } from "../schemas/workspace-canvas-image";
-import { validateSafePreviewImage } from "./safe-preview-image";
+import {
+  loadAndOptimizeWorkspaceCanvasImage,
+  WorkspaceCanvasImageOptimizationError,
+} from "./workspace-canvas-image-optimizer";
 
 const log = createLogger("workspace-canvas-image-upload");
+const WORKSPACE_CANVAS_STORAGE_DELETE_CONCURRENCY = 20;
 
 export async function deleteReclaimedWorkspaceCanvasImageObjects(
   db: dbClient,
@@ -57,38 +58,49 @@ export async function deleteReclaimedWorkspaceCanvasImageObjects(
     );
     return;
   }
-  await workspaceCanvasImageRepo
-    .markWorkspaceCanvasStorageDeletionAttempted(db, pendingS3Keys)
-    .catch(() => {
-      log.warn(
-        {
-          errorCode: "WORKSPACE_CANVAS_IMAGE_GC_OUTBOX_ATTEMPT_MARK_FAILED",
-          objectCount: pendingS3Keys.length,
-        },
-        "Unable to mark workspace canvas image object deletion attempts",
-      );
-    });
-  const results = await Promise.allSettled(
-    pendingS3Keys.map((s3Key) => deleteObject(bucket, s3Key)),
-  );
-  const failedCount = results.filter(
-    (result) => result.status === "rejected",
-  ).length;
-  const deletedS3Keys = pendingS3Keys.filter(
-    (_, index) => results[index]?.status === "fulfilled",
-  );
-  if (deletedS3Keys.length > 0) {
+  let failedCount = 0;
+  for (
+    let index = 0;
+    index < pendingS3Keys.length;
+    index += WORKSPACE_CANVAS_STORAGE_DELETE_CONCURRENCY
+  ) {
+    const batch = pendingS3Keys.slice(
+      index,
+      index + WORKSPACE_CANVAS_STORAGE_DELETE_CONCURRENCY,
+    );
     await workspaceCanvasImageRepo
-      .markWorkspaceCanvasImageStorageDeleted(db, deletedS3Keys)
+      .markWorkspaceCanvasStorageDeletionAttempted(db, batch)
       .catch(() => {
         log.warn(
           {
-            errorCode: "WORKSPACE_CANVAS_IMAGE_GC_MARK_FAILED",
-            objectCount: deletedS3Keys.length,
+            errorCode: "WORKSPACE_CANVAS_IMAGE_GC_OUTBOX_ATTEMPT_MARK_FAILED",
+            objectCount: batch.length,
           },
-          "Failed to mark reclaimed workspace canvas image objects",
+          "Unable to mark workspace canvas image object deletion attempts",
         );
       });
+    const results = await Promise.allSettled(
+      batch.map((s3Key) => deleteObject(bucket, s3Key)),
+    );
+    failedCount += results.filter(
+      (result) => result.status === "rejected",
+    ).length;
+    const deletedS3Keys = batch.filter(
+      (_, resultIndex) => results[resultIndex]?.status === "fulfilled",
+    );
+    if (deletedS3Keys.length > 0) {
+      await workspaceCanvasImageRepo
+        .markWorkspaceCanvasImageStorageDeleted(db, deletedS3Keys)
+        .catch(() => {
+          log.warn(
+            {
+              errorCode: "WORKSPACE_CANVAS_IMAGE_GC_MARK_FAILED",
+              objectCount: deletedS3Keys.length,
+            },
+            "Failed to mark reclaimed workspace canvas image objects",
+          );
+        });
+    }
   }
   if (failedCount > 0) {
     log.warn(
@@ -108,6 +120,9 @@ export interface WorkspaceCanvasImageResult {
   originalFilename: string;
   contentType: string;
   size: number;
+  width: number | null;
+  height: number | null;
+  optimizedAt: Date | null;
   createdAt: Date;
 }
 
@@ -122,6 +137,9 @@ export const mapWorkspaceCanvasImage = (image: WorkspaceCanvasImageResult) => {
     originalFilename: image.originalFilename,
     contentType,
     size: image.size,
+    width: image.width,
+    height: image.height,
+    optimizedAt: image.optimizedAt,
     viewUrl: `/api/workspace-canvas-images/${image.publicId}`,
     downloadUrl: `/api/workspace-canvas-images/${image.publicId}`,
     createdAt: image.createdAt,
@@ -149,13 +167,6 @@ const throwBoundaryStatus = (status: "not_found" | "forbidden"): never => {
   });
 };
 
-const throwUploadLimit = (): never => {
-  throw new TRPCError({
-    code: "PRECONDITION_FAILED",
-    message: "WORKSPACE_CANVAS_IMAGE_LIMIT_REACHED",
-  });
-};
-
 const throwUploadBudget = (): never => {
   throw new TRPCError({
     code: "PRECONDITION_FAILED",
@@ -167,13 +178,6 @@ const throwStorageBudget = (): never => {
   throw new TRPCError({
     code: "PRECONDITION_FAILED",
     message: "WORKSPACE_CANVAS_IMAGE_STORAGE_LIMIT_REACHED",
-  });
-};
-
-const throwStorageCleanupPending = (): never => {
-  throw new TRPCError({
-    code: "SERVICE_UNAVAILABLE",
-    message: "WORKSPACE_CANVAS_IMAGE_STORAGE_CLEANUP_PENDING",
   });
 };
 
@@ -212,15 +216,10 @@ export async function createWorkspaceCanvasImageUpload(
   if (creation.status === "not_found" || creation.status === "forbidden") {
     throwBoundaryStatus(creation.status);
   }
-  if (creation.status === "image_limit") throwUploadLimit();
   if (creation.status === "image_budget") throwUploadBudget();
-  if (
-    creation.status === "storage_limit" ||
-    creation.status === "storage_budget"
-  ) {
+  if (creation.status === "storage_budget") {
     throwStorageBudget();
   }
-  if (creation.status === "storage_cleanup") throwStorageCleanupPending();
   if (
     creation.status === "user_limit" ||
     creation.status === "workspace_limit"
@@ -228,6 +227,12 @@ export async function createWorkspaceCanvasImageUpload(
     throw new TRPCError({
       code: "TOO_MANY_REQUESTS",
       message: "WORKSPACE_CANVAS_UPLOAD_LIMIT_REACHED",
+    });
+  }
+  if (creation.status === "staging_budget") {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "WORKSPACE_CANVAS_UPLOAD_STAGING_BUDGET_REACHED",
     });
   }
   if (creation.status !== "created") {
@@ -293,19 +298,61 @@ const assertValidStoredImage = (
       message: "WORKSPACE_CANVAS_IMAGE_INVALID",
     });
   }
-  try {
-    validateSafePreviewImage(session.contentType, inspected.prefix, {
-      maxBytes: MAX_CARD_CANVAS_IMAGE_BYTES,
-      maxDimension: MAX_CARD_CANVAS_IMAGE_DIMENSION,
-      maxPixels: MAX_CARD_CANVAS_IMAGE_PIXELS,
-    });
-  } catch {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "WORKSPACE_CANVAS_IMAGE_INVALID",
+};
+
+const readClaimedImage = async (
+  bucket: string,
+  session: { s3Key: string; size: number },
+  etag: string,
+) => {
+  const object = await getAttachmentObject({
+    bucket,
+    key: session.s3Key,
+    ifMatch: etag,
+  });
+  if (!object.Body) throw new Error("Workspace canvas image body is missing");
+  const bytes = await object.Body.transformToByteArray();
+  if (bytes.byteLength !== session.size) {
+    throw new ObjectInspectionSizeError("OBJECT_SIZE_MISMATCH");
+  }
+  return bytes;
+};
+
+const mapOptimizationError = (
+  error: WorkspaceCanvasImageOptimizationError,
+): TRPCError => {
+  if (error.code === "IMAGE_OPTIMIZATION_BUSY") {
+    return new TRPCError({
+      code: "SERVICE_UNAVAILABLE",
+      message: "WORKSPACE_CANVAS_IMAGE_OPTIMIZATION_BUSY",
     });
   }
+  if (error.code === "IMAGE_DIMENSIONS_INVALID") {
+    return new TRPCError({
+      code: "BAD_REQUEST",
+      message: "WORKSPACE_CANVAS_IMAGE_DIMENSIONS_INVALID",
+    });
+  }
+  if (error.code === "IMAGE_OPTIMIZATION_FAILED") {
+    return new TRPCError({
+      code: "UNPROCESSABLE_CONTENT",
+      message: "WORKSPACE_CANVAS_IMAGE_OPTIMIZATION_FAILED",
+    });
+  }
+  return new TRPCError({
+    code: "BAD_REQUEST",
+    message: "WORKSPACE_CANVAS_IMAGE_INVALID",
+  });
 };
+
+const shouldAbandonWorkspaceCanvasUpload = (error: unknown) =>
+  (error instanceof WorkspaceCanvasImageOptimizationError &&
+    error.code !== "IMAGE_OPTIMIZATION_BUSY") ||
+  error instanceof ObjectInspectionSizeError ||
+  (error instanceof TRPCError &&
+    (error.code === "BAD_REQUEST" ||
+      error.code === "UNPROCESSABLE_CONTENT" ||
+      error.message === "WORKSPACE_CANVAS_IMAGE_OPTIMIZATION_FAILED"));
 
 export async function confirmWorkspaceCanvasImageUpload(
   db: dbClient,
@@ -337,31 +384,67 @@ export async function confirmWorkspaceCanvasImageUpload(
   }
   const session = claim.session;
   const finalS3Key = `.objects/${generateUID()}`;
-  let copyAttempted = false;
+  let writeAttempted = false;
   let consumptionMayHavePersisted = false;
   let persisted = false;
   try {
-    const inspected = await inspectObject(bucket, session.s3Key, {
-      maxBytes: MAX_CARD_CANVAS_IMAGE_BYTES,
-      expectedBytes: session.size,
-    });
-    assertValidStoredImage(session, inspected);
-    const scheduled =
-      await workspaceCanvasImageRepo.enqueueWorkspaceCanvasStorageDeletionKeys(
-        db,
-        [finalS3Key],
-        claimExpiresAt,
-      );
-    if (scheduled.length !== 1) {
-      throw new Error("Unable to reserve workspace canvas image storage key");
+    const optimized = await loadAndOptimizeWorkspaceCanvasImage(
+      db,
+      async () => {
+        const inspected = await inspectObject(bucket, session.s3Key, {
+          maxBytes: MAX_WORKSPACE_CANVAS_SOURCE_IMAGE_BYTES,
+          expectedBytes: session.size,
+        });
+        assertValidStoredImage(session, inspected);
+        return {
+          bytes: await readClaimedImage(bucket, session, inspected.etag),
+          contentType: session.contentType,
+        };
+      },
+    );
+    const reservation = await workspaceCanvasImageRepo.reserveUploadFinalObject(
+      db,
+      {
+        sessionPublicId: session.publicId,
+        workspacePublicId: input.workspacePublicId,
+        userId: input.userId,
+        claimToken,
+        finalS3Key,
+        finalSize: optimized.size,
+      },
+    );
+    await deleteReclaimedWorkspaceCanvasImageObjects(
+      db,
+      "reclaimedS3Keys" in reservation
+        ? (reservation.reclaimedS3Keys ?? [])
+        : [],
+    );
+    if (
+      reservation.status === "not_found" ||
+      reservation.status === "forbidden"
+    ) {
+      throwBoundaryStatus(reservation.status);
     }
-    copyAttempted = true;
-    await copyObject({
+    if (reservation.status === "image_budget") throwUploadBudget();
+    if (reservation.status === "storage_budget") throwStorageBudget();
+    if (reservation.status === "invalid_optimized_image") {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "WORKSPACE_CANVAS_IMAGE_OPTIMIZATION_FAILED",
+      });
+    }
+    if (reservation.status !== "reserved") {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "WORKSPACE_CANVAS_UPLOAD_UNAVAILABLE",
+      });
+    }
+    writeAttempted = true;
+    await putObject({
       bucket,
-      sourceKey: session.s3Key,
-      destinationKey: finalS3Key,
-      sourceEtag: inspected.etag,
-      contentType: session.contentType,
+      key: finalS3Key,
+      body: optimized.bytes,
+      contentType: optimized.contentType,
     });
     consumptionMayHavePersisted = true;
     const consumption = await workspaceCanvasImageRepo.consumeUploadSession(
@@ -372,6 +455,12 @@ export async function confirmWorkspaceCanvasImageUpload(
         userId: input.userId,
         claimToken,
         finalS3Key,
+        finalContentType: optimized.contentType,
+        finalSize: optimized.size,
+        finalSha256: optimized.sha256,
+        width: optimized.width,
+        height: optimized.height,
+        optimizedAt: new Date(),
       },
     );
     consumptionMayHavePersisted = consumption.status === "created";
@@ -387,16 +476,15 @@ export async function confirmWorkspaceCanvasImageUpload(
     ) {
       throwBoundaryStatus(consumption.status);
     }
-    if (consumption.status === "image_limit") throwUploadLimit();
     if (consumption.status === "image_budget") throwUploadBudget();
-    if (
-      consumption.status === "storage_limit" ||
-      consumption.status === "storage_budget"
-    ) {
+    if (consumption.status === "storage_budget") {
       throwStorageBudget();
     }
-    if (consumption.status === "storage_cleanup") {
-      throwStorageCleanupPending();
+    if (consumption.status === "invalid_optimized_image") {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "WORKSPACE_CANVAS_IMAGE_OPTIMIZATION_FAILED",
+      });
     }
     if (consumption.status !== "created") {
       throw new TRPCError({
@@ -409,17 +497,34 @@ export async function confirmWorkspaceCanvasImageUpload(
     return consumption.image;
   } catch (error) {
     if (!persisted) {
-      await workspaceCanvasImageRepo
-        .releaseUploadSessionClaim(db, {
-          publicId: session.publicId,
-          claimToken,
-        })
-        .catch(() => undefined);
-      if (copyAttempted && !consumptionMayHavePersisted) {
+      const abandoned = shouldAbandonWorkspaceCanvasUpload(error)
+        ? await workspaceCanvasImageRepo
+            .abandonClaimedUploadSession(db, {
+              publicId: session.publicId,
+              workspacePublicId: input.workspacePublicId,
+              userId: input.userId,
+              claimToken,
+            })
+            .catch(() => null)
+        : null;
+      if (abandoned) {
+        await deleteReclaimedWorkspaceCanvasImageObjects(db, [abandoned.s3Key]);
+      } else if (!shouldAbandonWorkspaceCanvasUpload(error)) {
+        await workspaceCanvasImageRepo
+          .releaseUploadSessionClaim(db, {
+            publicId: session.publicId,
+            claimToken,
+          })
+          .catch(() => undefined);
+      }
+      if (writeAttempted && !consumptionMayHavePersisted) {
         await deleteReclaimedWorkspaceCanvasImageObjects(db, [finalS3Key]);
       }
     }
     if (error instanceof TRPCError) throw error;
+    if (error instanceof WorkspaceCanvasImageOptimizationError) {
+      throw mapOptimizationError(error);
+    }
     if (error instanceof ObjectInspectionSizeError) {
       throw new TRPCError({
         code: "BAD_REQUEST",

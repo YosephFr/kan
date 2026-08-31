@@ -4,6 +4,7 @@ import { MAX_CARD_CANVAS_IMAGE_BYTES } from "@kan/shared";
 
 import { normalizeCardCanvasClipboard } from "../../card/components/card-canvas-clipboard";
 import {
+  makeWorkspaceCanvasFilePasteItems,
   toWorkspaceCanvasPasteText,
   validateWorkspaceCanvasImageFile,
 } from "./workspace-canvas-paste";
@@ -70,5 +71,21 @@ describe("workspace canvas paste", () => {
       items: [{ type: "text", text: "Meta offline" }],
       imagesOmitted: true,
     });
+  });
+
+  it("queues a large device selection without applying the HTML clipboard cap", () => {
+    const files = Array.from(
+      { length: 51 },
+      (_, index) => image({ name: `goal-${index}.png` }) as File,
+    );
+    expect(makeWorkspaceCanvasFilePasteItems(files)).toHaveLength(51);
+  });
+
+  it("keeps the shared card clipboard image limit unchanged", () => {
+    expect(() =>
+      normalizeCardCanvasClipboard({
+        images: Array.from({ length: 11 }, () => ({ file: image() as File })),
+      }),
+    ).toThrow("CLIPBOARD_IMAGE_LIMIT_REACHED");
   });
 });

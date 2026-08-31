@@ -3,10 +3,28 @@ import cors from "nextjs-cors";
 import { createOpenApiNextHandler } from "trpc-to-openapi";
 
 import { appRouter } from "@kan/api";
-import { createRESTContext, getSafeProcedureErrorMessage } from "@kan/api/trpc";
-import { withRateLimit } from "@kan/api/utils/rateLimit";
+import {
+  createNextApiContext,
+  createRESTContext,
+  getSafeProcedureErrorMessage,
+} from "@kan/api/trpc";
+import {
+  getRequestIpRateLimitIdentifier,
+  withRateLimit,
+} from "@kan/api/utils/rateLimit";
 
 import { env } from "~/env";
+import {
+  createWorkspaceCanvasUploadRateLimitProfileResolver,
+  WORKSPACE_CANVAS_UPLOAD_HTTP_RATE_LIMIT_POINTS,
+} from "~/utils/workspace-canvas-upload-rate-limit";
+
+const resolveRateLimitProfile =
+  createWorkspaceCanvasUploadRateLimitProfileResolver({
+    getVerifiedUserId: async (req) =>
+      (await createNextApiContext(req)).user?.id,
+    getIpIdentifier: getRequestIpRateLimitIdentifier,
+  });
 
 export const config = {
   api: {
@@ -17,7 +35,13 @@ export const config = {
 };
 
 export default withRateLimit(
-  { points: 100, duration: 60 },
+  {
+    points: WORKSPACE_CANVAS_UPLOAD_HTTP_RATE_LIMIT_POINTS,
+    duration: 60,
+    identifier: async (req) => (await resolveRateLimitProfile(req)).identifier,
+    pointsToConsume: async (req) =>
+      (await resolveRateLimitProfile(req)).pointsToConsume,
+  },
   async (req: NextApiRequest, res: NextApiResponse) => {
     await cors(req, res);
 

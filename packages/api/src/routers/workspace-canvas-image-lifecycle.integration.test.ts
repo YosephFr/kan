@@ -13,7 +13,7 @@ import {
 } from "@kan/db/schema";
 import {
   MAX_CARD_CANVAS_IMAGE_BYTES,
-  MAX_CARD_CANVAS_TOTAL_IMAGE_BYTES,
+  MAX_WORKSPACE_CANVAS_ACTIVE_IMAGE_BYTES,
 } from "@kan/shared";
 
 import type { PipelineTestDbClient } from "./card-pipeline-repository.test-utils";
@@ -125,12 +125,14 @@ describe("workspace canvas image lifecycle", () => {
   };
 
   const listFor = (userId: string, imagePublicIds: string[]) =>
-    canvasImageRepo.listByWorkspacePublicId(db, {
-      workspacePublicId: seeded.workspace.publicId,
-      expectedWorkspaceId: seeded.workspace.id,
-      userId,
-      imagePublicIds,
-    });
+    canvasImageRepo
+      .listByWorkspacePublicId(db, {
+        workspacePublicId: seeded.workspace.publicId,
+        expectedWorkspaceId: seeded.workspace.id,
+        userId,
+        imagePublicIds,
+      })
+      .then((result) => result.images);
 
   it("keeps drafts private and preserves historically shared images for editors only", async () => {
     const editor = await createMember("admin");
@@ -246,18 +248,16 @@ describe("workspace canvas image lifecycle", () => {
   });
 
   it("releases logical quota immediately while retaining shared storage for thirty days", async () => {
-    const images = await Promise.all([
-      createImage({
-        createdBy: seeded.user.id,
-        size: MAX_CARD_CANVAS_IMAGE_BYTES,
-      }),
-      createImage({
-        createdBy: seeded.user.id,
-        size: MAX_CARD_CANVAS_IMAGE_BYTES,
-      }),
-    ]);
-    expect(MAX_CARD_CANVAS_IMAGE_BYTES * 2).toBe(
-      MAX_CARD_CANVAS_TOTAL_IMAGE_BYTES,
+    const images = await Promise.all(
+      Array.from({ length: 10 }, () =>
+        createImage({
+          createdBy: seeded.user.id,
+          size: MAX_CARD_CANVAS_IMAGE_BYTES,
+        }),
+      ),
+    );
+    expect(MAX_CARD_CANVAS_IMAGE_BYTES * 10).toBe(
+      MAX_WORKSPACE_CANVAS_ACTIVE_IMAGE_BYTES,
     );
     await canvasRepo.save(db, {
       workspacePublicId: seeded.workspace.publicId,

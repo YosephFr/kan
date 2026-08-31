@@ -26,6 +26,7 @@ export type CardCanvasExportFormat = "png" | "svg" | "excalidraw";
 
 interface CardCanvasExportOptions {
   api: ExcalidrawImperativeAPI;
+  files?: BinaryFiles;
   title: string;
   format: CardCanvasExportFormat;
   elementIds?: string[];
@@ -167,7 +168,10 @@ export const exportCardCanvas = async (options: CardCanvasExportOptions) => {
   const elements = getExportElements(options);
   if (elements.length === 0) throw new Error("EMPTY_EXPORT");
   const appState = options.api.getAppState();
-  const files = getExportFiles(elements, options.api.getFiles());
+  const files = getExportFiles(
+    elements,
+    options.files ?? options.api.getFiles(),
+  );
   const filename = safeFileName(options.title);
 
   if (options.format === "excalidraw") {

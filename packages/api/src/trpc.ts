@@ -108,7 +108,12 @@ export const createInnerTRPCContext = (opts: CreateContextOptions) => {
   };
 };
 
-export const createTRPCContext = async ({ req }: CreateNextContextOptions) => {
+const nextApiContextCache = new WeakMap<
+  NextApiRequest,
+  ReturnType<typeof createNextApiRequestContext>
+>();
+
+async function createNextApiRequestContext(req: NextApiRequest) {
   const db = createDrizzleClient();
   const baseAuth = initAuth(db);
   const headers = new Headers(req.headers as Record<string, string>);
@@ -123,24 +128,18 @@ export const createTRPCContext = async ({ req }: CreateNextContextOptions) => {
     headers,
     transport: "trpc",
   });
+}
+
+export const createNextApiContext = (req: NextApiRequest) => {
+  const cached = nextApiContextCache.get(req);
+  if (cached) return cached;
+  const context = createNextApiRequestContext(req);
+  nextApiContextCache.set(req, context);
+  return context;
 };
 
-export const createNextApiContext = async (req: NextApiRequest) => {
-  const db = createDrizzleClient();
-  const baseAuth = initAuth(db);
-  const headers = new Headers(req.headers as Record<string, string>);
-  const auth = createAuthWithHeaders(baseAuth, headers);
-
-  const session = await auth.api.getSession();
-
-  return createInnerTRPCContext({
-    db,
-    user: session?.user,
-    auth,
-    headers,
-    transport: "trpc",
-  });
-};
+export const createTRPCContext = ({ req }: CreateNextContextOptions) =>
+  createNextApiContext(req);
 
 export const createRESTContext = async ({ req }: CreateNextContextOptions) => {
   const db = createDrizzleClient();
@@ -151,9 +150,9 @@ export const createRESTContext = async ({ req }: CreateNextContextOptions) => {
   let session;
   try {
     session = await auth.api.getSession();
-  } catch (error) {
+  } catch {
     log.warn(
-      { err: error },
+      { errorCode: "SESSION_LOOKUP_FAILED" },
       "Failed to get session, treating as unauthenticated",
     );
   }

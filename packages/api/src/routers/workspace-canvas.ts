@@ -12,7 +12,7 @@ import * as workspaceCanvasImageRepo from "@kan/db/repository/workspaceCanvasIma
 import { WorkspaceCanvasImageReferenceError } from "@kan/db/repository/workspaceCanvasImage.repo";
 import {
   CardCanvasSceneError,
-  MAX_CARD_CANVAS_IMAGE_RESOURCES,
+  MAX_WORKSPACE_CANVAS_IMAGE_LIST_BATCH,
 } from "@kan/shared";
 import { putObject } from "@kan/shared/utils";
 
@@ -37,6 +37,7 @@ import { assertPermission, hasPermission } from "../utils/permissions";
 import { SafePreviewError } from "../utils/safe-preview-types";
 import {
   consumeWorkspaceCanvasImageRateLimit,
+  consumeWorkspaceCanvasImageUploadRateLimit,
   WorkspaceCanvasImageRateLimitError,
 } from "../utils/workspace-canvas-image-rate-limit";
 import {
@@ -146,6 +147,9 @@ function throwRemoteImageError(error: unknown): never {
       throw error;
     }
     if (error.code === "BAD_REQUEST") {
+      if (error.message === "WORKSPACE_CANVAS_IMAGE_DIMENSIONS_INVALID") {
+        throw error;
+      }
       throw new TRPCError({
         code: "BAD_REQUEST",
         message: "WORKSPACE_CANVAS_REMOTE_IMAGE_INVALID",
@@ -157,11 +161,44 @@ function throwRemoteImageError(error: unknown): never {
         message: "WORKSPACE_CANVAS_IMAGE_IMPORT_CONFLICT",
       });
     }
+    if (
+      error.code === "UNPROCESSABLE_CONTENT" &&
+      error.message === "WORKSPACE_CANVAS_IMAGE_OPTIMIZATION_FAILED"
+    ) {
+      throw error;
+    }
+    if (
+      error.code === "SERVICE_UNAVAILABLE" &&
+      error.message === "WORKSPACE_CANVAS_IMAGE_OPTIMIZATION_BUSY"
+    ) {
+      throw error;
+    }
   }
   throw new TRPCError({
     code: "INTERNAL_SERVER_ERROR",
     message: "WORKSPACE_CANVAS_IMAGE_IMPORT_FAILED",
   });
+}
+
+async function consumeImageUploadRateLimit(
+  userId: string,
+  workspacePublicId: string,
+) {
+  try {
+    await consumeWorkspaceCanvasImageUploadRateLimit(userId, workspacePublicId);
+  } catch (error) {
+    if (!(error instanceof WorkspaceCanvasImageRateLimitError)) throw error;
+    throw new TRPCError({
+      code:
+        error.code === "LIMIT_EXCEEDED"
+          ? "TOO_MANY_REQUESTS"
+          : "SERVICE_UNAVAILABLE",
+      message:
+        error.code === "LIMIT_EXCEEDED"
+          ? "WORKSPACE_CANVAS_UPLOAD_RATE_LIMIT_REACHED"
+          : "WORKSPACE_CANVAS_UPLOAD_UNAVAILABLE",
+    });
+  }
 }
 
 export const workspaceCanvasRouter = createTRPCRouter({
@@ -282,7 +319,7 @@ export const workspaceCanvasRouter = createTRPCRouter({
         workspacePublicId: workspaceCanvasPublicIdSchema,
         imagePublicIds: z
           .array(workspaceCanvasPublicIdSchema)
-          .max(MAX_CARD_CANVAS_IMAGE_RESOURCES),
+          .max(MAX_WORKSPACE_CANVAS_IMAGE_LIST_BATCH),
       }),
     )
     .output(workspaceCanvasImageListSchema)
@@ -295,7 +332,7 @@ export const workspaceCanvasRouter = createTRPCRouter({
       );
       await assertPermission(ctx.db, userId, workspace.id, "workspace:view");
       try {
-        const images = await workspaceCanvasImageRepo.listByWorkspacePublicId(
+        const result = await workspaceCanvasImageRepo.listByWorkspacePublicId(
           ctx.db,
           {
             workspacePublicId: input.workspacePublicId,
@@ -304,7 +341,11 @@ export const workspaceCanvasRouter = createTRPCRouter({
             imagePublicIds: input.imagePublicIds,
           },
         );
-        return { images: images.map(mapWorkspaceCanvasImage) };
+        return {
+          images: result.images.map(mapWorkspaceCanvasImage),
+          usageBytes: result.usageBytes,
+          quotaBytes: result.quotaBytes,
+        };
       } catch (error) {
         mapCanvasError(error);
       }
@@ -330,6 +371,7 @@ export const workspaceCanvasRouter = createTRPCRouter({
         input.workspacePublicId,
       );
       await assertPermission(ctx.db, userId, workspace.id, "workspace:edit");
+      await consumeImageUploadRateLimit(userId, input.workspacePublicId);
       const upload = workspaceCanvasImageUploadRequestSchema.parse(input);
       return createWorkspaceCanvasImageUpload(ctx.db, {
         workspacePublicId: input.workspacePublicId,
@@ -363,6 +405,7 @@ export const workspaceCanvasRouter = createTRPCRouter({
         input.workspacePublicId,
       );
       await assertPermission(ctx.db, userId, workspace.id, "workspace:edit");
+      await consumeImageUploadRateLimit(userId, input.workspacePublicId);
       return mapWorkspaceCanvasImage(
         await confirmWorkspaceCanvasImageUpload(ctx.db, {
           ...input,
@@ -423,31 +466,16 @@ export const workspaceCanvasRouter = createTRPCRouter({
             message: "WORKSPACE_CANVAS_EDIT_FORBIDDEN",
           });
         }
-        if (capacity.status === "image_limit") {
-          throw new TRPCError({
-            code: "PRECONDITION_FAILED",
-            message: "WORKSPACE_CANVAS_IMAGE_LIMIT_REACHED",
-          });
-        }
         if (capacity.status === "image_budget") {
           throw new TRPCError({
             code: "PRECONDITION_FAILED",
             message: "WORKSPACE_CANVAS_IMAGE_TOTAL_LIMIT_REACHED",
           });
         }
-        if (
-          capacity.status === "storage_limit" ||
-          capacity.status === "storage_budget"
-        ) {
+        if (capacity.status === "storage_budget") {
           throw new TRPCError({
             code: "PRECONDITION_FAILED",
             message: "WORKSPACE_CANVAS_IMAGE_STORAGE_LIMIT_REACHED",
-          });
-        }
-        if (capacity.status === "storage_cleanup") {
-          throw new TRPCError({
-            code: "SERVICE_UNAVAILABLE",
-            message: "WORKSPACE_CANVAS_IMAGE_STORAGE_CLEANUP_PENDING",
           });
         }
         const bucket = process.env.NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME;
@@ -457,7 +485,10 @@ export const workspaceCanvasRouter = createTRPCRouter({
             message: "WORKSPACE_CANVAS_IMAGE_IMPORT_FAILED",
           });
         }
-        const image = await importRemoteCardImage(input.url, {
+        let confirmedImage:
+          | Awaited<ReturnType<typeof confirmWorkspaceCanvasImageUpload>>
+          | undefined;
+        await importRemoteCardImage(input.url, {
           fetchImage: fetchRemoteCardImage,
           createUpload: async (upload) =>
             await createWorkspaceCanvasImageUpload(ctx.db, {
@@ -468,12 +499,14 @@ export const workspaceCanvasRouter = createTRPCRouter({
           writeStagingObject: async ({ key, bytes, contentType }) => {
             await putObject({ bucket, key, body: bytes, contentType });
           },
-          confirmUpload: async (uploadSessionPublicId) =>
-            await confirmWorkspaceCanvasImageUpload(ctx.db, {
+          confirmUpload: async (uploadSessionPublicId) => {
+            confirmedImage = await confirmWorkspaceCanvasImageUpload(ctx.db, {
               workspacePublicId: input.workspacePublicId,
               userId,
               uploadSessionPublicId,
-            }),
+            });
+            return confirmedImage;
+          },
           discardUpload: async ({ uploadSessionPublicId, stagingKey }) => {
             await workspaceCanvasImageRepo.deleteUnissuedUploadSession(ctx.db, {
               publicId: uploadSessionPublicId,
@@ -485,7 +518,13 @@ export const workspaceCanvasRouter = createTRPCRouter({
             ]);
           },
         });
-        return mapWorkspaceCanvasImage(image);
+        if (!confirmedImage) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "WORKSPACE_CANVAS_IMAGE_IMPORT_FAILED",
+          });
+        }
+        return mapWorkspaceCanvasImage(confirmedImage);
       } catch (error) {
         throwRemoteImageError(error);
       }

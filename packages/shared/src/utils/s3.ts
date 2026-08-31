@@ -126,6 +126,7 @@ export async function getAttachmentObject(input: {
   bucket: string;
   key: string;
   range?: string;
+  ifMatch?: string;
 }) {
   const client = createS3Client();
   return client.send(
@@ -133,6 +134,7 @@ export async function getAttachmentObject(input: {
       Bucket: input.bucket,
       Key: input.key,
       Range: input.range,
+      IfMatch: input.ifMatch,
     }),
   );
 }

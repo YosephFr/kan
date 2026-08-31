@@ -4,6 +4,8 @@ import {
   normalizeAttachmentContentType,
 } from "@kan/shared/utils";
 
+import type { CardCanvasClipboardItem } from "~/views/card/components/card-canvas-clipboard";
+
 const WORKSPACE_IMAGE_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -37,3 +39,8 @@ export const toWorkspaceCanvasPasteText = (item: {
     : item.label
       ? `${item.label}\n${item.url ?? ""}`
       : (item.url ?? "");
+
+export const makeWorkspaceCanvasFilePasteItems = (
+  files: readonly File[],
+): CardCanvasClipboardItem[] =>
+  files.map((file) => ({ type: "image", source: "file", file }));

@@ -4,3 +4,4 @@ export * from "./constants";
 export * from "./utils";
 export * from "./permissions";
 export * from "./card-canvas";
+export * from "./workspace-canvas";

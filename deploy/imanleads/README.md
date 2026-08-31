@@ -28,7 +28,9 @@ ssh imanleads 'cd /home/ubuntu/kan && ./deploy/imanleads/deploy.sh'
 curl --fail --show-error --silent https://work.imanleads.com/api/v1/health
 ```
 
-Production rollback is a revert commit on `main`. That preserves the same CI, backup, migration, and health gates instead of bypassing the tested history with an arbitrary old checkout.
+Production rollback is a forward-fix or revert commit on `main`. Once a workspace whiteboard has more than 50 images or 20 MiB of optimized images, the rollback commit must preserve the current workspace-canvas readers, list batching, and byte-budget validation. A literal revert to an older image-limit implementation would leave valid canvases visible but unable to save or restore.
+
+Before the first workspace-image backfill, deployment copies `minio-current` into an immutable SHA-named release snapshot. The snapshot is idempotent for a retry of the same release and must remain available until the backfill and its recovery window are closed.
 
 ## Attachment limits and cleanup
 

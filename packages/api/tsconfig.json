@@ -1,6 +1,6 @@
 {
   "extends": "@kan/tsconfig/internal-package.json",
-  "include": ["integration-tests", "packages/**/*", "src"],
+  "include": ["integration-tests", "packages/**/*", "scripts", "src"],
   "exclude": ["node_modules"],
   "compilerOptions": {
     "baseUrl": ".",

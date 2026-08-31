@@ -1,4 +1,107 @@
 {
+  "0GrmsW": {
+    "message": "{0} images could not be added.",
+    "placeholders": {
+      "0": ["paste.failedImageCount"]
+    },
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 845]],
+    "translation": "{0} imágenes no se pudieron añadir."
+  },
+  "2nHSKN": {
+    "message": "Check your connection, retry the failed images and export again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 528]],
+    "translation": "Comprueba tu conexión, reintenta las imágenes fallidas y vuelve a exportar."
+  },
+  "vQ9BLs": {
+    "message": "Image storage is full",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 144]
+    ],
+    "translation": "El almacenamiento de imágenes está lleno"
+  },
+  "5OCdqf": {
+    "message": "Loading whiteboard images ({0} of {1})…",
+    "placeholders": {
+      "0": ["workspaceImages.loaded"],
+      "1": ["workspaceImages.total"]
+    },
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 821]],
+    "translation": "Cargando imágenes de la pizarra ({0} de {1})…"
+  },
+  "dHUd9f": {
+    "message": "Remove some elements before pasting more content.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 435]
+    ],
+    "translation": "Elimina algunos elementos antes de pegar más contenido."
+  },
+  "Le8POO": {
+    "message": "Select a smaller area of the whiteboard and export it separately.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 525]],
+    "translation": "Selecciona un área más pequeña de la pizarra y expórtala por separado."
+  },
+  "JzwKYA": {
+    "message": "The whiteboard was not changed. Try again or add the images from your device.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 449]
+    ],
+    "translation": "La pizarra no cambió. Inténtalo de nuevo o añade las imágenes desde tu dispositivo."
+  },
+  "XiA7R2": {
+    "message": "This whiteboard is using {usedMiB} MiB of its {quotaMiB} MiB image storage. Remove images before adding more.",
+    "placeholders": {
+      "usedMiB": ["usedMiB"],
+      "quotaMiB": ["quotaMiB"]
+    },
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 145]
+    ],
+    "translation": "Esta pizarra usa {usedMiB} MiB de sus {quotaMiB} MiB de almacenamiento para imágenes. Elimina imágenes antes de añadir más."
+  },
+  "prT6pQ": {
+    "message": "Too many images for one export",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 520]],
+    "translation": "Demasiadas imágenes para una sola exportación"
+  },
+  "738uDe": {
+    "message": "Try failed images again",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 853]],
+    "translation": "Reintentar imágenes fallidas"
+  },
+  "V5Uhz1": {
+    "message": "Use JPEG, PNG or WebP images up to 10 MiB each.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-canvas-paste.ts", 393]
+    ],
+    "translation": "Usa imágenes JPEG, PNG o WebP de hasta 10 MiB cada una."
+  },
+  "jYK4La": {
+    "message": "Whiteboard images could not be loaded",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 523]],
+    "translation": "No se pudieron cargar las imágenes de la pizarra"
+  },
+
   "X0N0PA": {
     "message": " (edited)",
     "placeholders": {},

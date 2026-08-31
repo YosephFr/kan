@@ -330,6 +330,20 @@
       "when": 1787746718452,
       "tag": "20260826121838_WorkspaceCanvas",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1788180237600,
+      "tag": "20260831124357_OptimizeWorkspaceCanvasImages",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1788185651684,
+      "tag": "20260831141411_TrackWorkspaceCanvasImageStorageUsage",
+      "breakpoints": true
     }
   ]
 }

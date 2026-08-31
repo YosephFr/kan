@@ -4,12 +4,12 @@ ARG NODE_VERSION=20
 ARG DISTROLESS_NODE_IMAGE=gcr.io/distroless/nodejs${NODE_VERSION}-debian12
 
 # ============================================
-# Stage 1: Alpine base with pnpm and turbo
+# Stage 1: Debian 12 base with pnpm and turbo
 # ============================================
-FROM node:${NODE_VERSION}-alpine AS alpine
-RUN apk update && \
-    apk add --no-cache libc6-compat && \
-    rm -rf /var/cache/apk/* /tmp/* || true && \
+FROM node:${NODE_VERSION}-bookworm-slim AS base
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates git && \
+    rm -rf /var/lib/apt/lists/* /tmp/* && \
     corepack enable && \
     corepack prepare pnpm@9.14.2 --activate && \
     npm install turbo@2.3.1 --global && \
@@ -18,9 +18,7 @@ RUN apk update && \
 # ============================================
 # Stage 2: Prune the monorepo
 # ============================================
-FROM alpine AS pruner
-
-RUN apk add --no-cache git
+FROM base AS pruner
 
 WORKDIR /app
 COPY . .
@@ -39,7 +37,7 @@ RUN turbo prune --scope=@kan/web --scope=@kan/db --docker
 # ============================================
 # Stage 3: Install dependencies
 # ============================================
-FROM alpine AS deps
+FROM base AS deps
 WORKDIR /app
 
 COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
@@ -52,7 +50,7 @@ RUN --mount=type=cache,id=pnpm,target=~/.pnpm-store pnpm install --frozen-lockfi
 # ============================================
 # Stage 4: Build the web application
 # ============================================
-FROM alpine AS builder
+FROM base AS builder
 ARG APP_VERSION
 
 WORKDIR /app
@@ -69,7 +67,16 @@ RUN VERSION="${APP_VERSION:-$(cat /tmp/AUTO_VERSION 2>/dev/null | tr -d '\n\r' |
     NEXT_PUBLIC_APP_VERSION="$VERSION" pnpm build --filter=@kan/web
 
 # ============================================
-# Stage 5: Migration image (run-once container)
+# Stage 5: Workspace canvas image backfill
+# ============================================
+FROM builder AS backfill
+
+ENV NODE_ENV=production
+
+CMD ["pnpm", "--filter", "@kan/api", "backfill:workspace-canvas-images"]
+
+# ============================================
+# Stage 6: Migration image (run-once container)
 # ============================================
 FROM node:${NODE_VERSION}-alpine AS migrate
 WORKDIR /db
@@ -100,7 +107,7 @@ RUN npm init -y && \
 CMD ["npx", "drizzle-kit", "migrate"]
 
 # ============================================
-# Stage 6: Production web image (distroless)
+# Stage 7: Production web image (distroless)
 # ============================================
 FROM ${DISTROLESS_NODE_IMAGE} AS web
 WORKDIR /app

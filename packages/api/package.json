@@ -59,10 +59,15 @@
     "./utils/workspace-canvas-image-access": {
       "types": "./src/utils/workspace-canvas-image-access.ts",
       "default": "./src/utils/workspace-canvas-image-access.ts"
+    },
+    "./utils/workspace-canvas-image-rate-limit": {
+      "types": "./src/utils/workspace-canvas-image-rate-limit.ts",
+      "default": "./src/utils/workspace-canvas-image-rate-limit.ts"
     }
   },
   "license": "GPL-3.0",
   "scripts": {
+    "backfill:workspace-canvas-images": "tsx scripts/backfill-workspace-canvas-images.ts",
     "build": "tsc",
     "clean": "git clean -xdf .cache .turbo dist node_modules",
     "dev": "tsc",
@@ -81,6 +86,7 @@
     "@kan/stripe": "workspace:^",
     "@trpc/server": "catalog:",
     "rate-limiter-flexible": "^9.0.1",
+    "sharp": "^0.34.5",
     "superjson": "2.2.1",
     "trpc-to-openapi": "^2.3.2",
     "zod": "catalog:"
@@ -89,8 +95,10 @@
     "@kan/eslint-config": "workspace:*",
     "@kan/prettier-config": "workspace:*",
     "@kan/tsconfig": "workspace:*",
+    "@types/pg": "^8.10.9",
     "eslint": "catalog:",
     "prettier": "catalog:",
+    "tsx": "^4.20.6",
     "typescript": "catalog:",
     "vitest": "^3.0.0"
   },

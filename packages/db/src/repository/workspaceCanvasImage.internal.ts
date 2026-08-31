@@ -19,10 +19,16 @@ import {
   workspaceCanvases,
   workspaceCanvasImageReferences,
   workspaceCanvasImages,
+  workspaceCanvasImageStorageDeletions,
   workspaceCanvasImageUploadSessions,
   workspaceCanvasRevisions,
   workspaces,
 } from "@kan/db/schema";
+import {
+  MAX_WORKSPACE_CANVAS_OPTIMIZED_IMAGE_BYTES,
+  MAX_WORKSPACE_CANVAS_OPTIMIZED_IMAGE_DIMENSION,
+  MIN_WORKSPACE_CANVAS_IMAGE_QUOTA_BYTES,
+} from "@kan/shared";
 
 import { hasWorkspacePermissionTx } from "./workspace-boundary";
 
@@ -35,8 +41,7 @@ export const WORKSPACE_CANVAS_IMAGE_SHARED_RETENTION_MS =
 const WORKSPACE_CANVAS_IMAGE_PRIVATE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 export const WORKSPACE_CANVAS_IMAGE_GC_BATCH_SIZE = 250;
 export const WORKSPACE_CANVAS_UPLOAD_OUTBOX_GRACE_MS = 60 * 1000;
-export const MAX_WORKSPACE_CANVAS_STORED_IMAGES = 250;
-export const MAX_WORKSPACE_CANVAS_STORED_IMAGE_BYTES = 100 * 1024 * 1024;
+export const WORKSPACE_CANVAS_IMAGE_REPLACEMENT_GRACE_MS = 60 * 1000;
 
 export class WorkspaceCanvasImageReferenceError extends Error {
   constructor(
@@ -78,10 +83,9 @@ export async function lockEditableWorkspace(
   return { status: "locked" as const, workspace };
 }
 
-export const getActorImageUsage = async (
+export const getActiveImageUsage = async (
   tx: DbTransaction,
   workspaceId: number,
-  userId: string,
 ) => {
   const referencedByHead = exists(
     tx
@@ -94,20 +98,14 @@ export const getActorImageUsage = async (
   const [usage] = await tx
     .select({
       count: count(),
-      totalBytes: sum(workspaceCanvasImages.size),
+      totalBytes: sql<number>`coalesce(sum(greatest(${workspaceCanvasImages.size}, ${MIN_WORKSPACE_CANVAS_IMAGE_QUOTA_BYTES})), 0)`,
     })
     .from(workspaceCanvasImages)
     .where(
       and(
         eq(workspaceCanvasImages.workspaceId, workspaceId),
         isNull(workspaceCanvasImages.deletedAt),
-        or(
-          referencedByHead,
-          and(
-            eq(workspaceCanvasImages.createdBy, userId),
-            isNull(workspaceCanvasImages.sharedAt),
-          ),
-        ),
+        or(referencedByHead, isNull(workspaceCanvasImages.sharedAt)),
       ),
     );
   return {
@@ -119,11 +117,12 @@ export const getActorImageUsage = async (
 export const getPhysicalImageUsage = async (
   tx: DbTransaction,
   workspaceId: number,
+  now = new Date(),
 ) => {
   const [imageUsage] = await tx
     .select({
       count: count(),
-      totalBytes: sum(workspaceCanvasImages.size),
+      totalBytes: sql<number>`coalesce(sum(greatest(${workspaceCanvasImages.size}, ${MIN_WORKSPACE_CANVAS_IMAGE_QUOTA_BYTES})), 0)`,
     })
     .from(workspaceCanvasImages)
     .where(
@@ -132,7 +131,79 @@ export const getPhysicalImageUsage = async (
         isNull(workspaceCanvasImages.storageDeletedAt),
       ),
     );
-  const [uploadUsage] = await tx
+  const currentImageObject = tx
+    .select({ id: workspaceCanvasImages.id })
+    .from(workspaceCanvasImages)
+    .where(
+      and(
+        eq(
+          workspaceCanvasImages.s3Key,
+          workspaceCanvasImageStorageDeletions.s3Key,
+        ),
+        isNull(workspaceCanvasImages.storageDeletedAt),
+      ),
+    );
+  const currentUploadObject = tx
+    .select({ id: workspaceCanvasImageUploadSessions.id })
+    .from(workspaceCanvasImageUploadSessions)
+    .where(
+      and(
+        eq(
+          workspaceCanvasImageUploadSessions.s3Key,
+          workspaceCanvasImageStorageDeletions.s3Key,
+        ),
+        isNull(workspaceCanvasImageUploadSessions.storageDeletedAt),
+      ),
+    );
+  const [pendingDeletionUsage] = await tx
+    .select({
+      count: count(),
+      totalBytes: sql<number>`coalesce(sum(greatest(${workspaceCanvasImageStorageDeletions.size}, ${MIN_WORKSPACE_CANVAS_IMAGE_QUOTA_BYTES})), 0)`,
+    })
+    .from(workspaceCanvasImageStorageDeletions)
+    .where(
+      and(
+        eq(workspaceCanvasImageStorageDeletions.workspaceId, workspaceId),
+        isNotNull(workspaceCanvasImageStorageDeletions.size),
+        isNull(workspaceCanvasImageStorageDeletions.completedAt),
+        notExists(currentImageObject),
+        notExists(currentUploadObject),
+      ),
+    );
+  const [staleUploadUsage] = await tx
+    .select({
+      count: count(),
+      totalBytes: sql<number>`coalesce(sum(greatest(${workspaceCanvasImageUploadSessions.size}, ${MIN_WORKSPACE_CANVAS_IMAGE_QUOTA_BYTES})), 0)`,
+    })
+    .from(workspaceCanvasImageUploadSessions)
+    .where(
+      and(
+        eq(workspaceCanvasImageUploadSessions.workspaceId, workspaceId),
+        isNull(workspaceCanvasImageUploadSessions.storageDeletedAt),
+        or(
+          isNotNull(workspaceCanvasImageUploadSessions.consumedAt),
+          lte(workspaceCanvasImageUploadSessions.expiresAt, now),
+        ),
+      ),
+    );
+  return {
+    count:
+      (imageUsage?.count ?? 0) +
+      (pendingDeletionUsage?.count ?? 0) +
+      (staleUploadUsage?.count ?? 0),
+    totalBytes:
+      Number(imageUsage?.totalBytes ?? 0) +
+      Number(pendingDeletionUsage?.totalBytes ?? 0) +
+      Number(staleUploadUsage?.totalBytes ?? 0),
+  };
+};
+
+export const getPendingUploadUsage = async (
+  tx: DbTransaction,
+  workspaceId: number,
+  now: Date,
+) => {
+  const [usage] = await tx
     .select({
       count: count(),
       totalBytes: sum(workspaceCanvasImageUploadSessions.size),
@@ -143,26 +214,35 @@ export const getPhysicalImageUsage = async (
         eq(workspaceCanvasImageUploadSessions.workspaceId, workspaceId),
         isNull(workspaceCanvasImageUploadSessions.storageDeletedAt),
         isNull(workspaceCanvasImageUploadSessions.consumedAt),
-      ),
-    );
-  const [pendingConsumedCleanup] = await tx
-    .select({ count: count() })
-    .from(workspaceCanvasImageUploadSessions)
-    .where(
-      and(
-        eq(workspaceCanvasImageUploadSessions.workspaceId, workspaceId),
-        isNull(workspaceCanvasImageUploadSessions.storageDeletedAt),
-        isNotNull(workspaceCanvasImageUploadSessions.consumedAt),
+        gt(workspaceCanvasImageUploadSessions.expiresAt, now),
       ),
     );
   return {
-    count: (imageUsage?.count ?? 0) + (uploadUsage?.count ?? 0),
-    totalBytes:
-      Number(imageUsage?.totalBytes ?? 0) +
-      Number(uploadUsage?.totalBytes ?? 0),
-    pendingConsumedCleanupCount: pendingConsumedCleanup?.count ?? 0,
+    count: usage?.count ?? 0,
+    totalBytes: Number(usage?.totalBytes ?? 0),
   };
 };
+
+export const isValidOptimizedWorkspaceCanvasImage = (input: {
+  contentType: string;
+  size: number;
+  sha256: string;
+  width: number;
+  height: number;
+  optimizedAt: Date;
+}) =>
+  input.contentType === "image/webp" &&
+  Number.isSafeInteger(input.size) &&
+  input.size > 0 &&
+  input.size <= MAX_WORKSPACE_CANVAS_OPTIMIZED_IMAGE_BYTES &&
+  /^[a-f0-9]{64}$/i.test(input.sha256) &&
+  Number.isSafeInteger(input.width) &&
+  Number.isSafeInteger(input.height) &&
+  input.width > 0 &&
+  input.height > 0 &&
+  input.width <= MAX_WORKSPACE_CANVAS_OPTIMIZED_IMAGE_DIMENSION &&
+  input.height <= MAX_WORKSPACE_CANVAS_OPTIMIZED_IMAGE_DIMENSION &&
+  !Number.isNaN(input.optimizedAt.getTime());
 
 export const hasHeadReference = async (tx: DbTransaction, imageId: number) =>
   Boolean(
@@ -227,10 +307,7 @@ export const reclaimWorkspaceCanvasImagesTx = async (
       and(
         eq(workspaceCanvasImageUploadSessions.workspaceId, input.workspaceId),
         isNull(workspaceCanvasImageUploadSessions.storageDeletedAt),
-        or(
-          isNotNull(workspaceCanvasImageUploadSessions.consumedAt),
-          lte(workspaceCanvasImageUploadSessions.expiresAt, now),
-        ),
+        lte(workspaceCanvasImageUploadSessions.expiresAt, now),
       ),
     )
     .orderBy(

@@ -102,10 +102,12 @@ jobs:
         run: >-
           shellcheck -e SC1091,SC2016
           deploy/imanleads/backup.sh
+          deploy/imanleads/audit-workspace-canvas-logs.sh
           deploy/imanleads/ci-deploy-entrypoint.sh
           deploy/imanleads/deploy.sh
           deploy/imanleads/init-minio.sh
           deploy/imanleads/install-nginx.sh
+          deploy/imanleads/snapshot-minio-backup.sh
           deploy/imanleads/config.test.sh
 
       - name: Check deployment configuration

@@ -23,7 +23,40 @@ assert_location_hardened kan-avatars
 assert_location_hardened kan-workspace-logos
 assert_location_hardened kan-attachments
 
+test "$(grep -Fc 'proxy_set_header CF-Connecting-IP "";' "$script_dir/nginx.conf")" -eq 4
+test "$(grep -Fc 'proxy_set_header X-Real-IP $http_cf_connecting_ip;' "$script_dir/nginx.conf")" -eq 4
+test "$(grep -Fc 'proxy_set_header X-Forwarded-For $http_cf_connecting_ip;' "$script_dir/nginx.conf")" -eq 4
+if grep -Fq '$proxy_add_x_forwarded_for' "$script_dir/nginx.conf"; then
+  exit 1
+fi
+
 sh -n "$script_dir/init-minio.sh"
+sh -n "$script_dir/audit-workspace-canvas-logs.sh"
+bash -n "$script_dir/snapshot-minio-backup.sh"
+
+snapshot_root="$test_dir/snapshots"
+mkdir -p "$snapshot_root/minio-current/kan-attachments"
+printf '%s\n' original >"$snapshot_root/minio-current/kan-attachments/image"
+snapshot_sha=0123456789abcdef0123456789abcdef01234567
+KAN_BACKUP_ROOT="$snapshot_root" \
+  "$script_dir/snapshot-minio-backup.sh" "$snapshot_sha" >/dev/null
+printf '%s\n' changed >"$snapshot_root/minio-current/kan-attachments/image"
+KAN_BACKUP_ROOT="$snapshot_root" \
+  "$script_dir/snapshot-minio-backup.sh" "$snapshot_sha" >/dev/null
+grep -Fxq original \
+  "$snapshot_root/minio-releases/$snapshot_sha/kan-attachments/image"
+
+printf '%s\n' \
+  '{"procedure":"workspaceCanvas.listImages","status":200,"imageCount":10}' \
+  'GET /api/workspace-canvas-images/abc123def456 200' | \
+  "$script_dir/audit-workspace-canvas-logs.sh" | \
+  grep -Fq 'workspace_canvas_logs_audited=2 unsafe=0'
+
+if printf '%s\n' \
+  '{"procedure":"workspaceCanvas.save","scene":"private"}' | \
+  "$script_dir/audit-workspace-canvas-logs.sh" >/dev/null; then
+  exit 1
+fi
 
 mkdir -p "$test_dir/bin"
 cat > "$test_dir/bin/mc" <<'EOF'
@@ -107,4 +140,5 @@ POSTGRES_PASSWORD=test-password \
   docker compose \
     --env-file "$script_dir/env.example" \
     -f "$script_dir/compose.yaml" \
+    --profile maintenance \
     config --quiet

@@ -76,11 +76,35 @@ for attempt in $(seq 1 90); do
   fi
   if [[ "$attempt" == "90" ]]; then
     "${compose[@]}" ps
-    "${compose[@]}" logs --tail 200 web migrate minio-init
+    "${compose[@]}" logs --tail 200 web migrate minio-init workspace-canvas-image-backfill
     exit 1
   fi
   sleep 2
 done
+
+legacy_workspace_canvas_images="$(
+  "${compose[@]}" exec -T postgres psql \
+    --username "${POSTGRES_USER:-kan}" \
+    --dbname "${POSTGRES_DB:-kan}" \
+    --tuples-only \
+    --no-align \
+    --command 'select count(*) from "workspace_canvas_image" where "optimizedAt" is null and "deletedAt" is null and "storageDeletedAt" is null'
+)"
+if [[ ! "$legacy_workspace_canvas_images" =~ ^[0-9]+$ ]]; then
+  printf '%s\n' "Unable to count legacy workspace canvas images" >&2
+  exit 1
+fi
+if (( legacy_workspace_canvas_images > 0 )); then
+  "$repo_dir/deploy/imanleads/snapshot-minio-backup.sh" "$deployed_sha"
+fi
+
+set +e
+"${compose[@]}" --profile maintenance run --rm --build --no-deps \
+  workspace-canvas-image-backfill
+backfill_status=$?
+set -e
+
+curl -fsS http://127.0.0.1:3900/api/v1/health | grep -q '"status":"ok"'
 
 "$repo_dir/deploy/imanleads/install-nginx.sh"
 sudo install -m 644 "$repo_dir/deploy/imanleads/kan-backup.service" /etc/systemd/system/kan-backup.service
@@ -91,5 +115,13 @@ sudo systemctl enable --now kan-backup.timer
 curl -kfsS --resolve work.imanleads.com:443:127.0.0.1 \
   https://work.imanleads.com/api/v1/health | grep -q '"status":"ok"'
 
+"${compose[@]}" logs --since 30m --no-color web 2>&1 | \
+  "$repo_dir/deploy/imanleads/audit-workspace-canvas-logs.sh"
+
 git rev-parse HEAD
 "${compose[@]}" ps
+
+if (( backfill_status != 0 )); then
+  printf '%s\n' "Workspace canvas image backfill failed with status $backfill_status" >&2
+  exit "$backfill_status"
+fi
