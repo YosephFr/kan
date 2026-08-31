@@ -63,13 +63,22 @@ export function useWorkspaceCanvasImages({
   canvasApi: ExcalidrawImperativeAPI | null;
 }) {
   const utils = api.useUtils();
+  const listImagesUtilsRef = useRef(utils.workspaceCanvas.listImages);
+  listImagesUtilsRef.current = utils.workspaceCanvas.listImages;
+  const listImages = useCallback(
+    (
+      input: { workspacePublicId: string; imagePublicIds: string[] },
+      options?: { trpc?: { signal?: AbortSignal } },
+    ) => listImagesUtilsRef.current.fetch(input, options),
+    [],
+  );
   const [state, setState] =
     useState<WorkspaceCanvasImageLoadState>(EMPTY_STATE);
   const [storage, setStorage] = useState({
     usageBytes: 0,
     quotaBytes: MAX_WORKSPACE_CANVAS_ACTIVE_IMAGE_BYTES,
   });
-  const [viewportEpoch, setViewportEpoch] = useState(0);
+  const [resumeEpoch, setResumeEpoch] = useState(0);
   const [retryEpoch, setRetryEpoch] = useState(0);
   const operationRef = useRef(0);
   const progressiveControllerRef = useRef<AbortController | null>(null);
@@ -84,11 +93,12 @@ export function useWorkspaceCanvasImages({
     createWorkspaceCanvasImageMetadataRequestQueue(),
   );
   const metadataRequestWorkspaceRef = useRef(workspacePublicId);
+  const requestNearHydrationRef = useRef<(() => void) | null>(null);
+  const publicIdsKey = [...new Set(imagePublicIds)].sort().join(",");
   const publicIds = useMemo(
-    () => [...new Set(imagePublicIds)].sort(),
-    [imagePublicIds],
+    () => (publicIdsKey.length > 0 ? publicIdsKey.split(",") : []),
+    [publicIdsKey],
   );
-  const publicIdsKey = publicIds.join(",");
 
   const updateViewport = useCallback(
     (elements: readonly ExcalidrawElement[], appState: AppState) => {
@@ -102,7 +112,7 @@ export function useWorkspaceCanvasImages({
       nearPublicIdsRef.current = next;
       if (key === nearKeyRef.current) return;
       nearKeyRef.current = key;
-      setViewportEpoch((epoch) => epoch + 1);
+      requestNearHydrationRef.current?.();
     },
     [publicIds],
   );
@@ -138,6 +148,7 @@ export function useWorkspaceCanvasImages({
     const metadataRequestQueue = metadataRequestQueueRef.current;
 
     if (!canvasApi || workspacePublicId.length !== 12) {
+      requestNearHydrationRef.current = null;
       workspaceKeyRef.current = workspacePublicId;
       metadataRef.current.clear();
       failedRef.current.clear();
@@ -189,95 +200,124 @@ export function useWorkspaceCanvasImages({
       ),
     });
 
-    void (async () => {
-      const hydrateNearImages = async () => {
-        const pendingPublicIds = nearPublicIdsRef.current.filter(
-          (publicId) =>
-            !canvasApi.getFiles()[publicId] &&
-            !failedRef.current.has(publicId) &&
-            metadataRef.current.has(publicId),
-        );
-        setState({
-          total: publicIds.length,
-          loaded: publicIds.filter((publicId) =>
-            Boolean(canvasApi.getFiles()[publicId]),
-          ).length,
-          failed: failedRef.current.size,
-          loading: pendingPublicIds.length > 0,
-        });
-        await runWorkspaceCanvasImageQueue({
-          items: pendingPublicIds,
-          signal: abortController.signal,
-          worker: async (publicId, signal) => {
-            if (canvasApi.getFiles()[publicId]) return;
-            const resource = metadataRef.current.get(publicId);
-            if (!resource) throw new Error("WORKSPACE_CANVAS_IMAGE_MISSING");
-            const hydrated =
-              await hydrateWorkspaceCanvasImageWithMetadataRefresh({
-                api: canvasApi,
-                resource,
-                signal,
-                refreshResource: async () => {
-                  metadataRef.current.delete(publicId);
-                  const refreshed = await metadataRequestQueue(
-                    () =>
-                      utils.workspaceCanvas.listImages.fetch(
-                        {
-                          workspacePublicId,
-                          imagePublicIds: [publicId],
-                        },
-                        { trpc: { signal } },
-                      ),
-                    signal,
-                  );
-                  if (!isCurrent()) return undefined;
-                  setStorage({
-                    usageBytes: refreshed.usageBytes,
-                    quotaBytes: refreshed.quotaBytes,
-                  });
-                  return refreshed.images[0] as
-                    | WorkspaceCanvasImageResource
-                    | undefined;
-                },
-              });
-            metadataRef.current.set(publicId, hydrated.resource);
-          },
-          onSettled: (publicId, error) => {
-            if (!isCurrent()) return;
-            if (error) failedRef.current.add(publicId);
-            setState({
-              total: publicIds.length,
-              loaded: publicIds.filter((id) => canvasApi.getFiles()[id]).length,
-              failed: failedRef.current.size,
-              loading: true,
-            });
-          },
-        });
-      };
-
-      await hydrateNearImages();
-      if (!isCurrent()) return;
-      const missingMetadataPublicIds = publicIds.filter(
+    const hydrateNearImages = async () => {
+      const pendingPublicIds = nearPublicIdsRef.current.filter(
         (publicId) =>
+          !canvasApi.getFiles()[publicId] &&
           !failedRef.current.has(publicId) &&
-          !metadataRef.current.has(publicId),
+          metadataRef.current.has(publicId),
       );
-      const orderedMetadataPublicIds = prioritizeWorkspaceCanvasImageMetadata({
-        publicIds: missingMetadataPublicIds,
-        nearPublicIds: nearPublicIdsRef.current,
+      setState({
+        total: publicIds.length,
+        loaded: publicIds.filter((publicId) =>
+          Boolean(canvasApi.getFiles()[publicId]),
+        ).length,
+        failed: failedRef.current.size,
+        loading: pendingPublicIds.length > 0,
       });
-      const chunks =
-        orderedMetadataPublicIds.length > 0
-          ? chunkWorkspaceCanvasImagePublicIds(orderedMetadataPublicIds)
-          : retryChanged || (workspaceChanged && publicIds.length === 0)
-            ? [[]]
-            : [];
-      for (const chunk of chunks) {
-        if (!isCurrent()) return;
+      await runWorkspaceCanvasImageQueue({
+        items: pendingPublicIds,
+        signal: abortController.signal,
+        worker: async (publicId, signal) => {
+          if (canvasApi.getFiles()[publicId]) return;
+          const resource = metadataRef.current.get(publicId);
+          if (!resource) throw new Error("WORKSPACE_CANVAS_IMAGE_MISSING");
+          const hydrated = await hydrateWorkspaceCanvasImageWithMetadataRefresh(
+            {
+              api: canvasApi,
+              resource,
+              signal,
+              refreshResource: async () => {
+                metadataRef.current.delete(publicId);
+                const refreshed = await metadataRequestQueue(
+                  () =>
+                    listImages(
+                      {
+                        workspacePublicId,
+                        imagePublicIds: [publicId],
+                      },
+                      { trpc: { signal } },
+                    ),
+                  signal,
+                );
+                if (!isCurrent()) return undefined;
+                setStorage({
+                  usageBytes: refreshed.usageBytes,
+                  quotaBytes: refreshed.quotaBytes,
+                });
+                return refreshed.images[0] as
+                  | WorkspaceCanvasImageResource
+                  | undefined;
+              },
+            },
+          );
+          metadataRef.current.set(publicId, hydrated.resource);
+        },
+        onSettled: (publicId, error) => {
+          if (!isCurrent()) return;
+          if (error) failedRef.current.add(publicId);
+          setState({
+            total: publicIds.length,
+            loaded: publicIds.filter((id) => canvasApi.getFiles()[id]).length,
+            failed: failedRef.current.size,
+            loading: true,
+          });
+        },
+      });
+      if (!isCurrent()) return;
+      setState({
+        total: publicIds.length,
+        loaded: publicIds.filter((id) => canvasApi.getFiles()[id]).length,
+        failed: failedRef.current.size,
+        loading: false,
+      });
+    };
+
+    let hydrationRequested = false;
+    let hydrationPromise: Promise<void> | null = null;
+    const requestNearHydration = (): Promise<void> => {
+      hydrationRequested = true;
+      hydrationPromise ??= (async () => {
+        while (hydrationRequested && isCurrent()) {
+          hydrationRequested = false;
+          await hydrateNearImages();
+        }
+      })().finally(() => {
+        hydrationPromise = null;
+      });
+      return hydrationPromise;
+    };
+    const requestNearHydrationFromViewport = () => {
+      void requestNearHydration();
+    };
+    requestNearHydrationRef.current = requestNearHydrationFromViewport;
+
+    void (async () => {
+      await requestNearHydration();
+      if (!isCurrent()) return;
+      let refreshStorage =
+        retryChanged || (workspaceChanged && publicIds.length === 0);
+      while (isCurrent()) {
+        const missingMetadataPublicIds = publicIds.filter(
+          (publicId) =>
+            !failedRef.current.has(publicId) &&
+            !metadataRef.current.has(publicId),
+        );
+        const orderedMetadataPublicIds = prioritizeWorkspaceCanvasImageMetadata(
+          {
+            publicIds: missingMetadataPublicIds,
+            nearPublicIds: nearPublicIdsRef.current,
+          },
+        );
+        const chunk =
+          chunkWorkspaceCanvasImagePublicIds(orderedMetadataPublicIds)[0] ??
+          (refreshStorage ? [] : null);
+        refreshStorage = false;
+        if (!chunk) break;
         try {
           const result = await metadataRequestQueue(
             () =>
-              utils.workspaceCanvas.listImages.fetch(
+              listImages(
                 {
                   workspacePublicId,
                   imagePublicIds: chunk,
@@ -306,7 +346,7 @@ export function useWorkspaceCanvasImages({
           if (!isCurrent()) return;
           for (const publicId of chunk) failedRef.current.add(publicId);
         }
-        await hydrateNearImages();
+        await requestNearHydration();
       }
       if (!isCurrent()) return;
       setState({
@@ -320,6 +360,11 @@ export function useWorkspaceCanvasImages({
 
     return () => {
       abortController.abort();
+      if (
+        requestNearHydrationRef.current === requestNearHydrationFromViewport
+      ) {
+        requestNearHydrationRef.current = null;
+      }
       if (progressiveControllerRef.current === abortController) {
         progressiveControllerRef.current = null;
       }
@@ -329,8 +374,8 @@ export function useWorkspaceCanvasImages({
     publicIds,
     publicIdsKey,
     retryEpoch,
-    utils,
-    viewportEpoch,
+    listImages,
+    resumeEpoch,
     workspacePublicId,
   ]);
 
@@ -379,7 +424,7 @@ export function useWorkspaceCanvasImages({
           try {
             const result = await metadataRequestQueueRef.current(
               () =>
-                utils.workspaceCanvas.listImages.fetch(
+                listImages(
                   {
                     workspacePublicId,
                     imagePublicIds: chunk,
@@ -461,11 +506,11 @@ export function useWorkspaceCanvasImages({
             failed: failedRef.current.size,
             loading: false,
           });
-          setViewportEpoch((epoch) => epoch + 1);
+          setResumeEpoch((epoch) => epoch + 1);
         }
       }
     },
-    [canvasApi, publicIds, utils.workspaceCanvas.listImages, workspacePublicId],
+    [canvasApi, listImages, publicIds, workspacePublicId],
   );
 
   return {

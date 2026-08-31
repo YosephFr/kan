@@ -165,6 +165,31 @@ const RenderHook = ({
   });
 };
 
+const mockSuccessfulHydration = () => {
+  mocks.hydrate.mockImplementation(
+    ({
+      api,
+      resource: image,
+    }: {
+      api: ExcalidrawImperativeAPI;
+      resource: WorkspaceCanvasImageResource;
+    }) => {
+      api.addFiles([
+        {
+          id: image.publicId as BinaryFileData["id"],
+          dataURL: "data:image/webp;base64,AA==" as BinaryFileData["dataURL"],
+          mimeType: "image/webp",
+          created: 0,
+        },
+      ]);
+      return Promise.resolve({
+        dimensions: { width: 100, height: 80 },
+        resource: image,
+      });
+    },
+  );
+};
+
 beforeEach(() => {
   hooks.states.length = 0;
   hooks.refs.length = 0;
@@ -193,28 +218,7 @@ describe("useWorkspaceCanvasImages", () => {
     mocks.listImages.mockResolvedValue(
       metadataResult(ids.map((publicId) => resource(publicId))),
     );
-    mocks.hydrate.mockImplementation(
-      ({
-        api,
-        resource: image,
-      }: {
-        api: ExcalidrawImperativeAPI;
-        resource: WorkspaceCanvasImageResource;
-      }) => {
-        api.addFiles([
-          {
-            id: image.publicId as BinaryFileData["id"],
-            dataURL: "data:image/webp;base64,AA==" as BinaryFileData["dataURL"],
-            mimeType: "image/webp",
-            created: 0,
-          },
-        ]);
-        return Promise.resolve({
-          dimensions: { width: 100, height: 80 },
-          resource: image,
-        });
-      },
-    );
+    mockSuccessfulHydration();
 
     RenderHook({
       workspacePublicId: WORKSPACE_ONE,
@@ -317,7 +321,7 @@ describe("useWorkspaceCanvasImages", () => {
     expect(peak).toBe(3);
   });
 
-  it("serializes metadata requests while rapid panning keeps only the latest viewport", async () => {
+  it("keeps metadata in flight while rapid panning hydrates only the latest viewport", async () => {
     const firstId = "viewport0001";
     const middleId = "viewport0002";
     const lastId = "viewport0003";
@@ -329,49 +333,16 @@ describe("useWorkspaceCanvasImages", () => {
     ];
     const canvas = createCanvasApi({ elements });
     const firstMetadata = deferred<ReturnType<typeof metadataResult>>();
-    let active = 0;
-    let peak = 0;
     mocks.listImages.mockImplementation(
       ({ imagePublicIds }: { imagePublicIds: string[] }) => {
-        active += 1;
-        peak = Math.max(peak, active);
-        const request =
-          mocks.listImages.mock.calls.length === 1
-            ? firstMetadata.promise
-            : Promise.resolve(
-                metadataResult(
-                  imagePublicIds.map((publicId) => resource(publicId)),
-                ),
-              );
-        return request.finally(() => {
-          active -= 1;
-        });
+        return firstMetadata.promise.then(() =>
+          metadataResult(imagePublicIds.map((publicId) => resource(publicId))),
+        );
       },
     );
-    mocks.hydrate.mockImplementation(
-      ({
-        api,
-        resource: image,
-      }: {
-        api: ExcalidrawImperativeAPI;
-        resource: WorkspaceCanvasImageResource;
-      }) => {
-        api.addFiles([
-          {
-            id: image.publicId as BinaryFileData["id"],
-            dataURL: "data:image/webp;base64,AA==" as BinaryFileData["dataURL"],
-            mimeType: "image/webp",
-            created: 0,
-          },
-        ]);
-        return Promise.resolve({
-          dimensions: { width: 100, height: 80 },
-          resource: image,
-        });
-      },
-    );
+    mockSuccessfulHydration();
 
-    let result = RenderHook({
+    const result = RenderHook({
       workspacePublicId: WORKSPACE_ONE,
       imagePublicIds: ids,
       canvasApi: canvas.api,
@@ -387,30 +358,54 @@ describe("useWorkspaceCanvasImages", () => {
         scrollY,
         zoom: { value: 1 },
       } as AppState);
-      result = RenderHook({
-        workspacePublicId: WORKSPACE_ONE,
-        imagePublicIds: ids,
-        canvasApi: canvas.api,
-      });
-      flushEffects();
     }
 
     await settle();
     expect(mocks.listImages).toHaveBeenCalledOnce();
-    expect(peak).toBe(1);
+    const requestSignal = (
+      mocks.listImages.mock.calls[0]?.[1] as
+        | { trpc?: { signal?: AbortSignal } }
+        | undefined
+    )?.trpc?.signal;
+    expect(requestSignal?.aborted).toBe(false);
 
-    firstMetadata.resolve(
-      metadataResult(ids.map((publicId) => resource(publicId))),
-    );
-    await vi.waitFor(() => expect(mocks.listImages).toHaveBeenCalledTimes(2));
+    firstMetadata.resolve(metadataResult([]));
     await vi.waitFor(() => expect(canvas.files[lastId]).toBeDefined());
 
-    expect(peak).toBe(1);
-    expect(mocks.listImages.mock.calls[1]?.[0]).toMatchObject({
-      imagePublicIds: [lastId, firstId, middleId],
-    });
+    expect(mocks.listImages).toHaveBeenCalledOnce();
     expect(canvas.files[firstId]).toBeUndefined();
     expect(canvas.files[middleId]).toBeUndefined();
+  });
+
+  it("hydrates a newly visible image from cached metadata", async () => {
+    const firstId = "cachedview01";
+    const lastId = "cachedview02";
+    const ids = [firstId, lastId];
+    const elements = [imageElement(firstId, 100), imageElement(lastId, 6_000)];
+    const canvas = createCanvasApi({ elements });
+    mocks.listImages.mockResolvedValue(
+      metadataResult(ids.map((publicId) => resource(publicId))),
+    );
+    mockSuccessfulHydration();
+
+    const result = RenderHook({
+      workspacePublicId: WORKSPACE_ONE,
+      imagePublicIds: ids,
+      canvasApi: canvas.api,
+    });
+    flushEffects();
+    await vi.waitFor(() => expect(canvas.files[firstId]).toBeDefined());
+
+    result.updateViewport(elements, {
+      width: 1_000,
+      height: 800,
+      scrollX: 0,
+      scrollY: -6_000,
+      zoom: { value: 1 },
+    } as AppState);
+    await vi.waitFor(() => expect(canvas.files[lastId]).toBeDefined());
+
+    expect(mocks.listImages).toHaveBeenCalledOnce();
   });
 
   it("cancels stale hydration when the workspace changes", async () => {
@@ -429,28 +424,7 @@ describe("useWorkspaceCanvasImages", () => {
           ? oldMetadata.promise
           : Promise.resolve(metadataResult([resource(newId)])),
     );
-    mocks.hydrate.mockImplementation(
-      ({
-        api,
-        resource: image,
-      }: {
-        api: ExcalidrawImperativeAPI;
-        resource: WorkspaceCanvasImageResource;
-      }) => {
-        api.addFiles([
-          {
-            id: image.publicId as BinaryFileData["id"],
-            dataURL: "data:image/webp;base64,AA==" as BinaryFileData["dataURL"],
-            mimeType: "image/webp",
-            created: 0,
-          },
-        ]);
-        return Promise.resolve({
-          dimensions: { width: 100, height: 80 },
-          resource: image,
-        });
-      },
-    );
+    mockSuccessfulHydration();
 
     RenderHook({
       workspacePublicId: WORKSPACE_ONE,
@@ -459,6 +433,11 @@ describe("useWorkspaceCanvasImages", () => {
     });
     flushEffects();
     await vi.waitFor(() => expect(mocks.listImages).toHaveBeenCalledTimes(1));
+    const oldRequestSignal = (
+      mocks.listImages.mock.calls[0]?.[1] as
+        | { trpc?: { signal?: AbortSignal } }
+        | undefined
+    )?.trpc?.signal;
 
     RenderHook({
       workspacePublicId: WORKSPACE_TWO,
@@ -466,6 +445,7 @@ describe("useWorkspaceCanvasImages", () => {
       canvasApi: newCanvas.api,
     });
     flushEffects();
+    expect(oldRequestSignal?.aborted).toBe(true);
     await vi.waitFor(() => expect(newCanvas.files[newId]).toBeDefined());
     oldMetadata.resolve(metadataResult([resource(oldId)]));
     await settle();
@@ -594,28 +574,7 @@ describe("useWorkspaceCanvasImages", () => {
           ? oldMetadata.promise
           : Promise.resolve(metadataResult([resource(newId)])),
     );
-    mocks.hydrate.mockImplementation(
-      ({
-        api,
-        resource: image,
-      }: {
-        api: ExcalidrawImperativeAPI;
-        resource: WorkspaceCanvasImageResource;
-      }) => {
-        api.addFiles([
-          {
-            id: image.publicId as BinaryFileData["id"],
-            dataURL: "data:image/webp;base64,AA==" as BinaryFileData["dataURL"],
-            mimeType: "image/webp",
-            created: 0,
-          },
-        ]);
-        return Promise.resolve({
-          dimensions: { width: 100, height: 80 },
-          resource: image,
-        });
-      },
-    );
+    mockSuccessfulHydration();
 
     RenderHook({
       workspacePublicId: WORKSPACE_ONE,
