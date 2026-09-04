@@ -14,8 +14,8 @@ import type { dbClient } from "@kan/db/client";
 import {
   workspaceCanvasImageReferences,
   workspaceCanvasImages,
-  workspaceVisualWallItems,
   workspaces,
+  workspaceVisualWallItems,
 } from "@kan/db/schema";
 import {
   getWorkspaceCanvasImageQuotaBytes,

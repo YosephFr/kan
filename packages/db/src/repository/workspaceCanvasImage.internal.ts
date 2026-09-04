@@ -19,11 +19,11 @@ import {
   workspaceCanvases,
   workspaceCanvasImageReferences,
   workspaceCanvasImages,
-  workspaceVisualWallItems,
   workspaceCanvasImageStorageDeletions,
   workspaceCanvasImageUploadSessions,
   workspaceCanvasRevisions,
   workspaces,
+  workspaceVisualWallItems,
 } from "@kan/db/schema";
 import {
   MAX_WORKSPACE_CANVAS_OPTIMIZED_IMAGE_BYTES,

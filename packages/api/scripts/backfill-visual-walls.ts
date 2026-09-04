@@ -1,4 +1,5 @@
 import { createDrizzleClient } from "@kan/db/client";
+import * as cardVisualWallRepo from "@kan/db/repository/cardVisualWall.repo";
 import {
   backfillVisualWallsFromLegacyCanvases,
   countMissingCardPreviews,
@@ -14,7 +15,6 @@ import {
   putObject,
   readObjectBodyWithLimit,
 } from "@kan/shared/utils";
-import * as cardVisualWallRepo from "@kan/db/repository/cardVisualWall.repo";
 
 import {
   deleteCardVisualWallPreviewObjects,
@@ -152,7 +152,9 @@ const run = async () => {
           ...candidates.map((candidate) => candidate.resourceId),
         );
         const results = await Promise.allSettled(
-          candidates.map((candidate) => optimizeCandidate(db, bucket, candidate)),
+          candidates.map((candidate) =>
+            optimizeCandidate(db, bucket, candidate),
+          ),
         );
         for (const [index, result] of results.entries()) {
           const candidate = candidates[index];

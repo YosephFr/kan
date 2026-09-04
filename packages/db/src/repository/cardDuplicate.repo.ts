@@ -5,11 +5,11 @@ import {
   boards,
   cardActivities,
   cardResources,
-  cardVisualWallItems,
-  cardVisualWalls,
   cards,
   cardsToLabels,
   cardToWorkspaceMembers,
+  cardVisualWallItems,
+  cardVisualWalls,
   checklistItems,
   checklists,
   labels,
@@ -19,11 +19,11 @@ import {
 } from "@kan/db/schema";
 import { generateUID } from "@kan/shared/utils";
 
+import type { PreparedCardVisualWallUploadClone } from "./cardVisualWallClone.repo";
 import { cloneCardCanvasHeadTx } from "./cardCanvasClone.repo";
 import { clonePipelineForCardTx } from "./cardPipelineClone.repo";
 import { cloneCardResourcesTx } from "./cardResourceClone.repo";
 import { cloneCardVisualWallTx } from "./cardVisualWallClone.repo";
-import type { PreparedCardVisualWallUploadClone } from "./cardVisualWallClone.repo";
 import {
   assertBoardsInWorkspace,
   assertWorkspacePermissionTx,
@@ -87,10 +87,7 @@ export const preflightVisualWallDuplicate = (
       )
       .limit(1);
     if (!source || !target) throw new WorkspaceChangedError();
-    if (
-      target.visibility !== "public" ||
-      input.publicVisibilityAcknowledged
-    ) {
+    if (target.visibility !== "public" || input.publicVisibilityAcknowledged) {
       return { status: "ready" as const };
     }
     const [item] = await tx

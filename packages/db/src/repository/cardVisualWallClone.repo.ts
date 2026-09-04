@@ -5,14 +5,14 @@ import {
   boards,
   cardAttachments,
   cardResources,
+  cards,
   cardVisualWallItems,
   cardVisualWallPreviews,
   cardVisualWalls,
-  cards,
   lists,
 } from "@kan/db/schema";
-import { generateUID } from "@kan/shared/utils";
 import { MAX_CARD_VISUAL_WALL_WORKSPACE_PHYSICAL_BYTES } from "@kan/shared";
+import { generateUID } from "@kan/shared/utils";
 
 import type { DbTransaction } from "./cardPipeline.internal";
 
@@ -77,9 +77,10 @@ const getWorkspacePhysicalUsageTx = async (
       ),
     tx
       .select({
-        bytes: sql<number>`coalesce(sum(${cardVisualWallPreviews.size}), 0)`.mapWith(
-          Number,
-        ),
+        bytes:
+          sql<number>`coalesce(sum(${cardVisualWallPreviews.size}), 0)`.mapWith(
+            Number,
+          ),
       })
       .from(cardVisualWallPreviews)
       .innerJoin(
@@ -153,9 +154,18 @@ export const getCardVisualWallCloneBudget = (
           .as("sourceBytes"),
     })
     .from(cardVisualWallItems)
-    .innerJoin(cardVisualWalls, eq(cardVisualWallItems.wallId, cardVisualWalls.id))
-    .innerJoin(cardResources, eq(cardVisualWallItems.resourceId, cardResources.id))
-    .innerJoin(cardAttachments, eq(cardResources.attachmentId, cardAttachments.id))
+    .innerJoin(
+      cardVisualWalls,
+      eq(cardVisualWallItems.wallId, cardVisualWalls.id),
+    )
+    .innerJoin(
+      cardResources,
+      eq(cardVisualWallItems.resourceId, cardResources.id),
+    )
+    .innerJoin(
+      cardAttachments,
+      eq(cardResources.attachmentId, cardAttachments.id),
+    )
     .innerJoin(
       cardVisualWallPreviews,
       eq(cardVisualWallPreviews.resourceId, cardResources.id),
@@ -210,9 +220,18 @@ export const getBoardVisualWallCloneBudget = async (
           .as("sourceBytes"),
     })
     .from(cardVisualWallItems)
-    .innerJoin(cardVisualWalls, eq(cardVisualWallItems.wallId, cardVisualWalls.id))
-    .innerJoin(cardResources, eq(cardVisualWallItems.resourceId, cardResources.id))
-    .innerJoin(cardAttachments, eq(cardResources.attachmentId, cardAttachments.id))
+    .innerJoin(
+      cardVisualWalls,
+      eq(cardVisualWallItems.wallId, cardVisualWalls.id),
+    )
+    .innerJoin(
+      cardResources,
+      eq(cardVisualWallItems.resourceId, cardResources.id),
+    )
+    .innerJoin(
+      cardAttachments,
+      eq(cardResources.attachmentId, cardAttachments.id),
+    )
     .innerJoin(
       cardVisualWallPreviews,
       eq(cardVisualWallPreviews.resourceId, cardResources.id),
@@ -265,9 +284,18 @@ export const getCardVisualWallCloneSources = (
       },
     })
     .from(cardVisualWallItems)
-    .innerJoin(cardVisualWalls, eq(cardVisualWallItems.wallId, cardVisualWalls.id))
-    .innerJoin(cardResources, eq(cardVisualWallItems.resourceId, cardResources.id))
-    .innerJoin(cardAttachments, eq(cardResources.attachmentId, cardAttachments.id))
+    .innerJoin(
+      cardVisualWalls,
+      eq(cardVisualWallItems.wallId, cardVisualWalls.id),
+    )
+    .innerJoin(
+      cardResources,
+      eq(cardVisualWallItems.resourceId, cardResources.id),
+    )
+    .innerJoin(
+      cardAttachments,
+      eq(cardResources.attachmentId, cardAttachments.id),
+    )
     .innerJoin(
       cardVisualWallPreviews,
       eq(cardVisualWallPreviews.resourceId, cardResources.id),
@@ -310,9 +338,18 @@ export const getBoardVisualWallCloneSources = (
       },
     })
     .from(cardVisualWallItems)
-    .innerJoin(cardVisualWalls, eq(cardVisualWallItems.wallId, cardVisualWalls.id))
-    .innerJoin(cardResources, eq(cardVisualWallItems.resourceId, cardResources.id))
-    .innerJoin(cardAttachments, eq(cardResources.attachmentId, cardAttachments.id))
+    .innerJoin(
+      cardVisualWalls,
+      eq(cardVisualWallItems.wallId, cardVisualWalls.id),
+    )
+    .innerJoin(
+      cardResources,
+      eq(cardVisualWallItems.resourceId, cardResources.id),
+    )
+    .innerJoin(
+      cardAttachments,
+      eq(cardResources.attachmentId, cardAttachments.id),
+    )
     .innerJoin(
       cardVisualWallPreviews,
       eq(cardVisualWallPreviews.resourceId, cardResources.id),
@@ -350,7 +387,10 @@ export async function cloneCardVisualWallTx(
       zIndex: cardVisualWallItems.zIndex,
     })
     .from(cardVisualWallItems)
-    .innerJoin(cardResources, eq(cardVisualWallItems.resourceId, cardResources.id))
+    .innerJoin(
+      cardResources,
+      eq(cardVisualWallItems.resourceId, cardResources.id),
+    )
     .where(
       and(
         eq(cardVisualWallItems.wallId, sourceWall.id),

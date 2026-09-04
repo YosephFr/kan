@@ -28,8 +28,7 @@ vi.mock("@kan/shared/utils", async () => {
     ...actual,
     getAttachmentObject: mocks.getAttachmentObject,
     getObjectPrefix: mocks.getObjectPrefix,
-    hasValidInlineAttachmentSignature:
-      mocks.hasValidInlineAttachmentSignature,
+    hasValidInlineAttachmentSignature: mocks.hasValidInlineAttachmentSignature,
   };
 });
 vi.mock("~/env", () => ({

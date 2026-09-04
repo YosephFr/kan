@@ -14,12 +14,12 @@ import {
 } from "@kan/db/schema";
 import { generateUID } from "@kan/shared/utils";
 
+import type { PreparedCardVisualWallUploadClone } from "./cardVisualWallClone.repo";
 import type { WorkspaceBoundaryTransaction } from "./workspace-boundary";
 import { cloneCardCanvasHeadTx } from "./cardCanvasClone.repo";
 import { clonePipelineForCardTx } from "./cardPipeline.repo";
 import { cloneCardResourcesTx } from "./cardResourceClone.repo";
 import { cloneCardVisualWallTx } from "./cardVisualWallClone.repo";
-import type { PreparedCardVisualWallUploadClone } from "./cardVisualWallClone.repo";
 import {
   assertWorkspacePermissionTx,
   lockBoardTreeInWorkspace,

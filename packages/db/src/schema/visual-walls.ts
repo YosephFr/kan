@@ -104,11 +104,9 @@ export const workspaceVisualWallItems = pgTable(
       table.wallId,
       table.legacyElementId,
     ),
-    index("workspace_visual_wall_item_wall_z_idx").on(
-      table.wallId,
-      table.zIndex,
-      table.id,
-    ).where(sql`${table.deletedAt} is null`),
+    index("workspace_visual_wall_item_wall_z_idx")
+      .on(table.wallId, table.zIndex, table.id)
+      .where(sql`${table.deletedAt} is null`),
     index("workspace_visual_wall_item_image_idx")
       .on(table.imageId)
       .where(sql`${table.deletedAt} is null`),
@@ -167,11 +165,9 @@ export const cardVisualWallItems = pgTable(
       table.wallId,
       table.legacyElementId,
     ),
-    index("card_visual_wall_item_wall_z_idx").on(
-      table.wallId,
-      table.zIndex,
-      table.id,
-    ).where(sql`${table.deletedAt} is null`),
+    index("card_visual_wall_item_wall_z_idx")
+      .on(table.wallId, table.zIndex, table.id)
+      .where(sql`${table.deletedAt} is null`),
     index("card_visual_wall_item_resource_idx")
       .on(table.resourceId)
       .where(sql`${table.deletedAt} is null`),

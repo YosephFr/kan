@@ -18,13 +18,13 @@ import {
   cardCanvases,
   cardCanvasFrames,
   cardCanvasRevisions,
-  cardVisualWallItems,
-  cardVisualWalls,
   cardPipelineStages,
   cardPipelineStageStatuses,
   cards,
   cardSubtaskChecklistItems,
   cardSubtasks,
+  cardVisualWallItems,
+  cardVisualWalls,
   notifications,
 } from "@kan/db/schema";
 import { generateUID } from "@kan/shared/utils";
