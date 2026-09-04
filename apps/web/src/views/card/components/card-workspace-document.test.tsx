@@ -43,7 +43,6 @@ afterAll(() => vi.unstubAllGlobals());
 
 const defaultProps = {
   cardPublicId: "cardpublic01",
-  cardTitle: "Unified card",
   members: [],
   canEdit: true,
   isPublicBoard: false,
@@ -56,8 +55,6 @@ const defaultProps = {
   resourceSummary: { total: 0, uploads: 0, driveLinks: 0, webLinks: 0 },
   hasCanvas: false,
   preferenceScope: "test-user",
-  whiteboardExtended: false,
-  onWhiteboardExtendedChange: vi.fn(),
   summaryContent: <p>Summary content</p>,
   activityContent: <p>Activity content</p>,
 };
@@ -71,7 +68,7 @@ describe("CardWorkspaceDocument", () => {
     expect(markup).toContain('id="card-view-summary"');
     expect(markup).toContain('id="card-view-files"');
     expect(markup).toContain('id="card-view-subtasks"');
-    expect(markup).toContain('id="card-view-whiteboard"');
+    expect(markup).toContain('id="card-view-visual-wall"');
     expect(markup).toContain("Summary content");
     expect(markup).toContain("Activity content");
     expect(markup).not.toContain('role="tabpanel"');
@@ -86,24 +83,24 @@ describe("CardWorkspaceDocument", () => {
 
     expect(markup).toContain('aria-controls="card-workspace-subtasks-content"');
     expect(markup).toContain(
-      'aria-controls="card-workspace-whiteboard-content"',
+      'aria-controls="card-workspace-visual-wall-content"',
     );
     expect(markup).toContain('id="card-workspace-subtasks-content"');
-    expect(markup).toContain('id="card-workspace-whiteboard-content"');
+    expect(markup).toContain('id="card-workspace-visual-wall-content"');
     expect(markup.match(/aria-expanded="false"/g)).toHaveLength(2);
     expect(markup).toContain("Activate subtasks");
-    expect(markup).toContain("Open whiteboard");
+    expect(markup).toContain("Visual wall");
   });
 
-  it("keeps only the mounted whiteboard surface in the extended layout", () => {
+  it("mounts the visual wall for cards with legacy canvas content without hiding the document", () => {
     const markup = renderToStaticMarkup(
-      <CardWorkspaceDocument {...defaultProps} hasCanvas whiteboardExtended />,
+      <CardWorkspaceDocument {...defaultProps} hasCanvas />,
     );
 
-    expect(markup).toContain("h-full max-w-none p-0");
-    expect(markup).toContain('id="card-workspace-whiteboard-content"');
-    expect(markup).toContain('data-dynamic-view="true"');
-    expect(markup).toContain('id="card-workspace-whiteboard-heading"');
-    expect(markup.match(/hidden=""/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(markup).toContain('id="card-workspace-visual-wall-content"');
+    expect(markup).toContain('id="card-workspace-visual-wall-heading"');
+    expect(markup.match(/data-dynamic-view="true"/g)).toHaveLength(1);
+    expect(markup).toContain("Summary content");
+    expect(markup).toContain("Activity content");
   });
 });

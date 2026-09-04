@@ -226,31 +226,14 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
   const { workspace, availableWorkspaces, switchWorkspace } = useWorkspace();
   const { canDeleteCard, canEditCard } = usePermissions();
   const { data: session } = authClient.useSession();
-  const {
-    hasRightPanel,
-    isRightPanelOpen,
-    setMode: setDashboardSurfaceMode,
-    toggleRightPanel,
-  } = useDashboardSurface();
+  const { hasRightPanel, isRightPanelOpen, toggleRightPanel } =
+    useDashboardSurface();
   const [activeChecklistForm, setActiveChecklistForm] = useState<string | null>(
     null,
   );
-  const [whiteboardExtended, setWhiteboardExtended] = useState(false);
-
   const cardId = Array.isArray(router.query.cardId)
     ? router.query.cardId[0]
     : router.query.cardId;
-
-  useEffect(() => {
-    setDashboardSurfaceMode(whiteboardExtended ? "card-whiteboard" : "default");
-  }, [setDashboardSurfaceMode, whiteboardExtended]);
-
-  useEffect(
-    () => () => setDashboardSurfaceMode("default"),
-    [setDashboardSurfaceMode],
-  );
-
-  useEffect(() => setWhiteboardExtended(false), [cardId]);
 
   const {
     data: card,
@@ -428,11 +411,7 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
         title={t`${card?.title ?? t`Card`} | ${board?.name ?? t`Board`}`}
       />
       <div className="flex h-full flex-1 flex-col overflow-hidden">
-        <div
-          className={`w-full border-b border-light-300 bg-light-50 dark:border-dark-300 dark:bg-dark-50 ${
-            whiteboardExtended ? "hidden" : ""
-          }`}
-        >
+        <div className="w-full border-b border-light-300 bg-light-50 dark:border-dark-300 dark:bg-dark-50">
           <div className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2 md:px-8">
             {!card && isLoading && (
               <div className="flex space-x-2">
@@ -527,15 +506,12 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
 
         <div
           data-card-scroll-host
-          className={`scrollbar-thumb-rounded-[4px] scrollbar-track-rounded-[4px] w-full flex-1 scrollbar scrollbar-track-light-200 scrollbar-thumb-light-400 hover:scrollbar-thumb-light-400 dark:scrollbar-track-dark-100 dark:scrollbar-thumb-dark-300 dark:hover:scrollbar-thumb-dark-300 ${
-            whiteboardExtended ? "min-h-0 overflow-hidden" : "overflow-y-auto"
-          }`}
+          className="scrollbar-thumb-rounded-[4px] scrollbar-track-rounded-[4px] w-full flex-1 overflow-y-auto scrollbar scrollbar-track-light-200 scrollbar-thumb-light-400 hover:scrollbar-thumb-light-400 dark:scrollbar-track-dark-100 dark:scrollbar-thumb-dark-300 dark:hover:scrollbar-thumb-dark-300"
         >
           {card ? (
             <CardWorkspaceDocument
               key={cardId}
               cardPublicId={cardId}
-              cardTitle={card.title}
               members={
                 canEdit
                   ? (workspaceMembers ?? [])
@@ -559,8 +535,6 @@ export default function CardPage({ isTemplate }: { isTemplate?: boolean }) {
               resourceSummary={card.resourceSummary}
               hasCanvas={card.hasCanvas}
               preferenceScope={session?.user.id ?? "signed-in"}
-              whiteboardExtended={whiteboardExtended}
-              onWhiteboardExtendedChange={setWhiteboardExtended}
               summaryContent={
                 <>
                   <form

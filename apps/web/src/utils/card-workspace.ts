@@ -1,7 +1,7 @@
 export const cardWorkspaceViews = [
   "summary",
   "subtasks",
-  "whiteboard",
+  "visualWall",
   "files",
 ] as const;
 
@@ -10,7 +10,7 @@ export type CardWorkspaceView = (typeof cardWorkspaceViews)[number];
 const cardWorkspaceQueryValues: Record<CardWorkspaceView, string> = {
   summary: "resumen",
   subtasks: "subtareas",
-  whiteboard: "pizarra",
+  visualWall: "muro-visual",
   files: "archivos",
 };
 
@@ -22,6 +22,10 @@ export const getCardWorkspaceView = (
   legacyValue?: string | string[],
 ): CardWorkspaceView => {
   const candidate = firstQueryValue(value) ?? firstQueryValue(legacyValue);
+
+  if (candidate === "pizarra" || candidate === "whiteboard") {
+    return "visualWall";
+  }
 
   const canonicalView = cardWorkspaceViews.find(
     (view) => cardWorkspaceQueryValues[view] === candidate,
@@ -48,7 +52,7 @@ export const getCardWorkspaceTargetView = ({
   frame?: string | string[];
 }): CardWorkspaceView | null => {
   if (firstQueryValue(subtask)) return "subtasks";
-  if (firstQueryValue(frame)) return "whiteboard";
+  if (firstQueryValue(frame)) return "visualWall";
   if (firstQueryValue(resource)) return "files";
   if (value !== undefined || legacyValue !== undefined) {
     return getCardWorkspaceView(value, legacyValue);
@@ -62,7 +66,7 @@ export const getCardWorkspaceQueryValue = (view: CardWorkspaceView) =>
 export const getCardWorkspaceNavigationQuery = (
   query: Record<string, string | string[] | undefined>,
   view: CardWorkspaceView,
-  target?: { subtask?: string; resource?: string; frame?: string },
+  target?: { subtask?: string; resource?: string },
 ) => {
   const nextQuery: Record<string, string | string[] | undefined> = {
     ...query,
@@ -79,10 +83,6 @@ export const getCardWorkspaceNavigationQuery = (
   if (view === "files" && target?.resource) {
     nextQuery.recurso = target.resource;
   }
-  if (view === "whiteboard" && target?.frame) {
-    nextQuery.frame = target.frame;
-  }
-
   return nextQuery;
 };
 

@@ -29,10 +29,7 @@ import {
 } from "@kan/db/schema";
 import { generateUID } from "@kan/shared/utils";
 
-import type {
-  CardCanvasCasResult,
-  PreparedCardCanvasScene,
-} from "./cardCanvas.internal";
+import type { CardCanvasCasResult } from "./cardCanvas.internal";
 import type { DbTransaction } from "./cardPipeline.internal";
 import {
   applyNormalizedCanvasTx,
@@ -48,6 +45,7 @@ import {
 } from "./cardPipeline.internal";
 import { DEFAULT_CARD_PIPELINE_STAGES } from "./cardPipeline.repo";
 import {
+  assertWorkspacePermissionTx,
   lockCardsInWorkspace,
   WorkspaceChangedError,
 } from "./workspace-boundary";
@@ -528,7 +526,6 @@ export const convertFrame = async (
     expectedWorkspaceId: number;
     framePublicId: string;
     expectedVersion: number;
-    scene?: unknown;
     targetStageStatus: CardPipelineStageStatus;
     subtaskFields: {
       title: string;
@@ -548,47 +545,33 @@ export const convertFrame = async (
   ) {
     throw new CardCanvasConversionError("SUBTASK_INVALID");
   }
-  const suppliedPrepared =
-    input.scene === undefined
-      ? null
-      : await prepareCardCanvasScene(input.scene);
   return db.transaction(async (tx) => {
     const card = await lockPipelineCardByPublicId(tx, input.cardPublicId);
     if (!card) throw new WorkspaceChangedError();
     if (card.workspaceId !== input.expectedWorkspaceId) {
       throw new WorkspaceChangedError();
     }
-
-    let casResult: CardCanvasCasResult;
-    let prepared: PreparedCardCanvasScene;
-    if (suppliedPrepared) {
-      prepared = suppliedPrepared;
-      casResult = await applyNormalizedCanvasTx(tx, {
-        cardId: card.id,
-        expectedVersion: input.expectedVersion,
-        prepared,
-        actorId: input.actorId,
-      });
-    } else {
-      const head = await getCanvasHeadForUpdateTx(tx, card.id);
-      if (!head || head.version !== input.expectedVersion) {
-        return {
-          status: "conflict" as const,
-          code: "CANVAS_VERSION_CONFLICT" as const,
-          remoteVersion: head?.version ?? 0,
-        };
-      }
-      prepared = await prepareCardCanvasScene(head.scene);
-      casResult = {
-        status: "unchanged",
-        version: head.version,
-        hash: head.hash,
-        bytes: head.bytes,
-        elementCount: head.elementCount,
-        canvasId: head.id,
+    await assertWorkspacePermissionTx(tx, {
+      workspaceId: input.expectedWorkspaceId,
+      userId: input.actorId,
+      permission: "card:edit",
+    });
+    const head = await getCanvasHeadForUpdateTx(tx, card.id);
+    if (!head || head.version !== input.expectedVersion) {
+      return {
+        status: "conflict" as const,
+        code: "CANVAS_VERSION_CONFLICT" as const,
+        remoteVersion: head?.version ?? 0,
       };
     }
-    if (casResult.status === "conflict") return casResult;
+    const casResult = {
+      status: "unchanged" as const,
+      version: head.version,
+      hash: head.hash,
+      bytes: head.bytes,
+      elementCount: head.elementCount,
+      canvasId: head.id,
+    };
 
     const [frame] = await tx
       .select({

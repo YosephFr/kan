@@ -11,7 +11,10 @@ import * as cardResourceRepo from "@kan/db/repository/cardResource.repo";
 import { PublicVisibilityAcknowledgementError } from "@kan/db/repository/cardResourceVisibility.repo";
 import * as subtaskRepo from "@kan/db/repository/cardSubtask.repo";
 import * as subtaskResourceRepo from "@kan/db/repository/cardSubtaskResource.repo";
-import { WorkspaceChangedError } from "@kan/db/repository/workspace-boundary";
+import {
+  WorkspaceChangedError,
+  WorkspacePermissionChangedError,
+} from "@kan/db/repository/workspace-boundary";
 import {
   boards,
   cardAttachments,
@@ -20,6 +23,7 @@ import {
   cardSubtaskResources,
   cardSubtasks,
   lists,
+  workspaceMemberPermissions,
   workspaces,
 } from "@kan/db/schema";
 
@@ -185,6 +189,27 @@ describe("card resource repository", () => {
         .from(cardSubtaskResources)
         .where(isNull(cardSubtaskResources.deletedAt)),
     ).toHaveLength(0);
+  });
+
+  it("rejects deletion when card edit permission was revoked", async () => {
+    const resourcePublicId = await createDrive();
+    await db.insert(workspaceMemberPermissions).values({
+      workspaceMemberId: seeded.member.id,
+      permission: "card:edit",
+      granted: false,
+    });
+
+    await expect(
+      cardResourceRepo.softDeleteWithWorkspaceGuard(db, {
+        resourcePublicId,
+        expectedWorkspaceId: seeded.workspace.id,
+        deletedBy: seeded.user.id,
+        removeReferences: true,
+      }),
+    ).rejects.toBeInstanceOf(WorkspacePermissionChangedError);
+    await expect(
+      cardResourceRepo.getByPublicId(db, resourcePublicId),
+    ).resolves.not.toBeNull();
   });
 
   it("rejects resources from another card or workspace", async () => {

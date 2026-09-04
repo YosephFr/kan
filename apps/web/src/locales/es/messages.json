@@ -101,7 +101,6 @@
     "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 523]],
     "translation": "No se pudieron cargar las imágenes de la pizarra"
   },
-
   "X0N0PA": {
     "message": " (edited)",
     "placeholders": {},
@@ -13177,5 +13176,473 @@
     "placeholders": {},
     "comments": [],
     "origin": [["src/views/boards/components/WorkspaceGoalsCanvas.tsx", 506]]
+  },
+  "NnZdz2": {
+    "message": "Add Freeform link",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/components/visual-wall/VisualWall.tsx", 363],
+      ["src/components/visual-wall/VisualWallDialogs.tsx", 100]
+    ],
+    "translation": "Añadir enlace de Freeform"
+  },
+  "kjd978": {
+    "message": "Add from resources",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/components/visual-wall/VisualWall.tsx", 337],
+      ["src/views/card/components/CardVisualWallResourceDialog.tsx", 34]
+    ],
+    "translation": "Añadir desde Recursos"
+  },
+  "5phU36": {
+    "message": "Add images",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/visual-wall/VisualWall.tsx", 298]],
+    "translation": "Añadir imágenes"
+  },
+  "bM0gsn": {
+    "message": "Add images or connect the shared Freeform board.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWorkspaceDocument.tsx", 356]],
+    "translation": "Añade imágenes o conecta la pizarra compartida de Freeform."
+  },
+  "bCb038": {
+    "message": "Add images to see the project at a glance.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/visual-wall/VisualWall.tsx", 102]],
+    "translation": "Añade imágenes para ver el proyecto de un vistazo."
+  },
+  "R9cDxi": {
+    "message": "Add project images or connect the shared Freeform board.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardVisualWallView.tsx", 445]],
+    "translation": "Añade imágenes del proyecto o conecta la pizarra compartida de Freeform."
+  },
+  "oCreZF": {
+    "message": "Allow clipboard access or use Add images instead.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/visual-wall/VisualWall.tsx", 321]],
+    "translation": "Permite el acceso al portapapeles o usa Añadir imágenes."
+  },
+  "paHoq1": {
+    "message": "Anyone with access to the public board can see these images and open the Freeform link. I understand and want to continue.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardVisualWallView.tsx", 432]],
+    "translation": "Cualquier persona con acceso al tablero público podrá ver estas imágenes y abrir el enlace de Freeform. Entiendo y quiero continuar."
+  },
+  "zcGpb6": {
+    "message": "Card visual wall",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardVisualWallView.tsx", 442]],
+    "translation": "Muro visual de la tarjeta"
+  },
+  "WBNm/P": {
+    "message": "Change Freeform link",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/visual-wall/VisualWallDialogs.tsx", 100]],
+    "translation": "Cambiar enlace de Freeform"
+  },
+  "B6Ohlp": {
+    "message": "Change link",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/visual-wall/VisualWall.tsx", 363]],
+    "translation": "Cambiar enlace"
+  },
+  "sXM6DP": {
+    "message": "Choose an image already stored safely on this card.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/CardVisualWallResourceDialog.tsx", 37]
+    ],
+    "translation": "Elige una imagen que ya esté guardada de forma segura en esta tarjeta."
+  },
+  "UADTPp": {
+    "message": "Clipboard access was not granted",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/visual-wall/VisualWall.tsx", 320]],
+    "translation": "No se permitió el acceso al portapapeles"
+  },
+  "qSh1/B": {
+    "message": "Confirm public visibility",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/CardVisualWallView.tsx", 160],
+      ["src/views/card/components/CardVisualWallView.tsx", 187]
+    ],
+    "translation": "Confirmar visibilidad pública"
+  },
+  "RJALLY": {
+    "message": "Copy an image, then press Paste again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/visual-wall/VisualWall.tsx", 314]],
+    "translation": "Copia una imagen y vuelve a pulsar Pegar."
+  },
+  "+g4Ek/": {
+    "message": "Has visual wall",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/board/components/Card.tsx", 211]],
+    "translation": "Tiene muro visual"
+  },
+  "lwLnff": {
+    "message": "Image is on the visual wall",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 556]],
+    "translation": "La imagen está en el muro visual"
+  },
+  "Xmy0jb": {
+    "message": "Its last saved position was restored. Try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-visual-wall.ts", 340]
+    ],
+    "translation": "Se restauró su última posición guardada. Inténtalo de nuevo."
+  },
+  "bt/kTH": {
+    "message": "Kan shows the visual references here. Open Freeform when you need to draw or edit the shared board.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/visual-wall/VisualWallDialogs.tsx", 103]],
+    "translation": "Kan muestra aquí las referencias visuales. Abre Freeform cuando necesites dibujar o editar la pizarra compartida."
+  },
+  "5w58kT": {
+    "message": "Linked to an archived whiteboard zone",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/SubtaskCard.tsx", 96],
+      ["src/views/card/components/SubtaskCard.tsx", 100]
+    ],
+    "translation": "Vinculada a una zona de la pizarra archivada"
+  },
+  "IDQR6V": {
+    "message": "Loading visual references…",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceVisualWall.tsx", 28]],
+    "translation": "Cargando referencias visuales…"
+  },
+  "ny890c": {
+    "message": "Loading visual wall…",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardVisualWallView.tsx", 391]],
+    "translation": "Cargando muro visual…"
+  },
+  "ysakBD": {
+    "message": "No image was added. Check the files and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardVisualWallView.tsx", 351]],
+    "translation": "No se añadió ninguna imagen. Revisa los archivos e inténtalo de nuevo."
+  },
+  "r7Od11": {
+    "message": "No image was found",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/visual-wall/VisualWall.tsx", 313]],
+    "translation": "No se encontró ninguna imagen"
+  },
+  "825jjA": {
+    "message": "No images in Resources",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/CardVisualWallResourceDialog.tsx", 56]
+    ],
+    "translation": "No hay imágenes en Recursos"
+  },
+  "1JZotM": {
+    "message": "Open in Freeform",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/visual-wall/VisualWall.tsx", 352]],
+    "translation": "Abrir en Freeform"
+  },
+  "vVDE0R": {
+    "message": "Open visual wall",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/CardFilesView.tsx", 600],
+      ["src/views/card/components/SubtaskEditorDialog.tsx", 260]
+    ],
+    "translation": "Abrir muro visual"
+  },
+  "esC76/": {
+    "message": "Paste a valid iCloud Freeform share link.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/visual-wall/VisualWallDialogs.tsx", 79]],
+    "translation": "Pega un enlace compartido válido de iCloud Freeform."
+  },
+  "cvagBa": {
+    "message": "Preview image",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/visual-wall/VisualWall.tsx", 472]],
+    "translation": "Previsualizar imagen"
+  },
+  "zp8LKS": {
+    "message": "Preview the images and references that guide this project.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWorkspaceDocument.tsx", 354]],
+    "translation": "Previsualiza las imágenes y referencias que guían este proyecto."
+  },
+  "loJ97s": {
+    "message": "Project images will appear here when they are added.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardVisualWallView.tsx", 446]],
+    "translation": "Las imágenes del proyecto aparecerán aquí cuando las añadas."
+  },
+  "Grzhhi": {
+    "message": "Remove every copy of this image from the visual wall before deleting the resource.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 565]],
+    "translation": "Quita todas las copias de esta imagen del muro visual antes de eliminar el recurso."
+  },
+  "HuufYY": {
+    "message": "Remove image from wall",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/visual-wall/VisualWall.tsx", 485]],
+    "translation": "Quitar imagen del muro"
+  },
+  "484LKL": {
+    "message": "Remove link",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/visual-wall/VisualWallDialogs.tsx", 136]],
+    "translation": "Quitar enlace"
+  },
+  "ZGarM8": {
+    "message": "Resize image",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/visual-wall/VisualWall.tsx", 494]],
+    "translation": "Cambiar tamaño de la imagen"
+  },
+  "XKUx2W": {
+    "translation": "Recurso conservado para recuperar la pizarra",
+    "message": "Resource kept for whiteboard recovery",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 558]]
+  },
+  "zHtJ8h": {
+    "message": "Review the public-board notice before changing the visual wall.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/CardVisualWallView.tsx", 161],
+      ["src/views/card/components/CardVisualWallView.tsx", 188]
+    ],
+    "translation": "Revisa el aviso del tablero público antes de cambiar el muro visual."
+  },
+  "Bvh93P": {
+    "message": "Some images could not be added",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-visual-wall.ts", 288],
+      ["src/views/card/components/CardVisualWallView.tsx", 346]
+    ],
+    "translation": "No se pudieron añadir algunas imágenes"
+  },
+  "RSIgnI": {
+    "message": "The Freeform link could not be removed.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/visual-wall/VisualWallDialogs.tsx", 132]],
+    "translation": "No se pudo quitar el enlace de Freeform."
+  },
+  "fZH+N5": {
+    "message": "The Freeform link could not be saved. Try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/components/visual-wall/VisualWallDialogs.tsx", 86]],
+    "translation": "No se pudo guardar el enlace de Freeform. Inténtalo de nuevo."
+  },
+  "2CGsuZ": {
+    "message": "The image could not be moved",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-visual-wall.ts", 339]
+    ],
+    "translation": "No se pudo mover la imagen"
+  },
+  "23DpUy": {
+    "message": "The image could not be removed",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-visual-wall.ts", 378]
+    ],
+    "translation": "No se pudo quitar la imagen"
+  },
+  "dE6rYP": {
+    "message": "The latest version is loaded. Repeat the change if it is still needed.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardVisualWallView.tsx", 204]],
+    "translation": "Ya está cargada la versión más reciente. Repite el cambio si todavía es necesario."
+  },
+  "AjRpkF": {
+    "message": "The latest version was loaded. Try the change again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-visual-wall.ts", 133]
+    ],
+    "translation": "Se cargó la versión más reciente. Intenta el cambio de nuevo."
+  },
+  "0f9owA": {
+    "message": "The valid images are on the wall. Check the remaining files and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardVisualWallView.tsx", 350]],
+    "translation": "Las imágenes válidas quedaron en el muro. Revisa los demás archivos e inténtalo de nuevo."
+  },
+  "JqXBf7": {
+    "message": "The valid images were added. Check the remaining files and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-visual-wall.ts", 276],
+      ["src/views/boards/components/use-workspace-visual-wall.ts", 289]
+    ],
+    "translation": "Se añadieron las imágenes válidas. Revisa los demás archivos e inténtalo de nuevo."
+  },
+  "nkSC/e": {
+    "message": "The visual references could not be loaded.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceVisualWall.tsx", 38]],
+    "translation": "No se pudieron cargar las referencias visuales."
+  },
+  "Hq6kJ9": {
+    "message": "The visual wall changed",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-visual-wall.ts", 132]
+    ],
+    "translation": "El muro visual cambió"
+  },
+  "mWpXZJ": {
+    "message": "The wall was not changed. Try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/use-workspace-visual-wall.ts", 300],
+      ["src/views/boards/components/use-workspace-visual-wall.ts", 379]
+    ],
+    "translation": "El muro no cambió. Inténtalo de nuevo."
+  },
+  "pNTTnZ": {
+    "message": "This card does not have a visual wall yet.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWorkspaceDocument.tsx", 357]],
+    "translation": "Esta tarjeta todavía no tiene un muro visual."
+  },
+  "MZwmOX": {
+    "translation": "Este recurso aparece en el respaldo archivado de la pizarra. Permanecerá en la tarjeta para que ese respaldo pueda recuperarse de forma segura.",
+    "message": "This resource appears in the archived whiteboard backup. It will remain on the card so that backup can be recovered safely.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardFilesView.tsx", 567]]
+  },
+  "Z2AvWN": {
+    "message": "Upload an image to this card, then add it to the visual wall.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [
+      ["src/views/card/components/CardVisualWallResourceDialog.tsx", 59]
+    ],
+    "translation": "Sube una imagen a esta tarjeta y luego añádela al muro visual."
+  },
+  "yEAQ4a": {
+    "message": "Upload images to see the work in progress, or open the shared Freeform board to edit ideas.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/boards/components/WorkspaceGoalsSection.tsx", 29]],
+    "translation": "Sube imágenes para ver el trabajo en curso o abre la pizarra compartida de Freeform para editar las ideas."
+  },
+  "QrdMVG": {
+    "message": "Use JPEG, PNG or WebP files within the card upload limits.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardVisualWallView.tsx", 282]],
+    "translation": "Usa archivos JPEG, PNG o WebP dentro de los límites de subida de la tarjeta."
+  },
+  "ZBdVfW": {
+    "message": "Visual references for {workspaceName}",
+    "placeholders": {
+      "workspaceName": ["workspaceName"]
+    },
+    "comments": [],
+    "origin": [
+      ["src/views/boards/components/WorkspaceGoalsSection.tsx", 26],
+      ["src/views/boards/components/WorkspaceVisualWall.tsx", 53]
+    ],
+    "translation": "Referencias visuales de {workspaceName}"
+  },
+  "tNMhjR": {
+    "message": "Visual wall",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardWorkspaceDocument.tsx", 455]],
+    "translation": "Muro visual"
+  },
+  "opv1BL": {
+    "message": "Visual wall changed elsewhere",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardVisualWallView.tsx", 203]],
+    "translation": "El muro visual cambió en otro lugar"
+  },
+  "WbBRnq": {
+    "message": "Visual wall could not be loaded",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardVisualWallView.tsx", 401]],
+    "translation": "No se pudo cargar el muro visual"
+  },
+  "6EqJBM": {
+    "message": "Visual wall could not be updated",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardVisualWallView.tsx", 167]],
+    "translation": "No se pudo actualizar el muro visual"
+  },
+  "oeUUWg": {
+    "message": "Your resources are safe. Refresh the card and try again.",
+    "placeholders": {},
+    "comments": [],
+    "origin": [["src/views/card/components/CardVisualWallView.tsx", 168]],
+    "translation": "Tus recursos están seguros. Actualiza la tarjeta e inténtalo de nuevo."
   }
 }

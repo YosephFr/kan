@@ -115,88 +115,57 @@ describe("card canvas clone and resource deletion integrations", () => {
     return created.subtask;
   }
 
-  it.each(["replace", "remove"] as const)(
-    "mutates the canvas with CAS before deleting a resource in %s mode",
-    async (canvasAction) => {
-      const resourcePublicId =
-        canvasAction === "replace"
-          ? await createDrive(canvasAction)
-          : await createWeb(canvasAction);
-      const saved = await saveSourceCanvas({
-        elements: [
-          {
-            id: "resource-card",
-            type: "embeddable",
-            customData: { kanResourcePublicId: resourcePublicId },
-            link: `kan-resource:${resourcePublicId}`,
-          },
-        ],
-        appState: {},
-      });
-      expect(saved).toMatchObject({ status: "saved", version: 1 });
-      if (saved.status === "conflict") throw new Error("Canvas save failed");
+  it("keeps a resource and the legacy canvas head when the scene references it", async () => {
+    const resourcePublicId = await createDrive("recovery");
+    const saved = await saveSourceCanvas({
+      elements: [
+        {
+          id: "resource-card",
+          type: "embeddable",
+          customData: { kanResourcePublicId: resourcePublicId },
+          link: `kan-resource:${resourcePublicId}`,
+        },
+      ],
+      appState: {},
+    });
+    expect(saved).toMatchObject({ status: "saved", version: 1 });
+    if (saved.status === "conflict") throw new Error("Canvas save failed");
 
-      await expect(
-        cardResourceRepo.softDeleteWithWorkspaceGuard(db, {
-          resourcePublicId,
-          expectedWorkspaceId: seeded.workspace.id,
-          deletedBy: seeded.user.id,
-          removeReferences: false,
-        }),
-      ).resolves.toMatchObject({
-        status: "in_use",
-        canvasReferenceCount: 1,
-        canvasVersion: 1,
-      });
-      await expect(
-        cardResourceRepo.softDeleteWithWorkspaceGuard(db, {
-          resourcePublicId,
-          expectedWorkspaceId: seeded.workspace.id,
-          deletedBy: seeded.user.id,
-          removeReferences: false,
-          canvasAction,
-          expectedCanvasVersion: 2,
-        }),
-      ).resolves.toEqual({
-        status: "canvas_version_conflict",
-        remoteVersion: 1,
-      });
-      expect(
-        await cardResourceRepo.getByPublicId(db, resourcePublicId),
-      ).not.toBeNull();
+    await expect(
+      cardResourceRepo.softDeleteWithWorkspaceGuard(db, {
+        resourcePublicId,
+        expectedWorkspaceId: seeded.workspace.id,
+        deletedBy: seeded.user.id,
+        removeReferences: true,
+      }),
+    ).resolves.toMatchObject({
+      status: "in_use",
+      canvasReferenceCount: 1,
+      canvasVersion: 1,
+    });
 
-      await expect(
-        cardResourceRepo.softDeleteWithWorkspaceGuard(db, {
-          resourcePublicId,
-          expectedWorkspaceId: seeded.workspace.id,
-          deletedBy: seeded.user.id,
-          removeReferences: false,
-          canvasAction,
-          expectedCanvasVersion: 1,
-        }),
-      ).resolves.toMatchObject({ status: "deleted" });
-
-      const [head] = await db
-        .select({ scene: cardCanvases.scene, version: cardCanvases.version })
-        .from(cardCanvases)
-        .where(eq(cardCanvases.cardId, seeded.card.id));
-      expect(head?.version).toBe(2);
-      expect(head?.scene.elements).toEqual(
-        canvasAction === "replace"
-          ? [expect.objectContaining({ id: "resource-card", type: "text" })]
-          : [],
-      );
-      expect(
-        await db
-          .select()
-          .from(cardCanvasResources)
-          .where(eq(cardCanvasResources.canvasId, saved.canvasId)),
-      ).toHaveLength(0);
-      expect(
-        await cardResourceRepo.getByPublicId(db, resourcePublicId),
-      ).toBeNull();
-    },
-  );
+    const [head] = await db
+      .select({ scene: cardCanvases.scene, version: cardCanvases.version })
+      .from(cardCanvases)
+      .where(eq(cardCanvases.cardId, seeded.card.id));
+    expect(head?.version).toBe(1);
+    expect(head?.scene.elements).toEqual([
+      expect.objectContaining({
+        id: "resource-card",
+        type: "embeddable",
+        link: `kan-resource:${resourcePublicId}`,
+      }),
+    ]);
+    expect(
+      await db
+        .select()
+        .from(cardCanvasResources)
+        .where(eq(cardCanvasResources.canvasId, saved.canvasId)),
+    ).toHaveLength(1);
+    expect(
+      await cardResourceRepo.getByPublicId(db, resourcePublicId),
+    ).not.toBeNull();
+  });
 
   it("clones only the canvas head and remaps link, frame and subtask public IDs", async () => {
     const subtask = await createSourceSubtask();

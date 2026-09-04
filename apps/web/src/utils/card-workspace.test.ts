@@ -16,13 +16,14 @@ import {
 describe("getCardWorkspaceView", () => {
   it("accepts canonical Spanish direct-link views", () => {
     expect(getCardWorkspaceView("subtareas")).toBe("subtasks");
-    expect(getCardWorkspaceView(["pizarra"])).toBe("whiteboard");
+    expect(getCardWorkspaceView(["muro-visual"])).toBe("visualWall");
     expect(getCardWorkspaceQueryValue("files")).toBe("archivos");
   });
 
-  it("keeps legacy English links compatible", () => {
+  it("keeps legacy whiteboard links compatible", () => {
     expect(getCardWorkspaceView(undefined, "subtasks")).toBe("subtasks");
-    expect(getCardWorkspaceView(undefined, ["whiteboard"])).toBe("whiteboard");
+    expect(getCardWorkspaceView(undefined, ["whiteboard"])).toBe("visualWall");
+    expect(getCardWorkspaceView("pizarra")).toBe("visualWall");
   });
 
   it("falls back to summary for unknown values", () => {
@@ -47,7 +48,7 @@ describe("getCardWorkspaceTargetView", () => {
         frame: "frame0000001",
         resource: "resource0001",
       }),
-    ).toBe("whiteboard");
+    ).toBe("visualWall");
     expect(
       getCardWorkspaceTargetView({
         legacyValue: "summary",
@@ -58,7 +59,7 @@ describe("getCardWorkspaceTargetView", () => {
 
   it("returns null when the URL does not target a workspace section", () => {
     expect(getCardWorkspaceTargetView({})).toBeNull();
-    expect(getCardWorkspaceTargetView({ value: "pizarra" })).toBe("whiteboard");
+    expect(getCardWorkspaceTargetView({ value: "pizarra" })).toBe("visualWall");
   });
 });
 
@@ -83,12 +84,9 @@ describe("getCardWorkspaceNavigationQuery", () => {
       filter: "mine",
     });
     expect(
-      getCardWorkspaceNavigationQuery(conflictingQuery, "whiteboard", {
-        frame: "next-frame",
-      }),
+      getCardWorkspaceNavigationQuery(conflictingQuery, "visualWall"),
     ).toEqual({
-      vista: "pizarra",
-      frame: "next-frame",
+      vista: "muro-visual",
       filter: "mine",
     });
     expect(

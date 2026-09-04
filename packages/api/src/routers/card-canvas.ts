@@ -9,7 +9,10 @@ import {
   CardCanvasReferenceError,
 } from "@kan/db/repository/cardCanvas.repo";
 import * as cardSubtaskRepo from "@kan/db/repository/cardSubtask.repo";
-import { WorkspaceChangedError } from "@kan/db/repository/workspace-boundary";
+import {
+  WorkspaceChangedError,
+  WorkspacePermissionChangedError,
+} from "@kan/db/repository/workspace-boundary";
 import { createLogger } from "@kan/logger";
 import { CardCanvasSceneError } from "@kan/shared";
 import { stripHtml } from "@kan/shared/utils";
@@ -21,7 +24,6 @@ import {
   cardCanvasFrameSchema,
   cardCanvasPublicIdSchema,
   cardCanvasRevisionSchema,
-  cardCanvasSceneSchema,
   cardCanvasSnapshotSchema,
 } from "../schemas";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
@@ -87,6 +89,12 @@ function mapCanvasError(error: unknown): never {
   if (error instanceof WorkspaceChangedError) {
     throw new TRPCError({ code: "NOT_FOUND", message: "CARD_NOT_FOUND" });
   }
+  if (error instanceof WorkspacePermissionChangedError) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "CARD_CANVAS_EDIT_FORBIDDEN",
+    });
+  }
   if (error instanceof CardCanvasSceneError) {
     const oversized =
       error.code === "SCENE_TOO_LARGE" || error.code === "TOO_MANY_ELEMENTS";
@@ -111,19 +119,6 @@ function mapCanvasError(error: unknown): never {
     });
   }
   throw error;
-}
-
-function toPublicCasResult(
-  result: Awaited<ReturnType<typeof cardCanvasRepo.save>>,
-) {
-  if (result.status === "conflict") return result;
-  return {
-    status: result.status,
-    version: result.version,
-    hash: result.hash,
-    bytes: result.bytes,
-    elementCount: result.elementCount,
-  };
 }
 
 async function emitConvertedSubtaskWebhook(
@@ -247,25 +242,15 @@ export const cardCanvasRouter = createTRPCRouter({
       z.object({
         cardPublicId: cardCanvasPublicIdSchema,
         expectedVersion: expectedVersionSchema,
-        scene: cardCanvasSceneSchema,
+        scene: z.unknown(),
       }),
     )
     .output(cardCanvasCasResultSchema)
-    .mutation(async ({ ctx, input }) => {
-      const userId = userIdOrThrow(ctx.user);
-      const card = await getCardOrThrow(ctx.db, input.cardPublicId);
-      await assertPermission(ctx.db, userId, card.workspaceId, "card:edit");
-      try {
-        return toPublicCasResult(
-          await cardCanvasRepo.save(ctx.db, {
-            ...input,
-            expectedWorkspaceId: card.workspaceId,
-            actorId: userId,
-          }),
-        );
-      } catch (error) {
-        mapCanvasError(error);
-      }
+    .mutation(() => {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "CANVAS_LEGACY_READ_ONLY",
+      });
     }),
 
   listRevisions: protectedProcedure
@@ -312,26 +297,11 @@ export const cardCanvasRouter = createTRPCRouter({
       }),
     )
     .output(cardCanvasCasResultSchema)
-    .mutation(async ({ ctx, input }) => {
-      const userId = userIdOrThrow(ctx.user);
-      const card = await getCardOrThrow(ctx.db, input.cardPublicId);
-      await assertPermission(ctx.db, userId, card.workspaceId, "card:edit");
-      try {
-        const result = await cardCanvasRepo.restore(ctx.db, {
-          ...input,
-          expectedWorkspaceId: card.workspaceId,
-          actorId: userId,
-        });
-        if (result.status === "revision_not_found") {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "CANVAS_REVISION_NOT_FOUND",
-          });
-        }
-        return toPublicCasResult(result);
-      } catch (error) {
-        mapCanvasError(error);
-      }
+    .mutation(() => {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "CANVAS_LEGACY_READ_ONLY",
+      });
     }),
 
   listFrames: publicProcedure
@@ -371,7 +341,8 @@ export const cardCanvasRouter = createTRPCRouter({
       },
     })
     .input(
-      cardCanvasConvertFrameInputSchema.extend({
+      cardCanvasConvertFrameInputSchema.omit({ scene: true }).extend({
+        scene: z.unknown().optional(),
         subtaskFields:
           cardCanvasConvertFrameInputSchema.shape.subtaskFields.extend({
             title: requiredPlainText(500),
@@ -386,7 +357,11 @@ export const cardCanvasRouter = createTRPCRouter({
       await assertPermission(ctx.db, userId, card.workspaceId, "card:edit");
       try {
         const result = await cardCanvasRepo.convertFrame(ctx.db, {
-          ...input,
+          cardPublicId: input.cardPublicId,
+          framePublicId: input.framePublicId,
+          expectedVersion: input.expectedVersion,
+          targetStageStatus: input.targetStageStatus,
+          subtaskFields: input.subtaskFields,
           expectedWorkspaceId: card.workspaceId,
           actorId: userId,
         });

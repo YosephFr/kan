@@ -257,7 +257,7 @@ export function SubtaskEditorDialog({
                           >
                             <HiOutlinePencilSquare className="h-4 w-4" />
                             <span className="hidden sm:inline">
-                              {t`View on whiteboard`}
+                              {t`Open visual wall`}
                             </span>
                           </button>
                         )}

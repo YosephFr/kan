@@ -15,6 +15,8 @@ import {
   workspaceMemberPermissions,
   workspaceMembers,
   workspaces,
+  workspaceVisualWallItems,
+  workspaceVisualWalls,
 } from "@kan/db/schema";
 import {
   MAX_CARD_CANVAS_IMAGE_BYTES,
@@ -254,6 +256,35 @@ describe("workspace canvas image repository", () => {
       canvasImageRepo.softDeleteUnreferenced(db, {
         workspacePublicId: seeded.workspace.publicId,
         imagePublicId: referenced.publicId,
+        userId: seeded.user.id,
+      }),
+    ).resolves.toEqual({ status: "referenced" });
+
+    const wallReferenced = await createImage("session00004", "canvasimg004");
+    const [wall] = await db
+      .insert(workspaceVisualWalls)
+      .values({
+        workspaceId: seeded.workspace.id,
+        version: 1,
+        createdBy: seeded.user.id,
+        updatedBy: seeded.user.id,
+      })
+      .returning({ id: workspaceVisualWalls.id });
+    if (!wall) throw new Error("Visual wall missing");
+    await db.insert(workspaceVisualWallItems).values({
+      publicId: "wallitem0001",
+      wallId: wall.id,
+      imageId: wallReferenced.id,
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 120,
+      zIndex: 0,
+    });
+    await expect(
+      canvasImageRepo.softDeleteUnreferenced(db, {
+        workspacePublicId: seeded.workspace.publicId,
+        imagePublicId: wallReferenced.publicId,
         userId: seeded.user.id,
       }),
     ).resolves.toEqual({ status: "referenced" });

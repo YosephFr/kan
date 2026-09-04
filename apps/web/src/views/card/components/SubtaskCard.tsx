@@ -93,10 +93,12 @@ export function SubtaskCard({
           {subtask.canvasFrame && (
             <span
               className="flex items-center gap-1 whitespace-nowrap"
-              title={t`Linked to a whiteboard zone`}
+              title={t`Linked to an archived whiteboard zone`}
             >
               <HiOutlinePencilSquare className="h-3.5 w-3.5" />
-              <span className="sr-only">{t`Linked to a whiteboard zone`}</span>
+              <span className="sr-only">
+                {t`Linked to an archived whiteboard zone`}
+              </span>
             </span>
           )}
         </div>

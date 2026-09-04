@@ -230,35 +230,10 @@ describe("cardResource router access", () => {
       userId: "user-1",
       resourcePublicId: "resource0001",
       removeReferences: true,
-      canvasAction: undefined,
-      expectedCanvasVersion: undefined,
     });
   });
 
-  it("passes an explicit canvas deletion strategy and safe CAS version", async () => {
-    const { cardResourceRouter } = await import("./card-resource");
-    const caller = cardResourceRouter.createCaller({
-      db,
-      user: { id: "user-1" },
-    } as never);
-
-    await caller.delete({
-      resourcePublicId: "resource0001",
-      removeReferences: "true",
-      canvasAction: "replace",
-      expectedCanvasVersion: "12",
-    });
-
-    expect(deleteCardResource).toHaveBeenCalledWith(db, {
-      userId: "user-1",
-      resourcePublicId: "resource0001",
-      removeReferences: true,
-      canvasAction: "replace",
-      expectedCanvasVersion: 12,
-    });
-  });
-
-  it("rejects ambiguous or invalid canvas versions", async () => {
+  it("rejects legacy canvas deletion strategies", async () => {
     const { cardResourceRouter } = await import("./card-resource");
     const caller = cardResourceRouter.createCaller({
       db,
@@ -269,8 +244,8 @@ describe("cardResource router access", () => {
       caller.delete({
         resourcePublicId: "resource0001",
         removeReferences: "true",
-        canvasAction: "remove",
-        expectedCanvasVersion: "1e2",
+        canvasAction: "replace",
+        expectedCanvasVersion: "12",
       } as never),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(deleteCardResource).not.toHaveBeenCalled();

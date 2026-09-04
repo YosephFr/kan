@@ -6,7 +6,7 @@ import {
   HiChatBubbleLeft,
   HiCheck,
   HiOutlineClock,
-  HiOutlinePencilSquare,
+  HiOutlinePhoto,
 } from "react-icons/hi2";
 import { twMerge } from "tailwind-merge";
 
@@ -208,11 +208,8 @@ const Card = ({
               )}
               {hasCanvas && (
                 <div className="flex items-center gap-1 text-light-700 dark:text-dark-800">
-                  <span className="sr-only">{t`Has whiteboard`}</span>
-                  <HiOutlinePencilSquare
-                    className="h-4 w-4"
-                    aria-hidden="true"
-                  />
+                  <span className="sr-only">{t`Has visual wall`}</span>
+                  <HiOutlinePhoto className="h-4 w-4" aria-hidden="true" />
                 </div>
               )}
             </div>

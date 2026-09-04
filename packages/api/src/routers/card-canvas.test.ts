@@ -5,6 +5,7 @@ import * as cardRepo from "@kan/db/repository/card.repo";
 import * as canvasRepo from "@kan/db/repository/cardCanvas.repo";
 import * as pipelineRepo from "@kan/db/repository/cardPipeline.repo";
 import * as subtaskRepo from "@kan/db/repository/cardSubtask.repo";
+import { WorkspacePermissionChangedError } from "@kan/db/repository/workspace-boundary";
 
 import type * as WebhookUtils from "../utils/webhook";
 import { assertPermission, hasPermission } from "../utils/permissions";
@@ -171,6 +172,49 @@ describe("card canvas router", () => {
     expect(canvasRepo.save).not.toHaveBeenCalled();
   });
 
+  it("blocks legacy saves before inspecting the scene or calling repositories", async () => {
+    const inspectScene = vi.fn();
+    const scene = {};
+    Object.defineProperty(scene, "elements", {
+      enumerable: false,
+      get: inspectScene,
+    });
+    const { cardCanvasRouter } = await import("./card-canvas");
+
+    await expect(
+      cardCanvasRouter.createCaller({ db, user } as never).save({
+        cardPublicId,
+        expectedVersion: 0,
+        scene,
+      }),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "CANVAS_LEGACY_READ_ONLY",
+    });
+    expect(inspectScene).not.toHaveBeenCalled();
+    expect(cardRepo.getWorkspaceAndCardIdByCardPublicId).not.toHaveBeenCalled();
+    expect(assertPermission).not.toHaveBeenCalled();
+    expect(canvasRepo.save).not.toHaveBeenCalled();
+  });
+
+  it("blocks legacy restores before calling repositories", async () => {
+    const { cardCanvasRouter } = await import("./card-canvas");
+
+    await expect(
+      cardCanvasRouter.createCaller({ db, user } as never).restore({
+        cardPublicId,
+        revisionPublicId: "revision0001",
+        expectedVersion: 1,
+      }),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "CANVAS_LEGACY_READ_ONLY",
+    });
+    expect(cardRepo.getWorkspaceAndCardIdByCardPublicId).not.toHaveBeenCalled();
+    expect(assertPermission).not.toHaveBeenCalled();
+    expect(canvasRepo.restore).not.toHaveBeenCalled();
+  });
+
   it("exposes tombstones only to users who can edit the card", async () => {
     vi.mocked(hasPermission).mockResolvedValueOnce(true);
     const { cardCanvasRouter } = await import("./card-canvas");
@@ -188,6 +232,12 @@ describe("card canvas router", () => {
 
   it("emits exactly one subtask.created webhook after a successful conversion", async () => {
     const { cardCanvasRouter } = await import("./card-canvas");
+    const inspectLegacyScene = vi.fn();
+    const legacyScene = {};
+    Object.defineProperty(legacyScene, "elements", {
+      enumerable: true,
+      get: inspectLegacyScene,
+    });
 
     const result = await cardCanvasRouter
       .createCaller({ db, user } as never)
@@ -195,16 +245,7 @@ describe("card canvas router", () => {
         cardPublicId,
         framePublicId,
         expectedVersion: 0,
-        scene: {
-          elements: [
-            {
-              id: "frame-element",
-              type: "frame",
-              customData: { kanFramePublicId: framePublicId },
-            },
-          ],
-          appState: {},
-        },
+        scene: legacyScene,
         targetStageStatus: "planned",
         subtaskFields: { title: "<b>Ejecutar zona</b>", priority: "high" },
       });
@@ -227,7 +268,8 @@ describe("card canvas router", () => {
       expectedWorkspaceId: card.workspaceId,
       actorId: user.id,
     });
-    expect(conversionInput?.scene).toBeDefined();
+    expect(conversionInput).not.toHaveProperty("scene");
+    expect(inspectLegacyScene).not.toHaveBeenCalled();
     expect(sendWebhooksForWorkspace).toHaveBeenCalledTimes(1);
     const webhookCall = vi.mocked(sendWebhooksForWorkspace).mock.calls[0];
     expect(webhookCall?.[0]).toBe(db);
@@ -258,6 +300,27 @@ describe("card canvas router", () => {
       remoteVersion: 4,
     });
     expect(subtaskRepo.getSubtaskContextByPublicId).not.toHaveBeenCalled();
+    expect(sendWebhooksForWorkspace).not.toHaveBeenCalled();
+  });
+
+  it("maps permission revocation inside conversion to forbidden", async () => {
+    vi.mocked(canvasRepo.convertFrame).mockRejectedValueOnce(
+      new WorkspacePermissionChangedError(),
+    );
+    const { cardCanvasRouter } = await import("./card-canvas");
+
+    await expect(
+      cardCanvasRouter.createCaller({ db, user } as never).convertFrame({
+        cardPublicId,
+        framePublicId,
+        expectedVersion: 1,
+        targetStageStatus: "planned",
+        subtaskFields: { title: "No crear" },
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "CARD_CANVAS_EDIT_FORBIDDEN",
+    });
     expect(sendWebhooksForWorkspace).not.toHaveBeenCalled();
   });
 

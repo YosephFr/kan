@@ -170,6 +170,19 @@ export const softDeleteUnreferenced = async (
     if (await hasHeadReference(tx, image.id)) {
       return { status: "referenced" as const };
     }
+    const [wallReference] = await tx
+      .select({ id: workspaceVisualWallItems.id })
+      .from(workspaceVisualWallItems)
+      .where(
+        and(
+          eq(workspaceVisualWallItems.imageId, image.id),
+          isNull(workspaceVisualWallItems.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (wallReference) {
+      return { status: "referenced" as const };
+    }
     if (
       await hasRevisionReference(tx, boundary.workspace.id, input.imagePublicId)
     ) {

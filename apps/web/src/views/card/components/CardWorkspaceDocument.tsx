@@ -7,7 +7,7 @@ import {
   HiChevronDown,
   HiOutlineClipboardDocumentList,
   HiOutlineExclamationTriangle,
-  HiOutlinePencilSquare,
+  HiOutlinePhoto,
 } from "react-icons/hi2";
 import { twMerge } from "tailwind-merge";
 
@@ -35,13 +35,13 @@ const CardFilesView = dynamic(
   },
 );
 
-const CardWhiteboardView = dynamic(
+const CardVisualWallView = dynamic(
   () =>
-    import("./CardWhiteboardView").then((module) => module.CardWhiteboardView),
+    import("./CardVisualWallView").then((module) => module.CardVisualWallView),
   {
     ssr: false,
     loading: () => (
-      <div className="h-[68dvh] min-h-[24rem] animate-pulse rounded-md bg-light-200 dark:bg-dark-200" />
+      <div className="h-[32rem] min-h-[20rem] animate-pulse bg-light-200 dark:bg-dark-200" />
     ),
   },
 );
@@ -62,7 +62,6 @@ interface CardResourceSummary {
 
 interface CardWorkspaceDocumentProps {
   cardPublicId: string;
-  cardTitle: string;
   members: WorkspaceMemberOption[];
   canEdit: boolean;
   isPublicBoard: boolean;
@@ -72,21 +71,19 @@ interface CardWorkspaceDocumentProps {
   summaryContent: ReactNode;
   activityContent: ReactNode;
   preferenceScope: string;
-  whiteboardExtended: boolean;
-  onWhiteboardExtendedChange: (extended: boolean) => void;
   compact?: boolean;
 }
 
 interface WorkspacePreferences {
   subtasksOpen?: boolean;
-  whiteboardOpen?: boolean;
+  visualWallOpen?: boolean;
 }
 
 const sectionIds = {
   summary: "card-view-summary",
   files: "card-view-files",
   subtasks: "card-view-subtasks",
-  whiteboard: "card-view-whiteboard",
+  visualWall: "card-view-visual-wall",
 } as const;
 
 function DisclosureHeader({
@@ -183,7 +180,6 @@ function DisclosureHeader({
 
 export function CardWorkspaceDocument({
   cardPublicId,
-  cardTitle,
   members,
   canEdit,
   isPublicBoard,
@@ -193,41 +189,27 @@ export function CardWorkspaceDocument({
   summaryContent,
   activityContent,
   preferenceScope,
-  whiteboardExtended,
-  onWhiteboardExtendedChange,
   compact = false,
 }: CardWorkspaceDocumentProps) {
   const router = useRouter();
   const preferenceKey = useMemo(
-    () => `kan:card-workspace:v1:${preferenceScope}:${cardPublicId}`,
+    () => `kan:card-workspace:v2:${preferenceScope}:${cardPublicId}`,
     [cardPublicId, preferenceScope],
   );
   const [subtasksPreference, setSubtasksPreference] = useState(
     subtaskSummary.total > 0,
   );
-  const [whiteboardPreference, setWhiteboardPreference] = useState(hasCanvas);
-  const [canvasHasContent, setCanvasHasContent] = useState(hasCanvas);
+  const [visualWallPreference, setVisualWallPreference] = useState(hasCanvas);
+  const [visualWallHasContent, setVisualWallHasContent] = useState(hasCanvas);
   const [subtasksMounted, setSubtasksMounted] = useState(false);
-  const [whiteboardMounted, setWhiteboardMounted] = useState(false);
+  const [visualWallMounted, setVisualWallMounted] = useState(false);
   const [subtasksActivationRequested, setSubtasksActivationRequested] =
     useState(false);
   const [preferencesReady, setPreferencesReady] = useState(false);
-  const documentRef = useRef<HTMLDivElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
-  const savedScrollTopRef = useRef(0);
-  const layoutFrameRef = useRef<number | null>(null);
-
-  useEffect(
-    () => () => {
-      if (layoutFrameRef.current !== null) {
-        window.cancelAnimationFrame(layoutFrameRef.current);
-      }
-    },
-    [],
-  );
 
   useEffect(() => {
-    if (hasCanvas) setCanvasHasContent(true);
+    if (hasCanvas) setVisualWallHasContent(true);
   }, [hasCanvas]);
 
   const targetView = getCardWorkspaceTargetView({
@@ -238,8 +220,8 @@ export function CardWorkspaceDocument({
     frame: router.query.frame,
   });
   const subtasksOpen = targetView === "subtasks" ? true : subtasksPreference;
-  const whiteboardOpen =
-    targetView === "whiteboard" ? true : whiteboardPreference;
+  const visualWallOpen =
+    targetView === "visualWall" ? true : visualWallPreference;
 
   useEffect(() => {
     setPreferencesReady(false);
@@ -253,12 +235,12 @@ export function CardWorkspaceDocument({
 
     const nextSubtasksOpen =
       preferences.subtasksOpen ?? subtaskSummary.total > 0;
-    const nextWhiteboardOpen = preferences.whiteboardOpen ?? hasCanvas;
+    const nextVisualWallOpen = preferences.visualWallOpen ?? hasCanvas;
 
     setSubtasksPreference(nextSubtasksOpen);
-    setWhiteboardPreference(nextWhiteboardOpen);
+    setVisualWallPreference(nextVisualWallOpen);
     setSubtasksMounted(nextSubtasksOpen);
-    setWhiteboardMounted(nextWhiteboardOpen);
+    setVisualWallMounted(nextVisualWallOpen);
     setSubtasksActivationRequested(false);
     setPreferencesReady(true);
   }, [cardPublicId, hasCanvas, preferenceKey, subtaskSummary.total]);
@@ -270,7 +252,7 @@ export function CardWorkspaceDocument({
         preferenceKey,
         JSON.stringify({
           subtasksOpen: subtasksPreference,
-          whiteboardOpen: whiteboardPreference,
+          visualWallOpen: visualWallPreference,
         }),
       );
     } catch {
@@ -280,7 +262,7 @@ export function CardWorkspaceDocument({
     preferenceKey,
     preferencesReady,
     subtasksPreference,
-    whiteboardPreference,
+    visualWallPreference,
   ]);
 
   useEffect(() => {
@@ -289,8 +271,8 @@ export function CardWorkspaceDocument({
     if (targetView === "subtasks") {
       setSubtasksMounted(true);
     }
-    if (targetView === "whiteboard") {
-      setWhiteboardMounted(true);
+    if (targetView === "visualWall") {
+      setVisualWallMounted(true);
     }
 
     if (scrollFrameRef.current !== null) {
@@ -312,7 +294,7 @@ export function CardWorkspaceDocument({
     };
   }, [router.isReady, targetView]);
 
-  const replaceWorkspaceView = async (view: "subtasks" | "whiteboard") => {
+  const replaceWorkspaceView = async (view: "subtasks" | "visualWall") => {
     const query = getCardWorkspaceNavigationQuery(router.query, view);
     await router.replace({ pathname: router.pathname, query }, undefined, {
       shallow: true,
@@ -344,35 +326,12 @@ export function CardWorkspaceDocument({
     else if (targetView === "subtasks") void clearWorkspaceTarget();
   };
 
-  const toggleWhiteboard = () => {
-    const nextOpen = !whiteboardOpen;
-    setWhiteboardPreference(nextOpen);
-    if (nextOpen) setWhiteboardMounted(true);
-    if (nextOpen) void replaceWorkspaceView("whiteboard");
-    else if (targetView === "whiteboard") void clearWorkspaceTarget();
-  };
-
-  const setWhiteboardExtension = (extended: boolean) => {
-    const scrollHost = documentRef.current?.closest<HTMLElement>(
-      "[data-card-scroll-host]",
-    );
-    if (extended) {
-      savedScrollTopRef.current = scrollHost?.scrollTop ?? 0;
-      setWhiteboardPreference(true);
-      setWhiteboardMounted(true);
-    }
-    onWhiteboardExtendedChange(extended);
-    if (layoutFrameRef.current !== null) {
-      window.cancelAnimationFrame(layoutFrameRef.current);
-    }
-    layoutFrameRef.current = window.requestAnimationFrame(() => {
-      if (scrollHost) {
-        scrollHost.scrollTop = extended ? 0 : savedScrollTopRef.current;
-      }
-      if (!extended) {
-        document.getElementById("card-workspace-whiteboard-heading")?.focus();
-      }
-    });
+  const toggleVisualWall = () => {
+    const nextOpen = !visualWallOpen;
+    setVisualWallPreference(nextOpen);
+    if (nextOpen) setVisualWallMounted(true);
+    if (nextOpen) void replaceWorkspaceView("visualWall");
+    else if (targetView === "visualWall") void clearWorkspaceTarget();
   };
 
   const requestSubtasksInitialization = () => {
@@ -391,25 +350,22 @@ export function CardWorkspaceDocument({
     : subtaskSummary.total === 0 && canEdit
       ? t`Activate subtasks`
       : t`Show`;
-  const whiteboardDescription = canvasHasContent
-    ? t`The visual workspace has content.`
+  const visualWallDescription = visualWallHasContent
+    ? t`Preview the images and references that guide this project.`
     : canEdit
-      ? t`Open a blank canvas without creating anything until your first change.`
-      : t`This card does not have a whiteboard yet.`;
+      ? t`Add images or connect the shared Freeform board.`
+      : t`This card does not have a visual wall yet.`;
 
   return (
     <div
-      ref={documentRef}
       className={twMerge(
         "mx-auto w-full max-w-6xl px-4 py-6 md:px-6 lg:px-8",
         compact && "max-w-none px-0 py-0",
-        whiteboardExtended && "h-full max-w-none p-0 md:p-0 lg:p-0",
       )}
     >
       <section
         id={sectionIds.summary}
         aria-label={t`Summary`}
-        hidden={whiteboardExtended}
         className="scroll-mt-16"
       >
         <div className="max-w-3xl">{summaryContent}</div>
@@ -422,7 +378,6 @@ export function CardWorkspaceDocument({
             ? t`1 resource`
             : t`${resourceSummary.total} resources`
         }
-        hidden={whiteboardExtended}
         className="mt-10 scroll-mt-16 border-t border-light-300 pt-8 dark:border-dark-400"
       >
         <CardFilesView
@@ -436,7 +391,6 @@ export function CardWorkspaceDocument({
       <section
         id={sectionIds.subtasks}
         aria-labelledby="card-workspace-subtasks-heading"
-        hidden={whiteboardExtended}
         className="mt-10 scroll-mt-16 border-t border-light-300 dark:border-dark-400"
       >
         <DisclosureHeader
@@ -491,55 +445,39 @@ export function CardWorkspaceDocument({
       </section>
 
       <section
-        id={sectionIds.whiteboard}
-        aria-labelledby="card-workspace-whiteboard-heading"
-        className={twMerge(
-          "mt-10 scroll-mt-16 border-t border-light-300 dark:border-dark-400",
-          whiteboardExtended && "m-0 h-full border-0",
-        )}
+        id={sectionIds.visualWall}
+        aria-labelledby="card-workspace-visual-wall-heading"
+        className="mt-10 scroll-mt-16 border-t border-light-300 dark:border-dark-400"
       >
-        <div hidden={whiteboardExtended}>
-          <DisclosureHeader
-            id="card-workspace-whiteboard-heading"
-            controls="card-workspace-whiteboard-content"
-            title={t`Whiteboard`}
-            description={whiteboardDescription}
-            actionLabel={whiteboardOpen ? t`Hide` : t`Open whiteboard`}
-            isOpen={whiteboardOpen}
-            onToggle={toggleWhiteboard}
-            icon={
-              <HiOutlinePencilSquare className="h-5 w-5" aria-hidden="true" />
-            }
-          />
-        </div>
+        <DisclosureHeader
+          id="card-workspace-visual-wall-heading"
+          controls="card-workspace-visual-wall-content"
+          title={t`Visual wall`}
+          description={visualWallDescription}
+          actionLabel={visualWallOpen ? t`Hide` : t`Show`}
+          isOpen={visualWallOpen}
+          onToggle={toggleVisualWall}
+          icon={<HiOutlinePhoto className="h-5 w-5" aria-hidden="true" />}
+        />
         <div
-          id="card-workspace-whiteboard-content"
+          id="card-workspace-visual-wall-content"
           role="region"
-          aria-labelledby="card-workspace-whiteboard-heading"
-          hidden={!whiteboardOpen && !whiteboardExtended}
-          className={whiteboardExtended ? "h-full" : "pt-5"}
+          aria-labelledby="card-workspace-visual-wall-heading"
+          hidden={!visualWallOpen}
+          className="pt-5"
         >
-          {(whiteboardMounted || whiteboardExtended) && (
-            <CardWhiteboardView
+          {visualWallMounted && (
+            <CardVisualWallView
               cardPublicId={cardPublicId}
-              cardTitle={cardTitle}
-              members={members}
               canEdit={canEdit}
               isPublicBoard={isPublicBoard}
-              embedded
-              isVisible={whiteboardOpen || whiteboardExtended}
-              extended={whiteboardExtended}
-              onExtendedChange={setWhiteboardExtension}
-              onCanvasCreated={() => setCanvasHasContent(true)}
+              onContentChange={setVisualWallHasContent}
             />
           )}
         </div>
       </section>
 
-      <section
-        hidden={whiteboardExtended}
-        className="mt-12 border-t border-light-300 pt-10 dark:border-dark-400"
-      >
+      <section className="mt-12 border-t border-light-300 pt-10 dark:border-dark-400">
         <div className="max-w-3xl">{activityContent}</div>
       </section>
     </div>

@@ -297,11 +297,10 @@ function CardSubtasksViewContent({
     );
   };
 
-  const openCanvasFrame = async (framePublicId: string) => {
+  const openCanvasFrame = async (_framePublicId: string) => {
     const nextQuery = getCardWorkspaceNavigationQuery(
       router.query,
-      "whiteboard",
-      { frame: framePublicId },
+      "visualWall",
     );
     await router.replace(
       {

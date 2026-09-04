@@ -10,7 +10,10 @@ import * as canvasRepo from "@kan/db/repository/cardCanvas.repo";
 import * as pipelineRepo from "@kan/db/repository/cardPipeline.repo";
 import * as resourceRepo from "@kan/db/repository/cardResource.repo";
 import * as subtaskRepo from "@kan/db/repository/cardSubtask.repo";
-import { lockCardsInWorkspace } from "@kan/db/repository/workspace-boundary";
+import {
+  lockCardsInWorkspace,
+  WorkspacePermissionChangedError,
+} from "@kan/db/repository/workspace-boundary";
 import {
   cardActivities,
   cardAttachments,
@@ -19,6 +22,7 @@ import {
   cardCanvasRevisions,
   cardPipelineStages,
   cardSubtasks,
+  workspaceMemberPermissions,
 } from "@kan/db/schema";
 import {
   MAX_CARD_CANVAS_IMAGE_BYTES,
@@ -472,12 +476,20 @@ describe("card canvas repository", () => {
   });
 
   it("converts a frame atomically, initializes lifecycle and rolls back invalid conversion", async () => {
+    await canvasRepo.save(db, {
+      cardPublicId: seeded.card.publicId,
+      expectedWorkspaceId: seeded.workspace.id,
+      expectedVersion: 0,
+      scene: frameScene("frameconvert", "Zona principal", [
+        ...frameScene("frameinvalid").elements,
+      ]),
+      actorId: seeded.user.id,
+    });
     const converted = await canvasRepo.convertFrame(db, {
       cardPublicId: seeded.card.publicId,
       expectedWorkspaceId: seeded.workspace.id,
       framePublicId: "frameconvert",
-      expectedVersion: 0,
-      scene: frameScene("frameconvert"),
+      expectedVersion: 1,
       targetStageStatus: "inProgress",
       subtaskFields: {
         title: "Ejecutar zona",
@@ -543,13 +555,6 @@ describe("card canvas repository", () => {
         expectedWorkspaceId: seeded.workspace.id,
         framePublicId: "frameinvalid",
         expectedVersion: 1,
-        scene: {
-          elements: [
-            ...frameScene("frameconvert").elements,
-            ...frameScene("frameinvalid").elements,
-          ],
-          appState: {},
-        },
         targetStageStatus: "planned",
         subtaskFields: {
           title: "Debe revertirse",
@@ -559,6 +564,23 @@ describe("card canvas repository", () => {
       }),
     ).rejects.toMatchObject({ code: "SUBTASK_OWNER_INVALID" });
 
+    await db.insert(workspaceMemberPermissions).values({
+      workspaceMemberId: seeded.member.id,
+      permission: "card:edit",
+      granted: false,
+    });
+    await expect(
+      canvasRepo.convertFrame(db, {
+        cardPublicId: seeded.card.publicId,
+        expectedWorkspaceId: seeded.workspace.id,
+        framePublicId: "frameinvalid",
+        expectedVersion: 1,
+        targetStageStatus: "planned",
+        subtaskFields: { title: "Sin permiso" },
+        actorId: seeded.user.id,
+      }),
+    ).rejects.toBeInstanceOf(WorkspacePermissionChangedError);
+
     const [head] = await db
       .select({ version: cardCanvases.version })
       .from(cardCanvases)
@@ -566,10 +588,10 @@ describe("card canvas repository", () => {
     expect(head?.version).toBe(1);
     expect(
       await db
-        .select()
+        .select({ subtaskId: cardCanvasFrames.subtaskId })
         .from(cardCanvasFrames)
         .where(eq(cardCanvasFrames.publicId, "frameinvalid")),
-    ).toHaveLength(0);
+    ).toEqual([{ subtaskId: null }]);
     expect(
       await db
         .select()

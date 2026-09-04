@@ -87,7 +87,7 @@ CMD ["pnpm", "--filter", "@kan/api", "backfill:visual-walls"]
 # ============================================
 # Stage 7: Migration image (run-once container)
 # ============================================
-FROM node:${NODE_VERSION}-alpine AS migrate
+FROM node:${NODE_VERSION}-bookworm-slim AS migrate
 WORKDIR /db
 
 COPY packages/db/drizzle.config.ts ./drizzle.config.ts

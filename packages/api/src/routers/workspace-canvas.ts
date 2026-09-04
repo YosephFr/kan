@@ -25,7 +25,6 @@ import {
   workspaceCanvasImageUploadSessionSchema,
   workspaceCanvasPublicIdSchema,
   workspaceCanvasRevisionSchema,
-  workspaceCanvasSceneSchema,
   workspaceCanvasSnapshotSchema,
 } from "../schemas";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
@@ -102,19 +101,6 @@ function mapCanvasError(error: unknown): never {
     });
   }
   throw error;
-}
-
-function toPublicCasResult(
-  result: Awaited<ReturnType<typeof workspaceCanvasRepo.save>>,
-) {
-  if (result.status === "conflict") return result;
-  return {
-    status: result.status,
-    version: result.version,
-    hash: result.hash,
-    bytes: result.bytes,
-    elementCount: result.elementCount,
-  };
 }
 
 function throwRemoteImageError(error: unknown): never {
@@ -274,34 +260,15 @@ export const workspaceCanvasRouter = createTRPCRouter({
       z.object({
         workspacePublicId: workspaceCanvasPublicIdSchema,
         expectedVersion: expectedVersionSchema,
-        scene: workspaceCanvasSceneSchema,
+        scene: z.unknown(),
       }),
     )
     .output(workspaceCanvasCasResultSchema)
-    .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user?.id;
-      if (!userId) throw new TRPCError({ code: "UNAUTHORIZED" });
-      const workspace = await getWorkspaceOrThrow(
-        ctx.db,
-        input.workspacePublicId,
-      );
-      await assertPermission(ctx.db, userId, workspace.id, "workspace:edit");
-      try {
-        const result = await workspaceCanvasRepo.save(ctx.db, {
-          ...input,
-          expectedWorkspaceId: workspace.id,
-          actorId: userId,
-        });
-        if ("reclaimedS3Keys" in result) {
-          await deleteReclaimedWorkspaceCanvasImageObjects(
-            ctx.db,
-            result.reclaimedS3Keys ?? [],
-          );
-        }
-        return toPublicCasResult(result);
-      } catch (error) {
-        mapCanvasError(error);
-      }
+    .mutation(() => {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "CANVAS_LEGACY_READ_ONLY",
+      });
     }),
 
   listImages: protectedProcedure
@@ -637,35 +604,10 @@ export const workspaceCanvasRouter = createTRPCRouter({
       }),
     )
     .output(workspaceCanvasCasResultSchema)
-    .mutation(async ({ ctx, input }) => {
-      const userId = ctx.user?.id;
-      if (!userId) throw new TRPCError({ code: "UNAUTHORIZED" });
-      const workspace = await getWorkspaceOrThrow(
-        ctx.db,
-        input.workspacePublicId,
-      );
-      await assertPermission(ctx.db, userId, workspace.id, "workspace:edit");
-      try {
-        const result = await workspaceCanvasRepo.restore(ctx.db, {
-          ...input,
-          expectedWorkspaceId: workspace.id,
-          actorId: userId,
-        });
-        if ("reclaimedS3Keys" in result) {
-          await deleteReclaimedWorkspaceCanvasImageObjects(
-            ctx.db,
-            result.reclaimedS3Keys ?? [],
-          );
-        }
-        if (result.status === "revision_not_found") {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "CANVAS_REVISION_NOT_FOUND",
-          });
-        }
-        return toPublicCasResult(result);
-      } catch (error) {
-        mapCanvasError(error);
-      }
+    .mutation(() => {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "CANVAS_LEGACY_READ_ONLY",
+      });
     }),
 });

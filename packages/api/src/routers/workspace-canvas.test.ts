@@ -53,15 +53,6 @@ describe("workspace canvas router", () => {
     vi.mocked(hasPermission).mockResolvedValue(false);
     vi.mocked(workspaceCanvasRepo.getSnapshot).mockResolvedValue(null);
     vi.mocked(workspaceCanvasRepo.listRevisions).mockResolvedValue([]);
-    vi.mocked(workspaceCanvasRepo.save).mockResolvedValue({
-      status: "saved",
-      version: 1,
-      hash: "a".repeat(64),
-      bytes: 28,
-      elementCount: 0,
-      canvasId: 1,
-      reclaimedS3Keys: [],
-    });
   });
 
   it("reads without initializing and exposes effective read-only mode", async () => {
@@ -89,43 +80,47 @@ describe("workspace canvas router", () => {
     expect(workspaceCanvasRepo.save).not.toHaveBeenCalled();
   });
 
-  it("passes the resolved workspace boundary to CAS save", async () => {
+  it("blocks legacy saves before inspecting the scene or calling repositories", async () => {
+    const inspectScene = vi.fn();
+    const scene = {};
+    Object.defineProperty(scene, "elements", {
+      enumerable: false,
+      get: inspectScene,
+    });
     const { workspaceCanvasRouter } = await import("./workspace-canvas");
-    await workspaceCanvasRouter.createCaller({ db, user } as never).save({
-      workspacePublicId,
-      expectedVersion: 0,
-      scene: { elements: [], appState: {} },
-    });
-    expect(assertPermission).toHaveBeenCalledWith(
-      db,
-      user.id,
-      workspace.id,
-      "workspace:edit",
-    );
-    expect(workspaceCanvasRepo.save).toHaveBeenCalledWith(db, {
-      workspacePublicId,
-      expectedWorkspaceId: workspace.id,
-      expectedVersion: 0,
-      scene: { elements: [], appState: {} },
-      actorId: user.id,
-    });
-  });
 
-  it("rejects a permission revoked inside the save transaction", async () => {
-    vi.mocked(workspaceCanvasRepo.save).mockRejectedValueOnce(
-      new WorkspacePermissionChangedError(),
-    );
-    const { workspaceCanvasRouter } = await import("./workspace-canvas");
     await expect(
       workspaceCanvasRouter.createCaller({ db, user } as never).save({
         workspacePublicId,
         expectedVersion: 0,
-        scene: { elements: [], appState: {} },
+        scene,
       }),
     ).rejects.toMatchObject({
-      code: "FORBIDDEN",
-      message: "WORKSPACE_CANVAS_EDIT_FORBIDDEN",
+      code: "CONFLICT",
+      message: "CANVAS_LEGACY_READ_ONLY",
     });
+    expect(inspectScene).not.toHaveBeenCalled();
+    expect(workspaceRepo.getByPublicId).not.toHaveBeenCalled();
+    expect(assertPermission).not.toHaveBeenCalled();
+    expect(workspaceCanvasRepo.save).not.toHaveBeenCalled();
+  });
+
+  it("blocks legacy restores before calling repositories", async () => {
+    const { workspaceCanvasRouter } = await import("./workspace-canvas");
+
+    await expect(
+      workspaceCanvasRouter.createCaller({ db, user } as never).restore({
+        workspacePublicId,
+        revisionPublicId: "revision0001",
+        expectedVersion: 1,
+      }),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "CANVAS_LEGACY_READ_ONLY",
+    });
+    expect(workspaceRepo.getByPublicId).not.toHaveBeenCalled();
+    expect(assertPermission).not.toHaveBeenCalled();
+    expect(workspaceCanvasRepo.restore).not.toHaveBeenCalled();
   });
 
   it("rejects view permission revoked inside the read transaction", async () => {

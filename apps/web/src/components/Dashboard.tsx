@@ -70,11 +70,6 @@ export default function Dashboard({
 
   const [isSideNavOpen, setIsSideNavOpen] = useState(false);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
-  const [surfaceMode, setSurfaceMode] = useState<
-    "default" | "card-whiteboard" | "workspace-whiteboard"
-  >("default");
-  const whiteboardExtended = surfaceMode !== "default";
-
   const sideNavRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
   const sideNavButtonRef = useRef<HTMLButtonElement>(null);
@@ -214,19 +209,9 @@ export default function Dashboard({
           background-color: ${!isDarkMode ? "hsl(0deg 0% 97.3%)" : "#1c1c1c"};
         }
       `}</style>
-      <div
-        className={`relative flex flex-col bg-light-50 dark:bg-dark-50 ${
-          whiteboardExtended
-            ? "h-[100dvh]"
-            : "h-screen md:bg-light-100 md:p-3 md:dark:bg-dark-100"
-        }`}
-      >
+      <div className="relative flex h-screen flex-col bg-light-50 dark:bg-dark-50 md:bg-light-100 md:p-3 md:dark:bg-dark-100">
         {/* Mobile Header */}
-        <div
-          className={`h-12 items-center justify-between border-b border-light-300 bg-light-50 px-3 dark:border-dark-300 dark:bg-dark-50 md:hidden ${
-            whiteboardExtended ? "hidden" : "flex"
-          }`}
-        >
+        <div className="flex h-12 items-center justify-between border-b border-light-300 bg-light-50 px-3 dark:border-dark-300 dark:bg-dark-50 md:hidden">
           <button
             ref={sideNavButtonRef}
             onClick={toggleSideNav}
@@ -273,17 +258,10 @@ export default function Dashboard({
           </div>
         </div>
 
-        <div
-          className={`flex min-h-0 w-full ${
-            whiteboardExtended
-              ? "h-full"
-              : "h-[calc(100dvh-4.5rem)] md:h-[calc(100dvh-1.5rem)]"
-          }`}
-        >
+        <div className="flex h-[calc(100dvh-4.5rem)] min-h-0 w-full md:h-[calc(100dvh-1.5rem)]">
           <div
             ref={sideNavRef}
-            aria-hidden={whiteboardExtended}
-            className={`fixed top-12 z-40 h-[calc(100dvh-3rem)] w-[calc(100vw-1.5rem)] transform transition-transform duration-300 ease-in-out md:relative md:top-0 md:h-full md:w-auto md:translate-x-0 ${isSideNavOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"} ${whiteboardExtended ? "hidden" : ""}`}
+            className={`fixed top-12 z-40 h-[calc(100dvh-3rem)] w-[calc(100vw-1.5rem)] transform transition-transform duration-300 ease-in-out md:relative md:top-0 md:h-full md:w-auto md:translate-x-0 ${isSideNavOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
           >
             <SideNavigation
               user={{
@@ -296,27 +274,17 @@ export default function Dashboard({
             />
           </div>
 
-          <div
-            className={`relative h-full min-h-0 w-full overflow-hidden ${
-              whiteboardExtended
-                ? ""
-                : "md:rounded-lg md:border md:border-light-300 md:bg-light-50 md:dark:border-dark-300 md:dark:bg-dark-50"
-            }`}
-          >
+          <div className="relative h-full min-h-0 w-full overflow-hidden md:rounded-lg md:border md:border-light-300 md:bg-light-50 md:dark:border-dark-300 md:dark:bg-dark-50">
             <div className="relative flex h-full min-h-0 w-full overflow-hidden">
               <div
                 ref={scrollContainerRef}
-                className={`h-full min-w-0 flex-1 ${
-                  whiteboardExtended ? "overflow-hidden" : "overflow-y-auto"
-                }`}
+                className="h-full min-w-0 flex-1 overflow-y-auto"
               >
                 <DashboardSurfaceProvider
                   value={{
                     hasRightPanel: showRightPanel,
                     isRightPanelOpen,
-                    mode: surfaceMode,
                     scrollContainerRef,
-                    setMode: setSurfaceMode,
                     toggleRightPanel,
                   }}
                 >
@@ -329,15 +297,15 @@ export default function Dashboard({
                 <div
                   id="dashboard-card-details"
                   ref={rightPanelRef}
-                  aria-hidden={!isRightPanelOpen || whiteboardExtended}
+                  aria-hidden={!isRightPanelOpen}
                   inert={
-                    (!isRightPanelOpen || whiteboardExtended
+                    (!isRightPanelOpen
                       ? "true"
                       : undefined) as unknown as boolean
                   }
                   className={`fixed right-0 top-12 z-40 h-[calc(100dvh-3rem)] w-80 transform overflow-y-auto overscroll-contain border-l border-light-300 bg-light-200 transition-transform duration-300 ease-in-out dark:border-dark-300 dark:bg-dark-100 md:right-3 md:top-3 md:h-[calc(100dvh-1.5rem)] md:w-[360px] xl:hidden ${
                     isRightPanelOpen ? "translate-x-0" : "translate-x-full"
-                  } ${whiteboardExtended ? "hidden" : ""}`}
+                  }`}
                 >
                   <div className="h-full">{rightPanel}</div>
                 </div>
@@ -345,12 +313,7 @@ export default function Dashboard({
 
               {/* Desktop Right Panel */}
               {showRightPanel && rightPanel && (
-                <div
-                  aria-hidden={whiteboardExtended}
-                  className={whiteboardExtended ? "hidden" : "hidden xl:block"}
-                >
-                  {rightPanel}
-                </div>
+                <div className="hidden xl:block">{rightPanel}</div>
               )}
             </div>
           </div>

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as cardResourceRepo from "@kan/db/repository/cardResource.repo";
+import { WorkspacePermissionChangedError } from "@kan/db/repository/workspace-boundary";
 
 import { deleteCardResource } from "./card-resource-delete";
 import { assertPermission } from "./permissions";
@@ -27,10 +28,12 @@ describe("card resource deletion service", () => {
     vi.mocked(assertPermission).mockResolvedValue(undefined);
   });
 
-  it("maps a stale canvas CAS to the public conflict code", async () => {
+  it("keeps resources referenced by the legacy canvas for recovery", async () => {
     vi.mocked(cardResourceRepo.softDeleteWithWorkspaceGuard).mockResolvedValue({
-      status: "canvas_version_conflict",
-      remoteVersion: 4,
+      status: "in_use",
+      referenceCount: 0,
+      canvasReferenceCount: 1,
+      canvasVersion: 4,
     });
 
     await expect(
@@ -38,16 +41,23 @@ describe("card resource deletion service", () => {
         userId: "user-1",
         resourcePublicId: "resource0001",
         removeReferences: true,
-        canvasAction: "remove",
-        expectedCanvasVersion: 3,
       }),
     ).rejects.toMatchObject({
       code: "CONFLICT",
-      message: "CANVAS_VERSION_CONFLICT",
+      message: "RESOURCE_IN_USE_LEGACY_CANVAS",
     });
+    expect(cardResourceRepo.softDeleteWithWorkspaceGuard).toHaveBeenCalledWith(
+      db,
+      {
+        resourcePublicId: "resource0001",
+        expectedWorkspaceId: 20,
+        deletedBy: "user-1",
+        removeReferences: true,
+      },
+    );
   });
 
-  it("passes the confirmed strategy only after checking card edit permission", async () => {
+  it("deletes an unreferenced resource only after checking card edit permission", async () => {
     vi.mocked(cardResourceRepo.softDeleteWithWorkspaceGuard).mockResolvedValue({
       status: "deleted",
       s3Key: null,
@@ -57,8 +67,6 @@ describe("card resource deletion service", () => {
       userId: "user-1",
       resourcePublicId: "resource0001",
       removeReferences: true,
-      canvasAction: "replace",
-      expectedCanvasVersion: 5,
     });
 
     expect(assertPermission).toHaveBeenCalledWith(
@@ -74,8 +82,6 @@ describe("card resource deletion service", () => {
         expectedWorkspaceId: 20,
         deletedBy: "user-1",
         removeReferences: true,
-        canvasAction: "replace",
-        expectedCanvasVersion: 5,
       },
     );
     expect(
@@ -84,5 +90,22 @@ describe("card resource deletion service", () => {
       vi.mocked(cardResourceRepo.softDeleteWithWorkspaceGuard).mock
         .invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
     );
+  });
+
+  it("maps permission revocation inside the transaction to forbidden", async () => {
+    vi.mocked(cardResourceRepo.softDeleteWithWorkspaceGuard).mockRejectedValue(
+      new WorkspacePermissionChangedError(),
+    );
+
+    await expect(
+      deleteCardResource(db, {
+        userId: "user-1",
+        resourcePublicId: "resource0001",
+        removeReferences: true,
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "CARD_RESOURCE_EDIT_FORBIDDEN",
+    });
   });
 });

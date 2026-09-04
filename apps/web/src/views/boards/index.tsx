@@ -39,8 +39,7 @@ export default function BoardsPage({ isTemplate }: { isTemplate?: boolean }) {
   const [activeTab, setActiveTab] = useState<"boards" | "archived">("boards");
   const { canCreateBoard, canEditWorkspace, canViewWorkspace } =
     usePermissions();
-  const { mode, scrollContainerRef } = useDashboardSurface();
-  const workspaceCanvasExtended = mode === "workspace-whiteboard";
+  const { scrollContainerRef } = useDashboardSurface();
 
   useEffect(() => {
     if (!workspace.publicId) return;
@@ -72,13 +71,7 @@ export default function BoardsPage({ isTemplate }: { isTemplate?: boolean }) {
         title={t`${isTemplate ? "Templates" : "Boards"} | ${workspace.name}`}
       />
       <div className="m-auto min-h-full max-w-[1100px] p-8 px-5 md:px-28 md:py-12">
-        <div
-          aria-hidden={workspaceCanvasExtended || undefined}
-          inert={
-            (workspaceCanvasExtended ? "true" : undefined) as unknown as boolean
-          }
-          className="relative z-10 mb-8 flex w-full items-center justify-between"
-        >
+        <div className="relative z-10 mb-8 flex w-full items-center justify-between">
           <h1 className="font-bold tracking-tight text-neutral-900 dark:text-dark-1000 sm:text-[1.2rem]">
             {t`${isTemplate ? "Templates" : "Boards"}`}
           </h1>
@@ -153,15 +146,7 @@ export default function BoardsPage({ isTemplate }: { isTemplate?: boolean }) {
 
         {!isTemplate ? (
           <div className="flex min-h-full w-full flex-col">
-            <div
-              aria-hidden={workspaceCanvasExtended || undefined}
-              inert={
-                (workspaceCanvasExtended
-                  ? "true"
-                  : undefined) as unknown as boolean
-              }
-              className="focus:outline-none"
-            >
+            <div className="focus:outline-none">
               <div className="sm:hidden">
                 <Listbox
                   value={activeTab}
@@ -220,15 +205,7 @@ export default function BoardsPage({ isTemplate }: { isTemplate?: boolean }) {
                 </div>
               </div>
             </div>
-            <div
-              aria-hidden={workspaceCanvasExtended || undefined}
-              inert={
-                (workspaceCanvasExtended
-                  ? "true"
-                  : undefined) as unknown as boolean
-              }
-              className="min-h-[150px] w-full focus:outline-none"
-            >
+            <div className="min-h-[150px] w-full focus:outline-none">
               {activeTab === "boards" && (
                 <BoardsList isTemplate={false} archived={false} />
               )}

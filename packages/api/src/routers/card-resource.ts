@@ -44,12 +44,6 @@ const safeRestConfirmation = z
   .literal("true")
   .optional()
   .transform((value) => value === "true");
-const safeRestCanvasVersion = z
-  .string()
-  .regex(/^[1-9]\d{0,9}$/)
-  .refine((value) => Number(value) <= 2_147_483_647)
-  .optional()
-  .transform((value) => (value === undefined ? undefined : Number(value)));
 
 function mapResource(
   resource: Awaited<ReturnType<typeof cardResourceRepo.listByCardId>>[number],
@@ -631,12 +625,12 @@ export const cardResourceRouter = createTRPCRouter({
       },
     })
     .input(
-      z.object({
-        resourcePublicId: publicId,
-        removeReferences: safeRestConfirmation,
-        canvasAction: z.enum(["replace", "remove"]).optional(),
-        expectedCanvasVersion: safeRestCanvasVersion,
-      }),
+      z
+        .object({
+          resourcePublicId: publicId,
+          removeReferences: safeRestConfirmation,
+        })
+        .strict(),
     )
     .output(z.object({ success: z.literal(true) }))
     .mutation(async ({ ctx, input }) => {
