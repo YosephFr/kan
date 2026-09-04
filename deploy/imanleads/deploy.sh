@@ -58,7 +58,7 @@ KAN_IMAGE_TAG="$(git rev-parse --short=12 HEAD)"
 export KAN_IMAGE_TAG
 compose=(docker compose --env-file "$repo_dir/.env" -f "$repo_dir/deploy/imanleads/compose.yaml")
 wait_for_web_health() {
-  for attempt in $(seq 1 90); do
+  for _ in {1..90}; do
     if curl -fsS http://127.0.0.1:3900/api/v1/health | grep -q '"status":"ok"'; then
       return 0
     fi
