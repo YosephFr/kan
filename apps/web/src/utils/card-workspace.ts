@@ -86,6 +86,81 @@ export const getCardWorkspaceNavigationQuery = (
   return nextQuery;
 };
 
+export const followCardWorkspaceDeepLink = ({
+  container,
+  target,
+  durationMs = 5_000,
+}: {
+  container: Element;
+  target: Pick<HTMLElement, "scrollIntoView">;
+  durationMs?: number;
+}) => {
+  if (typeof window === "undefined") return () => undefined;
+
+  let animationFrame: number | null = null;
+  let nestedAnimationFrame: number | null = null;
+  let hasScrolled = false;
+  let stopped = false;
+
+  const cancelFrames = () => {
+    if (animationFrame !== null) {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = null;
+    }
+    if (nestedAnimationFrame !== null) {
+      window.cancelAnimationFrame(nestedAnimationFrame);
+      nestedAnimationFrame = null;
+    }
+  };
+
+  const scrollToTarget = () => {
+    if (stopped) return;
+    cancelFrames();
+    animationFrame = window.requestAnimationFrame(() => {
+      nestedAnimationFrame = window.requestAnimationFrame(() => {
+        target.scrollIntoView({
+          behavior: hasScrolled ? "auto" : "smooth",
+          block: "start",
+        });
+        hasScrolled = true;
+      });
+    });
+  };
+
+  const resizeObserver =
+    typeof ResizeObserver === "undefined"
+      ? null
+      : new ResizeObserver(scrollToTarget);
+  resizeObserver?.observe(container);
+
+  const interactionEvents = [
+    "pointerdown",
+    "touchstart",
+    "wheel",
+    "keydown",
+  ] as const;
+  let timeout: number | null = null;
+
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    cancelFrames();
+    resizeObserver?.disconnect();
+    if (timeout !== null) window.clearTimeout(timeout);
+    interactionEvents.forEach((eventName) =>
+      window.removeEventListener(eventName, stop, true),
+    );
+  };
+
+  interactionEvents.forEach((eventName) =>
+    window.addEventListener(eventName, stop, true),
+  );
+  timeout = window.setTimeout(stop, durationMs);
+  scrollToTarget();
+
+  return stop;
+};
+
 export const getNextTabIndex = (
   currentIndex: number,
   tabCount: number,

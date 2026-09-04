@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  followCardWorkspaceDeepLink,
   fromLocalDateTimeInput,
   getCardWorkspaceNavigationQuery,
   getCardWorkspaceQueryValue,
@@ -12,6 +13,31 @@ import {
   isPublicVisibilityAcknowledgementError,
   toLocalDateTimeInput,
 } from "./card-workspace";
+
+const createAnimationFrameHarness = () => {
+  let nextId = 1;
+  const callbacks = new Map<number, FrameRequestCallback>();
+
+  return {
+    request: (callback: FrameRequestCallback) => {
+      const id = nextId++;
+      callbacks.set(id, callback);
+      return id;
+    },
+    cancel: (id: number) => {
+      callbacks.delete(id);
+    },
+    flush: () => {
+      while (callbacks.size > 0) {
+        const pending = [...callbacks.values()];
+        callbacks.clear();
+        pending.forEach((callback) => callback(0));
+      }
+    },
+  };
+};
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("getCardWorkspaceView", () => {
   it("accepts canonical Spanish direct-link views", () => {
@@ -60,6 +86,61 @@ describe("getCardWorkspaceTargetView", () => {
   it("returns null when the URL does not target a workspace section", () => {
     expect(getCardWorkspaceTargetView({})).toBeNull();
     expect(getCardWorkspaceTargetView({ value: "pizarra" })).toBe("visualWall");
+  });
+});
+
+describe("followCardWorkspaceDeepLink", () => {
+  it("repositions the target when content above it grows asynchronously", () => {
+    const animationFrames = createAnimationFrameHarness();
+    const listeners = new Map<string, EventListener>();
+    const scrollIntoView = vi.fn();
+    let resize: ResizeObserverCallback | undefined;
+
+    vi.stubGlobal("window", {
+      requestAnimationFrame: animationFrames.request,
+      cancelAnimationFrame: animationFrames.cancel,
+      addEventListener: (eventName: string, listener: EventListener) =>
+        listeners.set(eventName, listener),
+      removeEventListener: (eventName: string) => listeners.delete(eventName),
+      setTimeout: vi.fn(() => 1),
+      clearTimeout: vi.fn(),
+    });
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: ResizeObserverCallback) {
+          resize = callback;
+        }
+        observe = vi.fn();
+        disconnect = vi.fn();
+      },
+    );
+
+    const stop = followCardWorkspaceDeepLink({
+      container: {} as Element,
+      target: { scrollIntoView },
+    });
+
+    animationFrames.flush();
+    expect(scrollIntoView).toHaveBeenLastCalledWith({
+      behavior: "smooth",
+      block: "start",
+    });
+
+    resize?.([], {} as ResizeObserver);
+    animationFrames.flush();
+    expect(scrollIntoView).toHaveBeenCalledTimes(2);
+    expect(scrollIntoView).toHaveBeenLastCalledWith({
+      behavior: "auto",
+      block: "start",
+    });
+
+    listeners.get("wheel")?.({} as Event);
+    resize?.([], {} as ResizeObserver);
+    animationFrames.flush();
+    expect(scrollIntoView).toHaveBeenCalledTimes(2);
+
+    stop();
   });
 });
 

@@ -13,6 +13,7 @@ import { twMerge } from "tailwind-merge";
 
 import type { WorkspaceMemberOption } from "./subtask-types";
 import {
+  followCardWorkspaceDeepLink,
   getCardWorkspaceNavigationQuery,
   getCardWorkspaceTargetView,
 } from "~/utils/card-workspace";
@@ -206,7 +207,7 @@ export function CardWorkspaceDocument({
   const [subtasksActivationRequested, setSubtasksActivationRequested] =
     useState(false);
   const [preferencesReady, setPreferencesReady] = useState(false);
-  const scrollFrameRef = useRef<number | null>(null);
+  const documentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (hasCanvas) setVisualWallHasContent(true);
@@ -275,23 +276,11 @@ export function CardWorkspaceDocument({
       setVisualWallMounted(true);
     }
 
-    if (scrollFrameRef.current !== null) {
-      window.cancelAnimationFrame(scrollFrameRef.current);
-    }
-    scrollFrameRef.current = window.requestAnimationFrame(() => {
-      scrollFrameRef.current = window.requestAnimationFrame(() => {
-        document.getElementById(sectionIds[targetView])?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      });
-    });
+    const container = documentRef.current;
+    const target = document.getElementById(sectionIds[targetView]);
+    if (!container || !target) return;
 
-    return () => {
-      if (scrollFrameRef.current !== null) {
-        window.cancelAnimationFrame(scrollFrameRef.current);
-      }
-    };
+    return followCardWorkspaceDeepLink({ container, target });
   }, [router.isReady, targetView]);
 
   const replaceWorkspaceView = async (view: "subtasks" | "visualWall") => {
@@ -358,6 +347,7 @@ export function CardWorkspaceDocument({
 
   return (
     <div
+      ref={documentRef}
       className={twMerge(
         "mx-auto w-full max-w-6xl px-4 py-6 md:px-6 lg:px-8",
         compact && "max-w-none px-0 py-0",
