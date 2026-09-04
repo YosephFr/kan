@@ -33,6 +33,7 @@ fi
 sh -n "$script_dir/init-minio.sh"
 sh -n "$script_dir/audit-workspace-canvas-logs.sh"
 bash -n "$script_dir/snapshot-minio-backup.sh"
+bash -n "$script_dir/deploy.sh"
 
 snapshot_root="$test_dir/snapshots"
 mkdir -p "$snapshot_root/minio-current/kan-attachments"
@@ -48,9 +49,10 @@ grep -Fxq original \
 
 printf '%s\n' \
   '{"procedure":"workspaceCanvas.listImages","status":200,"imageCount":10}' \
+  '{"procedure":"cardVisualWall.get","status":200,"itemCount":2}' \
   'GET /api/workspace-canvas-images/abc123def456 200' | \
   "$script_dir/audit-workspace-canvas-logs.sh" | \
-  grep -Fq 'workspace_canvas_logs_audited=2 unsafe=0'
+  grep -Fq 'canvas_visual_wall_logs_audited=3 unsafe=0'
 
 if printf '%s\n' \
   '{"procedure":"workspaceCanvas.save","scene":"private"}' | \
@@ -142,3 +144,50 @@ POSTGRES_PASSWORD=test-password \
     -f "$script_dir/compose.yaml" \
     --profile maintenance \
     config --quiet
+
+services=$(
+  POSTGRES_PASSWORD=test-password \
+    POSTGRES_URL=postgresql://kan:test-password@postgres:5432/kan \
+    REDIS_PASSWORD=test-password \
+    REDIS_URL=redis://:test-password@redis:6379 \
+    MINIO_ROOT_PASSWORD=test-password \
+    S3_ACCESS_KEY_ID=test-app \
+    S3_SECRET_ACCESS_KEY=test-secret \
+    NEXT_PUBLIC_BASE_URL=https://work.imanleads.test \
+    BETTER_AUTH_SECRET=test-better-auth-secret \
+    BETTER_AUTH_TRUSTED_ORIGINS=https://work.imanleads.test \
+    KAN_ADMIN_API_KEY=test-api-key \
+    S3_PUBLIC_ENDPOINT=https://work.imanleads.test \
+    NEXT_PUBLIC_STORAGE_URL=https://work.imanleads.test \
+    NEXT_PUBLIC_STORAGE_DOMAIN=work.imanleads.test \
+    docker compose \
+      --env-file "$script_dir/env.example" \
+      -f "$script_dir/compose.yaml" \
+      --profile maintenance \
+      config --services
+)
+printf '%s\n' "$services" | grep -Fxq visual-wall-backfill
+grep -Fq 'target: visual-wall-backfill' "$script_dir/compose.yaml"
+grep -Fq 'visual-wall-backfill' "$script_dir/deploy.sh"
+stop_line=$(grep -nF 'stop -t 30 web' "$script_dir/deploy.sh" | tail -1 | cut -d: -f1)
+snapshot_line=$(grep -nF 'snapshot-minio-backup.sh" "$deployed_sha"' "$script_dir/deploy.sh" | tail -1 | cut -d: -f1)
+backfill_line=$(grep -nF 'visual_wall_backfill_status=$?' "$script_dir/deploy.sh" | cut -d: -f1)
+start_line=$(grep -nF 'up -d --no-deps --force-recreate web' "$script_dir/deploy.sh" | tail -1 | cut -d: -f1)
+old_web_stopped_line=$(grep -nF 'old_web_stopped=1' "$script_dir/deploy.sh" | cut -d: -f1)
+new_web_activated_line=$(grep -nF 'new_web_activated=1' "$script_dir/deploy.sh" | cut -d: -f1)
+origin_health_line=$(grep -nF 'https://work.imanleads.com/api/v1/health' "$script_dir/deploy.sh" | cut -d: -f1)
+log_audit_line=$(grep -nF 'audit-workspace-canvas-logs.sh' "$script_dir/deploy.sh" | tail -1 | cut -d: -f1)
+deployment_success_line=$(grep -nF 'deployment_succeeded=1' "$script_dir/deploy.sh" | cut -d: -f1)
+rollback_cleanup_line=$(grep -nF 'docker image rm "$rollback_image"' "$script_dir/deploy.sh" | cut -d: -f1)
+test "$stop_line" -lt "$snapshot_line"
+test "$snapshot_line" -lt "$backfill_line"
+test "$backfill_line" -lt "$start_line"
+test "$old_web_stopped_line" -lt "$stop_line"
+test "$new_web_activated_line" -lt "$start_line"
+test "$start_line" -lt "$origin_health_line"
+test "$origin_health_line" -lt "$log_audit_line"
+test "$log_audit_line" -lt "$deployment_success_line"
+test "$deployment_success_line" -lt "$rollback_cleanup_line"
+grep -Fq '"${compose[@]}" start web' "$script_dir/deploy.sh"
+grep -Fq 'docker image tag "$rollback_image" "imanleads/kan-web:$KAN_IMAGE_TAG"' "$script_dir/deploy.sh"
+grep -Fq "trap 'rollback_on_error \$?' ERR" "$script_dir/deploy.sh"

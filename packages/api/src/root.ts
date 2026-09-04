@@ -3,6 +3,7 @@ import { boardRouter } from "./routers/board";
 import { brandingRouter } from "./routers/branding";
 import { cardRouter } from "./routers/card";
 import { cardCanvasRouter } from "./routers/card-canvas";
+import { cardVisualWallRouter } from "./routers/card-visual-wall";
 import { cardPipelineRouter } from "./routers/card-pipeline";
 import { cardResourceRouter } from "./routers/card-resource";
 import { cardSubtaskRouter } from "./routers/card-subtask";
@@ -21,6 +22,7 @@ import { userRouter } from "./routers/user";
 import { webhookRouter } from "./routers/webhook";
 import { workspaceRouter } from "./routers/workspace";
 import { workspaceCanvasRouter } from "./routers/workspace-canvas";
+import { workspaceVisualWallRouter } from "./routers/workspace-visual-wall";
 import { createTRPCRouter } from "./trpc";
 
 export const appRouter = createTRPCRouter({
@@ -29,6 +31,7 @@ export const appRouter = createTRPCRouter({
   branding: brandingRouter,
   card: cardRouter,
   cardCanvas: cardCanvasRouter,
+  cardVisualWall: cardVisualWallRouter,
   cardPipeline: cardPipelineRouter,
   cardResource: cardResourceRouter,
   cardSubtask: cardSubtaskRouter,
@@ -46,6 +49,7 @@ export const appRouter = createTRPCRouter({
   webhook: webhookRouter,
   workspace: workspaceRouter,
   workspaceCanvas: workspaceCanvasRouter,
+  workspaceVisualWall: workspaceVisualWallRouter,
   integration: integrationRouter,
 });
 

@@ -9,6 +9,8 @@ import * as cardCommentRepo from "@kan/db/repository/cardComment.repo";
 import * as cardDuplicateRepo from "@kan/db/repository/cardDuplicate.repo";
 import * as cardReadRepo from "@kan/db/repository/cardRead.repo";
 import { PublicVisibilityAcknowledgementError } from "@kan/db/repository/cardResourceVisibility.repo";
+import * as cardVisualWallRepo from "@kan/db/repository/cardVisualWall.repo";
+import * as cardVisualWallCloneRepo from "@kan/db/repository/cardVisualWallClone.repo";
 import * as labelRepo from "@kan/db/repository/label.repo";
 import * as listRepo from "@kan/db/repository/list.repo";
 import * as notificationRepo from "@kan/db/repository/notification.repo";
@@ -29,6 +31,19 @@ import {
 } from "../schemas";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { mergeActivities } from "../utils/activities";
+import {
+  assertCardVisualWallCloneBudget,
+  assertWorkspaceVisualWallCloneStorageBudget,
+  deferPreparedCardVisualWallCloneCleanup,
+  MAX_CARD_VISUAL_WALL_CLONE_RESOURCES,
+  prepareCardVisualWallCloneObjects,
+} from "../utils/card-visual-wall-clone";
+import {
+  acquireVisualWallCloneLease,
+  consumeVisualWallCloneRateLimit,
+  getVisualWallCloneWorkspaceKey,
+  VisualWallCloneRateLimitError,
+} from "../utils/card-visual-wall-clone-rate-limit";
 import { sendMentionEmails } from "../utils/notifications";
 import {
   assertCanDelete,
@@ -54,6 +69,15 @@ const colourCodeSchema = z
   .nullable();
 
 function rethrowWorkspaceChanged(error: unknown): never {
+  if (
+    error instanceof
+    cardVisualWallCloneRepo.CardVisualWallCloneStorageQuotaError
+  ) {
+    throw new TRPCError({
+      code: "PAYLOAD_TOO_LARGE",
+      message: error.message,
+    });
+  }
   if (error instanceof WorkspaceChangedError) {
     throw new TRPCError({ code: "NOT_FOUND", message: "Resource not found" });
   }
@@ -1309,21 +1333,104 @@ export const cardRouter = createTRPCRouter({
         "card:view",
       );
 
-      const newCard = await cardDuplicateRepo
-        .duplicateCard(ctx.db, {
-          sourceCardPublicId: input.cardPublicId,
+      const visualWallPreflight = await cardDuplicateRepo
+        .preflightVisualWallDuplicate(ctx.db, {
+          sourceCardId: sourceCardMeta.id,
           targetListPublicId: input.listPublicId,
           expectedWorkspaceId: sourceCardMeta.workspaceId,
-          createdBy: userId,
-          title: input.title,
-          index: input.index,
-          copyLabels: input.copyLabels,
-          copyMembers: input.copyMembers,
-          copyChecklists: input.copyChecklists,
-          copyPipeline: input.copyPipeline,
+          actorId: userId,
           publicVisibilityAcknowledged: input.publicVisibilityAcknowledged,
         })
-        .catch((error: unknown) => {
+        .catch(rethrowWorkspaceChanged);
+      if (visualWallPreflight.status === "public_ack_required") {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "PUBLIC_VISIBILITY_ACKNOWLEDGEMENT_REQUIRED",
+        });
+      }
+
+      const visualWallCloneWorkspaceKey = getVisualWallCloneWorkspaceKey(
+        sourceCardMeta.workspaceId,
+      );
+      try {
+        await consumeVisualWallCloneRateLimit(
+          userId,
+          visualWallCloneWorkspaceKey,
+        );
+      } catch (error) {
+        if (!(error instanceof VisualWallCloneRateLimitError)) throw error;
+        throw new TRPCError({
+          code:
+            error.code === "LIMIT_EXCEEDED"
+              ? "TOO_MANY_REQUESTS"
+              : "SERVICE_UNAVAILABLE",
+          message: "VISUAL_WALL_CLONE_RATE_LIMITED",
+        });
+      }
+
+      const releaseVisualWallCloneLease = await acquireVisualWallCloneLease(
+        visualWallCloneWorkspaceKey,
+      ).catch((error: unknown) => {
+        if (!(error instanceof VisualWallCloneRateLimitError)) throw error;
+        throw new TRPCError({
+          code:
+            error.code === "LIMIT_EXCEEDED"
+              ? "TOO_MANY_REQUESTS"
+              : "SERVICE_UNAVAILABLE",
+          message: "VISUAL_WALL_CLONE_BUSY",
+        });
+      });
+      try {
+        const visualWallBudget =
+          await cardVisualWallCloneRepo.getCardVisualWallCloneBudget(ctx.db, {
+            sourceCardId: sourceCardMeta.id,
+            expectedWorkspaceId: sourceCardMeta.workspaceId,
+          });
+        assertCardVisualWallCloneBudget(visualWallBudget);
+        const visualWallPhysicalBytes =
+          await cardVisualWallCloneRepo.getWorkspaceVisualWallClonePhysicalUsage(
+            ctx.db,
+            sourceCardMeta.workspaceId,
+          );
+        assertWorkspaceVisualWallCloneStorageBudget({
+          currentBytes: visualWallPhysicalBytes,
+          additionalBytes: visualWallBudget.sourceBytes,
+        });
+        const visualWallSources =
+          await cardVisualWallCloneRepo.getCardVisualWallCloneSources(ctx.db, {
+            sourceCardId: sourceCardMeta.id,
+            expectedWorkspaceId: sourceCardMeta.workspaceId,
+            maxResources: MAX_CARD_VISUAL_WALL_CLONE_RESOURCES,
+          });
+        const preparedVisualWall = await prepareCardVisualWallCloneObjects(
+          ctx.db,
+          visualWallSources,
+        );
+        let clonePersisted = false;
+        let newCard: Awaited<
+          ReturnType<typeof cardDuplicateRepo.duplicateCard>
+        >;
+        try {
+          await cardVisualWallRepo.renewPreviewDeletionKeyReservations(
+            ctx.db,
+            preparedVisualWall.copiedKeys,
+          );
+          newCard = await cardDuplicateRepo.duplicateCard(ctx.db, {
+            sourceCardPublicId: input.cardPublicId,
+            targetListPublicId: input.listPublicId,
+            expectedWorkspaceId: sourceCardMeta.workspaceId,
+            createdBy: userId,
+            title: input.title,
+            index: input.index,
+            copyLabels: input.copyLabels,
+            copyMembers: input.copyMembers,
+            copyChecklists: input.copyChecklists,
+            copyPipeline: input.copyPipeline,
+            publicVisibilityAcknowledged: input.publicVisibilityAcknowledged,
+            visualWallUploadClones: preparedVisualWall.clones,
+          });
+          clonePersisted = newCard.status !== "public_ack_required";
+        } catch (error) {
           if (error instanceof cardDuplicateRepo.CardPipelineCloneError) {
             throw new TRPCError({
               message: "CARD_PIPELINE_CLONE_FAILED",
@@ -1331,29 +1438,39 @@ export const cardRouter = createTRPCRouter({
             });
           }
           return rethrowWorkspaceChanged(error);
-        });
+        } finally {
+          if (!clonePersisted) {
+            await deferPreparedCardVisualWallCloneCleanup(
+              ctx.db,
+              preparedVisualWall.copiedKeys,
+            );
+          }
+        }
 
-      if (newCard.status === "public_ack_required") {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: "PUBLIC_VISIBILITY_ACKNOWLEDGEMENT_REQUIRED",
-        });
+        if (newCard.status === "public_ack_required") {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "PUBLIC_VISIBILITY_ACKNOWLEDGEMENT_REQUIRED",
+          });
+        }
+
+        if (newCard.priority === "urgent") {
+          await runUrgentAlertBestEffort(
+            () =>
+              notificationRepo.createUrgentAlertsForAssignees(ctx.db, {
+                cardId: newCard.id,
+                actorUserId: userId,
+              }),
+            { cardPublicId: newCard.publicId, trigger: "duplicate" },
+          );
+        }
+
+        return {
+          publicId: newCard.publicId,
+          skippedResourceCount: newCard.skippedResourceCount,
+        };
+      } finally {
+        await releaseVisualWallCloneLease();
       }
-
-      if (newCard.priority === "urgent") {
-        await runUrgentAlertBestEffort(
-          () =>
-            notificationRepo.createUrgentAlertsForAssignees(ctx.db, {
-              cardId: newCard.id,
-              actorUserId: userId,
-            }),
-          { cardPublicId: newCard.publicId, trigger: "duplicate" },
-        );
-      }
-
-      return {
-        publicId: newCard.publicId,
-        skippedResourceCount: newCard.skippedResourceCount,
-      };
     }),
 });

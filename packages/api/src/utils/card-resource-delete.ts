@@ -34,7 +34,13 @@ export async function deleteCardResource(
     expectedCanvasVersion: input.expectedCanvasVersion,
   });
   if (result.status === "in_use") {
-    throw new TRPCError({ code: "CONFLICT", message: "RESOURCE_IN_USE" });
+    throw new TRPCError({
+      code: "CONFLICT",
+      message:
+        (result.visualWallReferenceCount ?? 0) > 0
+          ? "RESOURCE_IN_USE_VISUAL_WALL"
+          : "RESOURCE_IN_USE",
+    });
   }
   if (result.status === "canvas_version_conflict") {
     throw new TRPCError({

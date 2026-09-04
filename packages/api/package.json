@@ -60,6 +60,10 @@
       "types": "./src/utils/workspace-canvas-image-access.ts",
       "default": "./src/utils/workspace-canvas-image-access.ts"
     },
+    "./utils/card-visual-wall-preview-access": {
+      "types": "./src/utils/card-visual-wall-preview-access.ts",
+      "default": "./src/utils/card-visual-wall-preview-access.ts"
+    },
     "./utils/workspace-canvas-image-rate-limit": {
       "types": "./src/utils/workspace-canvas-image-rate-limit.ts",
       "default": "./src/utils/workspace-canvas-image-rate-limit.ts"
@@ -67,6 +71,7 @@
   },
   "license": "GPL-3.0",
   "scripts": {
+    "backfill:visual-walls": "tsx scripts/backfill-visual-walls.ts",
     "backfill:workspace-canvas-images": "tsx scripts/backfill-workspace-canvas-images.ts",
     "build": "tsc",
     "clean": "git clean -xdf .cache .turbo dist node_modules",

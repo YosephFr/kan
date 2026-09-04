@@ -97,3 +97,16 @@ export type {
   PulsePortfolioSummary,
   PulseSummary,
 } from "./pulse";
+
+export {
+  cardVisualWallItemSchema,
+  cardVisualWallMutationResultSchema,
+  cardVisualWallSnapshotSchema,
+  freeformUrlSchema,
+  visualWallExpectedVersionSchema,
+  visualWallMutationResultSchema,
+  visualWallPlacementSchema,
+  visualWallPublicIdSchema,
+  workspaceVisualWallItemSchema,
+  workspaceVisualWallSnapshotSchema,
+} from "./visual-wall";

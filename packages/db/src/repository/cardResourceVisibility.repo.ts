@@ -1,6 +1,10 @@
-import { and, count, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, count, eq, inArray, isNotNull, isNull, or } from "drizzle-orm";
 
-import { cardAttachments, cardResources } from "@kan/db/schema";
+import {
+  cardAttachments,
+  cardResources,
+  cardVisualWalls,
+} from "@kan/db/schema";
 
 import type { DbTransaction } from "./cardPipeline.internal";
 
@@ -47,4 +51,16 @@ export async function assertActiveResourcesAcknowledged(
   if ((result?.count ?? 0) > 0) {
     throw new PublicVisibilityAcknowledgementError();
   }
+
+  const [wall] = await tx
+    .select({ id: cardVisualWalls.id })
+    .from(cardVisualWalls)
+    .where(
+      and(
+        inArray(cardVisualWalls.cardId, cardIds),
+        isNotNull(cardVisualWalls.freeformUrl),
+      ),
+    )
+    .limit(1);
+  if (wall) throw new PublicVisibilityAcknowledgementError();
 }

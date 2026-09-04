@@ -1,4 +1,15 @@
-import { and, asc, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+  sql,
+} from "drizzle-orm";
 
 import type { dbClient } from "@kan/db/client";
 import type { CardPipelineStageStatus, CardPriority } from "@kan/db/schema";
@@ -7,6 +18,8 @@ import {
   cardCanvases,
   cardCanvasFrames,
   cardCanvasRevisions,
+  cardVisualWallItems,
+  cardVisualWalls,
   cardPipelineStages,
   cardPipelineStageStatuses,
   cards,
@@ -652,6 +665,27 @@ export const getPresenceByCardIds = async (
     .from(cardCanvases)
     .where(inArray(cardCanvases.cardId, uniqueCardIds));
   for (const row of rows) result.set(row.cardId, true);
+  const wallRows = await db
+    .select({ cardId: cardVisualWalls.cardId })
+    .from(cardVisualWalls)
+    .leftJoin(
+      cardVisualWallItems,
+      and(
+        eq(cardVisualWallItems.wallId, cardVisualWalls.id),
+        isNull(cardVisualWallItems.deletedAt),
+      ),
+    )
+    .where(
+      and(
+        inArray(cardVisualWalls.cardId, uniqueCardIds),
+        or(
+          isNotNull(cardVisualWalls.freeformUrl),
+          isNotNull(cardVisualWallItems.id),
+        ),
+      ),
+    )
+    .groupBy(cardVisualWalls.cardId);
+  for (const row of wallRows) result.set(row.cardId, true);
   return result;
 };
 
@@ -670,6 +704,29 @@ export const getPresenceByCardPublicIds = async (
       and(inArray(cards.publicId, uniquePublicIds), isNull(cards.deletedAt)),
     );
   for (const row of rows) result.set(row.publicId, true);
+  const wallRows = await db
+    .select({ publicId: cards.publicId })
+    .from(cards)
+    .innerJoin(cardVisualWalls, eq(cards.id, cardVisualWalls.cardId))
+    .leftJoin(
+      cardVisualWallItems,
+      and(
+        eq(cardVisualWallItems.wallId, cardVisualWalls.id),
+        isNull(cardVisualWallItems.deletedAt),
+      ),
+    )
+    .where(
+      and(
+        inArray(cards.publicId, uniquePublicIds),
+        isNull(cards.deletedAt),
+        or(
+          isNotNull(cardVisualWalls.freeformUrl),
+          isNotNull(cardVisualWallItems.id),
+        ),
+      ),
+    )
+    .groupBy(cards.publicId);
+  for (const row of wallRows) result.set(row.publicId, true);
   return result;
 };
 

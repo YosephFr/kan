@@ -15,6 +15,28 @@ services:
         condition: service_healthy
     restart: "no"
 
+  visual-wall-backfill:
+    image: ghcr.io/kanbn/kan-visual-wall-backfill:latest
+    container_name: ${VISUAL_WALL_BACKFILL_CONTAINER_NAME:-kan-visual-wall-backfill}
+    networks:
+      - kan-network
+    build:
+      context: .
+      dockerfile: ./apps/web/Dockerfile
+      target: visual-wall-backfill
+    environment:
+      - POSTGRES_URL=${POSTGRES_URL}
+      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
+      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}
+      - S3_REGION=${S3_REGION}
+      - S3_ENDPOINT=${S3_ENDPOINT}
+      - S3_FORCE_PATH_STYLE=${S3_FORCE_PATH_STYLE}
+      - NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME=${NEXT_PUBLIC_ATTACHMENTS_BUCKET_NAME}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
   web:
     image: ghcr.io/kanbn/kan:latest
     container_name: ${CONTAINER_NAME:-kan-web}
@@ -130,7 +152,7 @@ services:
       - APPLE_CLIENT_SECRET=${APPLE_CLIENT_SECRET}
       - APPLE_APP_BUNDLE_IDENTIFIER=${APPLE_APP_BUNDLE_IDENTIFIER}
     depends_on:
-      migrate:
+      visual-wall-backfill:
         condition: service_completed_successfully
     restart: unless-stopped
 

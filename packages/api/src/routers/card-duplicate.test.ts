@@ -6,6 +6,7 @@ import * as cardDuplicateRepo from "@kan/db/repository/cardDuplicate.repo";
 import * as notificationRepo from "@kan/db/repository/notification.repo";
 import { WorkspaceChangedError } from "@kan/db/repository/workspace-boundary";
 
+import * as visualWallCloneRateLimit from "../utils/card-visual-wall-clone-rate-limit";
 import { assertPermission } from "../utils/permissions";
 
 const { mockLogger } = vi.hoisted(() => ({
@@ -19,7 +20,20 @@ const { mockLogger } = vi.hoisted(() => ({
 
 vi.mock("@kan/db/repository/cardDuplicate.repo", () => ({
   CardPipelineCloneError: class CardPipelineCloneError extends Error {},
+  preflightVisualWallDuplicate: vi.fn(),
   duplicateCard: vi.fn(),
+}));
+vi.mock("@kan/db/repository/cardVisualWallClone.repo", () => ({
+  CardVisualWallCloneStorageQuotaError: class CardVisualWallCloneStorageQuotaError extends Error {},
+  getCardVisualWallCloneBudget: vi.fn(() =>
+    Promise.resolve({ resourceCount: 0, sourceBytes: 0 }),
+  ),
+  getWorkspaceVisualWallClonePhysicalUsage: vi.fn(() => Promise.resolve(0)),
+  getCardVisualWallCloneSources: vi.fn(() => Promise.resolve([])),
+}));
+vi.mock("@kan/db/repository/cardVisualWall.repo", () => ({
+  reservePreviewDeletionKeys: vi.fn(() => Promise.resolve()),
+  renewPreviewDeletionKeyReservations: vi.fn(() => Promise.resolve()),
 }));
 vi.mock("@kan/db/repository/card.repo", () => ({
   getWorkspaceAndCardIdByCardPublicId: vi.fn(),
@@ -40,6 +54,16 @@ vi.mock("../utils/permissions", () => ({
 }));
 vi.mock("../utils/notifications", () => ({ sendMentionEmails: vi.fn() }));
 vi.mock("../utils/activities", () => ({ mergeActivities: vi.fn() }));
+vi.mock("../utils/card-visual-wall-clone-rate-limit", () => ({
+  VisualWallCloneRateLimitError: class VisualWallCloneRateLimitError extends Error {},
+  consumeVisualWallCloneRateLimit: vi.fn(() => Promise.resolve()),
+  getVisualWallCloneWorkspaceKey: vi.fn(
+    (workspaceId: number) => `workspace:${workspaceId}`,
+  ),
+  acquireVisualWallCloneLease: vi.fn(() =>
+    Promise.resolve(() => Promise.resolve()),
+  ),
+}));
 
 describe("card.duplicate authorization and transaction boundary", () => {
   const db = {} as never;
@@ -63,6 +87,11 @@ describe("card.duplicate authorization and transaction boundary", () => {
       priority: "high",
       skippedResourceCount: 0,
     });
+    vi.mocked(cardDuplicateRepo.preflightVisualWallDuplicate).mockResolvedValue(
+      {
+        status: "ready",
+      },
+    );
     vi.mocked(assertPermission).mockResolvedValue(undefined);
   });
 
@@ -107,7 +136,14 @@ describe("card.duplicate authorization and transaction boundary", () => {
       copyChecklists: true,
       copyPipeline: true,
       publicVisibilityAcknowledged: false,
+      visualWallUploadClones: [],
     });
+    expect(
+      visualWallCloneRateLimit.consumeVisualWallCloneRateLimit,
+    ).toHaveBeenCalledWith(user.id, "workspace:10");
+    expect(
+      visualWallCloneRateLimit.acquireVisualWallCloneLease,
+    ).toHaveBeenCalledWith("workspace:10");
     expect(result).toEqual({
       publicId: "card-copy001",
       skippedResourceCount: 0,

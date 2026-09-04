@@ -155,7 +155,11 @@ describe("card resource repository", () => {
         deletedBy: seeded.user.id,
         removeReferences: false,
       }),
-    ).toEqual({ status: "in_use", referenceCount: 1 });
+    ).toEqual({
+      status: "in_use",
+      referenceCount: 1,
+      visualWallReferenceCount: 0,
+    });
 
     const results = await Promise.all([
       cardResourceRepo.softDeleteWithWorkspaceGuard(db, {
@@ -671,7 +675,11 @@ describe("card resource repository", () => {
         deletedBy: seeded.user.id,
         removeReferences: false,
       }),
-    ).resolves.toEqual({ status: "in_use", referenceCount: 1 });
+    ).resolves.toEqual({
+      status: "in_use",
+      referenceCount: 1,
+      visualWallReferenceCount: 0,
+    });
     await expect(
       cardResourceRepo.softDeleteWithWorkspaceGuard(db, {
         resourcePublicId: "legacyup0001",

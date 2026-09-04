@@ -6,6 +6,7 @@ import * as boardCreateRepo from "@kan/db/repository/boardCreate.repo";
 import { WorkspaceChangedError } from "@kan/db/repository/workspace-boundary";
 import * as workspaceRepo from "@kan/db/repository/workspace.repo";
 
+import * as visualWallCloneRateLimit from "../utils/card-visual-wall-clone-rate-limit";
 import { assertCanEdit, assertPermission } from "../utils/permissions";
 
 // Mock all imports used by board.ts before importing the router
@@ -33,6 +34,20 @@ vi.mock("@kan/db/repository/board.repo", () => ({
 
 vi.mock("@kan/db/repository/boardCreate.repo", () => ({
   createWithSetup: vi.fn(),
+}));
+
+vi.mock("@kan/db/repository/cardVisualWallClone.repo", () => ({
+  CardVisualWallCloneStorageQuotaError: class CardVisualWallCloneStorageQuotaError extends Error {},
+  getBoardVisualWallCloneBudget: vi.fn(() =>
+    Promise.resolve({ resourceCount: 0, sourceBytes: 0 }),
+  ),
+  getWorkspaceVisualWallClonePhysicalUsage: vi.fn(() => Promise.resolve(0)),
+  getBoardVisualWallCloneSources: vi.fn(() => Promise.resolve([])),
+}));
+
+vi.mock("@kan/db/repository/cardVisualWall.repo", () => ({
+  reservePreviewDeletionKeys: vi.fn(() => Promise.resolve()),
+  renewPreviewDeletionKeyReservations: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("@kan/db/repository/workspace.repo", () => ({
@@ -77,6 +92,17 @@ vi.mock("@kan/shared/utils", () => ({
 
 vi.mock("@kan/shared/constants", () => ({
   colours: [],
+}));
+
+vi.mock("../utils/card-visual-wall-clone-rate-limit", () => ({
+  VisualWallCloneRateLimitError: class VisualWallCloneRateLimitError extends Error {},
+  consumeVisualWallCloneRateLimit: vi.fn(() => Promise.resolve()),
+  getVisualWallCloneWorkspaceKey: vi.fn(
+    (workspaceId: number) => `workspace:${workspaceId}`,
+  ),
+  acquireVisualWallCloneLease: vi.fn(() =>
+    Promise.resolve(() => Promise.resolve()),
+  ),
 }));
 
 const mockGetBoardForMove = boardRepo.getBoardForMove as ReturnType<
@@ -418,6 +444,12 @@ describe("board.create clone authorization", () => {
         sourceBoardId: 1,
       }),
     );
+    expect(
+      visualWallCloneRateLimit.consumeVisualWallCloneRateLimit,
+    ).toHaveBeenCalledWith(mockUser.id, "workspace:10");
+    expect(
+      visualWallCloneRateLimit.acquireVisualWallCloneLease,
+    ).toHaveBeenCalledWith("workspace:10");
   });
 
   it("returns NOT_FOUND when the source board moves during cloning", async () => {

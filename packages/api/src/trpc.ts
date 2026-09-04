@@ -19,6 +19,10 @@ export const isSensitiveProcedure = (path: string) =>
   path.startsWith("cardCanvas.") ||
   path === "workspaceCanvas" ||
   path.startsWith("workspaceCanvas.") ||
+  path === "cardVisualWall" ||
+  path.startsWith("cardVisualWall.") ||
+  path === "workspaceVisualWall" ||
+  path.startsWith("workspaceVisualWall.") ||
   path === "generateUploadUrl" ||
   path === "attachment.generateUploadUrl" ||
   path === "cardResource.createWebLink" ||

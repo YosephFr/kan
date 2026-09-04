@@ -151,6 +151,76 @@ export class ObjectInspectionSizeError extends Error {
   }
 }
 
+export class ObjectBodySizeError extends Error {
+  constructor(
+    public readonly code: "OBJECT_BODY_TOO_LARGE" | "OBJECT_BODY_SIZE_MISMATCH",
+  ) {
+    super(code);
+    this.name = "ObjectBodySizeError";
+  }
+}
+
+export async function readObjectBodyWithLimit(
+  body: unknown,
+  maxBytes: number,
+  expectedBytes?: number,
+): Promise<Uint8Array> {
+  if (expectedBytes !== undefined && expectedBytes > maxBytes) {
+    throw new ObjectBodySizeError("OBJECT_BODY_TOO_LARGE");
+  }
+
+  if (
+    body &&
+    typeof body === "object" &&
+    "transformToByteArray" in body &&
+    typeof body.transformToByteArray === "function"
+  ) {
+    const bytes = await (
+      body as { transformToByteArray: () => Promise<unknown> }
+    ).transformToByteArray();
+    if (!(bytes instanceof Uint8Array)) {
+      throw new ObjectBodySizeError("OBJECT_BODY_SIZE_MISMATCH");
+    }
+    if (bytes.byteLength > maxBytes) {
+      throw new ObjectBodySizeError("OBJECT_BODY_TOO_LARGE");
+    }
+    if (expectedBytes !== undefined && bytes.byteLength !== expectedBytes) {
+      throw new ObjectBodySizeError("OBJECT_BODY_SIZE_MISMATCH");
+    }
+    return bytes;
+  }
+
+  if (
+    body &&
+    typeof body === "object" &&
+    Symbol.asyncIterator in body &&
+    typeof body[Symbol.asyncIterator] === "function"
+  ) {
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    for await (const value of body as AsyncIterable<Uint8Array>) {
+      const chunk = value instanceof Uint8Array ? value : new Uint8Array(value);
+      size += chunk.byteLength;
+      if (size > maxBytes) {
+        throw new ObjectBodySizeError("OBJECT_BODY_TOO_LARGE");
+      }
+      chunks.push(chunk);
+    }
+    if (expectedBytes !== undefined && size !== expectedBytes) {
+      throw new ObjectBodySizeError("OBJECT_BODY_SIZE_MISMATCH");
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return bytes;
+  }
+
+  throw new ObjectBodySizeError("OBJECT_BODY_SIZE_MISMATCH");
+}
+
 export async function inspectObject(
   bucket: string,
   key: string,
@@ -199,6 +269,22 @@ export async function inspectObject(
     etag: head.ETag,
     prefix: new Uint8Array(prefix),
     sha256: hash.digest("hex"),
+    size: head.ContentLength,
+  };
+}
+
+export async function getObjectMetadata(bucket: string, key: string) {
+  const client = createS3Client();
+  const head = await client.send(
+    new HeadObjectCommand({ Bucket: bucket, Key: key }),
+  );
+  if (!head.ETag) throw new Error("Attachment object ETag is missing");
+  if (typeof head.ContentLength !== "number") {
+    throw new ObjectInspectionSizeError("OBJECT_SIZE_UNAVAILABLE");
+  }
+  return {
+    contentType: head.ContentType ?? "",
+    etag: head.ETag,
     size: head.ContentLength,
   };
 }

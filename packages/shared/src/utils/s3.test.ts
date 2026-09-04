@@ -6,6 +6,7 @@ import {
   generateUploadUrl,
   generateWorkspaceLogoUrl,
   inspectObject,
+  readObjectBodyWithLimit,
   resolveS3Endpoint,
 } from "./s3";
 
@@ -59,6 +60,59 @@ describe("inspectObject", () => {
       }),
     ).resolves.toMatchObject({ size: 3 });
     expect(send).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("readObjectBodyWithLimit", () => {
+  it("accepts a transformed body at the exact limit", async () => {
+    const body = {
+      transformToByteArray: vi
+        .fn()
+        .mockResolvedValue(new Uint8Array([1, 2, 3])),
+    };
+
+    await expect(readObjectBodyWithLimit(body, 3, 3)).resolves.toEqual(
+      new Uint8Array([1, 2, 3]),
+    );
+  });
+
+  it("rejects a transformed body that exceeds the declared limit", async () => {
+    const body = {
+      transformToByteArray: vi
+        .fn()
+        .mockResolvedValue(new Uint8Array([1, 2, 3, 4])),
+    };
+
+    await expect(readObjectBodyWithLimit(body, 3)).rejects.toMatchObject({
+      code: "OBJECT_BODY_TOO_LARGE",
+    });
+  });
+
+  it("stops an async body as soon as it exceeds the limit", async () => {
+    const secondChunkRead = vi.fn();
+    const body = {
+      async *[Symbol.asyncIterator]() {
+        yield await Promise.resolve(new Uint8Array([1, 2]));
+        secondChunkRead();
+        yield new Uint8Array([3, 4]);
+        throw new Error("must not continue");
+      },
+    };
+
+    await expect(readObjectBodyWithLimit(body, 3)).rejects.toMatchObject({
+      code: "OBJECT_BODY_TOO_LARGE",
+    });
+    expect(secondChunkRead).toHaveBeenCalledOnce();
+  });
+
+  it("rejects a body that differs from the HEAD size", async () => {
+    const body = {
+      transformToByteArray: vi.fn().mockResolvedValue(new Uint8Array([1, 2])),
+    };
+
+    await expect(readObjectBodyWithLimit(body, 3, 3)).rejects.toMatchObject({
+      code: "OBJECT_BODY_SIZE_MISMATCH",
+    });
   });
 });
 

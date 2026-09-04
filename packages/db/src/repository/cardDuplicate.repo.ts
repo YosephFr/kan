@@ -5,6 +5,8 @@ import {
   boards,
   cardActivities,
   cardResources,
+  cardVisualWallItems,
+  cardVisualWalls,
   cards,
   cardsToLabels,
   cardToWorkspaceMembers,
@@ -20,8 +22,11 @@ import { generateUID } from "@kan/shared/utils";
 import { cloneCardCanvasHeadTx } from "./cardCanvasClone.repo";
 import { clonePipelineForCardTx } from "./cardPipelineClone.repo";
 import { cloneCardResourcesTx } from "./cardResourceClone.repo";
+import { cloneCardVisualWallTx } from "./cardVisualWallClone.repo";
+import type { PreparedCardVisualWallUploadClone } from "./cardVisualWallClone.repo";
 import {
   assertBoardsInWorkspace,
+  assertWorkspacePermissionTx,
   WorkspaceChangedError,
 } from "./workspace-boundary";
 
@@ -31,6 +36,81 @@ export class CardPipelineCloneError extends Error {
     this.name = "CardPipelineCloneError";
   }
 }
+
+export const preflightVisualWallDuplicate = (
+  db: dbClient,
+  input: {
+    sourceCardId: number;
+    targetListPublicId: string;
+    expectedWorkspaceId: number;
+    actorId: string;
+    publicVisibilityAcknowledged: boolean;
+  },
+) =>
+  db.transaction(async (tx) => {
+    await assertWorkspacePermissionTx(tx, {
+      workspaceId: input.expectedWorkspaceId,
+      userId: input.actorId,
+      permission: "card:view",
+    });
+    await assertWorkspacePermissionTx(tx, {
+      workspaceId: input.expectedWorkspaceId,
+      userId: input.actorId,
+      permission: "card:create",
+    });
+    const [source] = await tx
+      .select({ id: cards.id })
+      .from(cards)
+      .innerJoin(lists, eq(cards.listId, lists.id))
+      .innerJoin(boards, eq(lists.boardId, boards.id))
+      .where(
+        and(
+          eq(cards.id, input.sourceCardId),
+          eq(boards.workspaceId, input.expectedWorkspaceId),
+          isNull(cards.deletedAt),
+          isNull(lists.deletedAt),
+          isNull(boards.deletedAt),
+        ),
+      )
+      .limit(1);
+    const [target] = await tx
+      .select({ visibility: boards.visibility })
+      .from(lists)
+      .innerJoin(boards, eq(lists.boardId, boards.id))
+      .where(
+        and(
+          eq(lists.publicId, input.targetListPublicId),
+          eq(boards.workspaceId, input.expectedWorkspaceId),
+          isNull(lists.deletedAt),
+          isNull(boards.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (!source || !target) throw new WorkspaceChangedError();
+    if (
+      target.visibility !== "public" ||
+      input.publicVisibilityAcknowledged
+    ) {
+      return { status: "ready" as const };
+    }
+    const [item] = await tx
+      .select({ id: cardVisualWallItems.id })
+      .from(cardVisualWallItems)
+      .innerJoin(
+        cardVisualWalls,
+        eq(cardVisualWallItems.wallId, cardVisualWalls.id),
+      )
+      .where(
+        and(
+          eq(cardVisualWalls.cardId, input.sourceCardId),
+          isNull(cardVisualWallItems.deletedAt),
+        ),
+      )
+      .limit(1);
+    return item
+      ? { status: "public_ack_required" as const }
+      : { status: "ready" as const };
+  });
 
 export const duplicateCard = async (
   db: dbClient,
@@ -46,6 +126,7 @@ export const duplicateCard = async (
     copyChecklists: boolean;
     copyPipeline: boolean;
     publicVisibilityAcknowledged: boolean;
+    visualWallUploadClones?: readonly PreparedCardVisualWallUploadClone[];
   },
 ) =>
   db.transaction(async (tx) => {
@@ -121,6 +202,16 @@ export const duplicateCard = async (
       input.expectedWorkspaceId,
       { boardLock: "update", workspaceLock: "update" },
     );
+    await assertWorkspacePermissionTx(tx, {
+      workspaceId: input.expectedWorkspaceId,
+      userId: input.createdBy,
+      permission: "card:view",
+    });
+    await assertWorkspacePermissionTx(tx, {
+      workspaceId: input.expectedWorkspaceId,
+      userId: input.createdBy,
+      permission: "card:create",
+    });
 
     const [targetBoard] = await tx
       .select({ visibility: boards.visibility })
@@ -150,6 +241,21 @@ export const duplicateCard = async (
         )
         .limit(1);
       if (linkResource) return { status: "public_ack_required" as const };
+      const [visualWallItem] = await tx
+        .select({ id: cardVisualWallItems.id })
+        .from(cardVisualWallItems)
+        .innerJoin(
+          cardVisualWalls,
+          eq(cardVisualWallItems.wallId, cardVisualWalls.id),
+        )
+        .where(
+          and(
+            eq(cardVisualWalls.cardId, sourceCard.id),
+            isNull(cardVisualWallItems.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (visualWallItem) return { status: "public_ack_required" as const };
     }
 
     const sourceLabelRows = input.copyLabels
@@ -399,8 +505,10 @@ export const duplicateCard = async (
     const clonedResources = await cloneCardResourcesTx(tx, {
       sourceCardId: sourceCard.id,
       destinationCardId: createdCard.id,
+      expectedWorkspaceId: input.expectedWorkspaceId,
       createdBy: input.createdBy,
       subtaskBySourceId,
+      visualWallUploadClones: input.visualWallUploadClones,
     });
     await cloneCardCanvasHeadTx(tx, {
       sourceCardId: sourceCard.id,
@@ -408,6 +516,13 @@ export const duplicateCard = async (
       createdBy: input.createdBy,
       subtaskBySourceId,
       subtaskPublicIdBySourcePublicId,
+      resourcePublicIdBySourcePublicId:
+        clonedResources.resourcePublicIdBySourcePublicId,
+    });
+    await cloneCardVisualWallTx(tx, {
+      sourceCardId: sourceCard.id,
+      destinationCardId: createdCard.id,
+      createdBy: input.createdBy,
       resourcePublicIdBySourcePublicId:
         clonedResources.resourcePublicIdBySourcePublicId,
     });

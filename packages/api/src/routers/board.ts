@@ -1,10 +1,13 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
+import type { PreparedCardVisualWallUploadClone } from "@kan/db/repository/cardVisualWallClone.repo";
 import * as boardRepo from "@kan/db/repository/board.repo";
 import * as boardCreateRepo from "@kan/db/repository/boardCreate.repo";
 import * as boardReadRepo from "@kan/db/repository/boardRead.repo";
 import { PublicVisibilityAcknowledgementError } from "@kan/db/repository/cardResourceVisibility.repo";
+import * as cardVisualWallRepo from "@kan/db/repository/cardVisualWall.repo";
+import * as cardVisualWallCloneRepo from "@kan/db/repository/cardVisualWallClone.repo";
 import { WorkspaceChangedError } from "@kan/db/repository/workspace-boundary";
 import * as workspaceRepo from "@kan/db/repository/workspace.repo";
 import { cardPriorities } from "@kan/db/schema";
@@ -25,12 +28,35 @@ import {
 } from "../schemas";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import {
+  assertBoardVisualWallCloneBudget,
+  assertBoardVisualWallCloneSources,
+  assertWorkspaceVisualWallCloneStorageBudget,
+  deferPreparedCardVisualWallCloneCleanup,
+  MAX_BOARD_VISUAL_WALL_CLONE_RESOURCES,
+  prepareCardVisualWallCloneObjects,
+} from "../utils/card-visual-wall-clone";
+import {
+  acquireVisualWallCloneLease,
+  consumeVisualWallCloneRateLimit,
+  getVisualWallCloneWorkspaceKey,
+  VisualWallCloneRateLimitError,
+} from "../utils/card-visual-wall-clone-rate-limit";
+import {
   assertCanDelete,
   assertCanEdit,
   assertPermission,
 } from "../utils/permissions";
 
 function rethrowWorkspaceChanged(error: unknown): never {
+  if (
+    error instanceof
+    cardVisualWallCloneRepo.CardVisualWallCloneStorageQuotaError
+  ) {
+    throw new TRPCError({
+      code: "PAYLOAD_TOO_LARGE",
+      message: error.message,
+    });
+  }
   if (error instanceof PublicVisibilityAcknowledgementError) {
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
@@ -434,19 +460,117 @@ export const boardRouter = createTRPCRouter({
         if (!isSlugUnique || input.type === "template")
           slug = `${slug}-${generateUID()}`;
 
-        const result = await boardRepo
-          .createFromSnapshot(ctx.db, {
-            workspaceId: workspace.id,
-            expectedSourceWorkspaceId: sourceBoardInfo.workspaceId,
-            createdBy: userId,
-            slug,
-            name: input.name,
-            type: input.type ?? "regular",
-            sourceBoardId: sourceBoardInfo.id,
-          })
-          .catch(rethrowWorkspaceChanged);
+        const visualWallCloneWorkspaceKey = getVisualWallCloneWorkspaceKey(
+          workspace.id,
+        );
+        try {
+          await consumeVisualWallCloneRateLimit(
+            userId,
+            visualWallCloneWorkspaceKey,
+          );
+        } catch (error) {
+          if (!(error instanceof VisualWallCloneRateLimitError)) throw error;
+          throw new TRPCError({
+            code:
+              error.code === "LIMIT_EXCEEDED"
+                ? "TOO_MANY_REQUESTS"
+                : "SERVICE_UNAVAILABLE",
+            message: "VISUAL_WALL_CLONE_RATE_LIMITED",
+          });
+        }
 
-        return result;
+        const releaseVisualWallCloneLease = await acquireVisualWallCloneLease(
+          visualWallCloneWorkspaceKey,
+        ).catch((error: unknown) => {
+          if (!(error instanceof VisualWallCloneRateLimitError)) throw error;
+          throw new TRPCError({
+            code:
+              error.code === "LIMIT_EXCEEDED"
+                ? "TOO_MANY_REQUESTS"
+                : "SERVICE_UNAVAILABLE",
+            message: "VISUAL_WALL_CLONE_BUSY",
+          });
+        });
+        try {
+          const cloneBudget =
+            await cardVisualWallCloneRepo.getBoardVisualWallCloneBudget(
+              ctx.db,
+              {
+                sourceBoardId: sourceBoardInfo.id,
+                expectedWorkspaceId: sourceBoardInfo.workspaceId,
+              },
+            );
+          assertBoardVisualWallCloneBudget(cloneBudget);
+          const visualWallPhysicalBytes =
+            await cardVisualWallCloneRepo.getWorkspaceVisualWallClonePhysicalUsage(
+              ctx.db,
+              sourceBoardInfo.workspaceId,
+            );
+          assertWorkspaceVisualWallCloneStorageBudget({
+            currentBytes: visualWallPhysicalBytes,
+            additionalBytes: cloneBudget.sourceBytes,
+          });
+          const cloneSources =
+            await cardVisualWallCloneRepo.getBoardVisualWallCloneSources(
+              ctx.db,
+              {
+                sourceBoardId: sourceBoardInfo.id,
+                expectedWorkspaceId: sourceBoardInfo.workspaceId,
+                maxResources: MAX_BOARD_VISUAL_WALL_CLONE_RESOURCES,
+              },
+            );
+          assertBoardVisualWallCloneSources(cloneSources);
+          const bySourceCardId = new Map<number, typeof cloneSources>();
+          for (const source of cloneSources) {
+            const current = bySourceCardId.get(source.sourceCardId) ?? [];
+            current.push(source);
+            bySourceCardId.set(source.sourceCardId, current);
+          }
+          const preparedBySourceCardId = new Map<
+            number,
+            PreparedCardVisualWallUploadClone[]
+          >();
+          const copiedKeys: string[] = [];
+          let clonePersisted = false;
+          try {
+            for (const [sourceCardId, sources] of bySourceCardId) {
+              const prepared = await prepareCardVisualWallCloneObjects(
+                ctx.db,
+                sources.map(({ sourceCardId: _, ...source }) => source),
+              );
+              preparedBySourceCardId.set(sourceCardId, prepared.clones);
+              copiedKeys.push(...prepared.copiedKeys);
+              await cardVisualWallRepo.renewPreviewDeletionKeyReservations(
+                ctx.db,
+                copiedKeys,
+              );
+            }
+            await cardVisualWallRepo.renewPreviewDeletionKeyReservations(
+              ctx.db,
+              copiedKeys,
+            );
+            const result = await boardRepo
+              .createFromSnapshot(ctx.db, {
+                workspaceId: workspace.id,
+                expectedSourceWorkspaceId: sourceBoardInfo.workspaceId,
+                createdBy: userId,
+                slug,
+                name: input.name,
+                type: input.type ?? "regular",
+                sourceBoardId: sourceBoardInfo.id,
+                visualWallUploadClonesBySourceCardId: preparedBySourceCardId,
+              })
+              .catch(rethrowWorkspaceChanged);
+            clonePersisted = true;
+            return result;
+          } finally {
+            if (!clonePersisted) {
+              await deferPreparedCardVisualWallCloneCleanup(ctx.db, copiedKeys);
+            }
+          }
+        } finally {
+          await releaseVisualWallCloneLease();
+        }
       }
 
       // Otherwise, create a new board with provided lists and labels

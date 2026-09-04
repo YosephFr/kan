@@ -14,6 +14,7 @@ import type { dbClient } from "@kan/db/client";
 import {
   workspaceCanvasImageReferences,
   workspaceCanvasImages,
+  workspaceVisualWallItems,
   workspaces,
 } from "@kan/db/schema";
 import {
@@ -85,6 +86,17 @@ export const listByWorkspacePublicId = async (
           eq(workspaceCanvasImageReferences.imageId, workspaceCanvasImages.id),
         ),
     );
+    const referencedByWall = exists(
+      tx
+        .select({ id: workspaceVisualWallItems.id })
+        .from(workspaceVisualWallItems)
+        .where(
+          and(
+            eq(workspaceVisualWallItems.imageId, workspaceCanvasImages.id),
+            isNull(workspaceVisualWallItems.deletedAt),
+          ),
+        ),
+    );
     const images = await tx
       .select({
         publicId: workspaceCanvasImages.publicId,
@@ -106,10 +118,11 @@ export const listByWorkspacePublicId = async (
           canEdit
             ? or(
                 referencedByHead,
+                referencedByWall,
                 eq(workspaceCanvasImages.createdBy, input.userId),
                 isNotNull(workspaceCanvasImages.sharedAt),
               )
-            : referencedByHead,
+            : or(referencedByHead, referencedByWall),
         ),
       )
       .orderBy(desc(referencedByHead), desc(workspaceCanvasImages.createdAt))
@@ -297,9 +310,40 @@ export const getForView = async (
       return null;
     }
     const [headReference] = await tx
-      .select({ id: workspaceCanvasImageReferences.id })
-      .from(workspaceCanvasImageReferences)
-      .where(eq(workspaceCanvasImageReferences.imageId, image.id))
+      .select({ id: workspaceCanvasImages.id })
+      .from(workspaceCanvasImages)
+      .where(
+        and(
+          eq(workspaceCanvasImages.id, image.id),
+          or(
+            exists(
+              tx
+                .select({ id: workspaceCanvasImageReferences.id })
+                .from(workspaceCanvasImageReferences)
+                .where(
+                  eq(
+                    workspaceCanvasImageReferences.imageId,
+                    workspaceCanvasImages.id,
+                  ),
+                ),
+            ),
+            exists(
+              tx
+                .select({ id: workspaceVisualWallItems.id })
+                .from(workspaceVisualWallItems)
+                .where(
+                  and(
+                    eq(
+                      workspaceVisualWallItems.imageId,
+                      workspaceCanvasImages.id,
+                    ),
+                    isNull(workspaceVisualWallItems.deletedAt),
+                  ),
+                ),
+            ),
+          ),
+        ),
+      )
       .limit(1);
     if (!headReference) {
       const canEdit = await hasWorkspacePermissionTx(tx, {

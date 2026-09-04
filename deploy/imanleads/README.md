@@ -8,6 +8,8 @@ Kan runs only in remote production for this installation. A push to `main` start
 
 `Deploy production` runs only for a successful `CI` push event on `main`. The production environment serializes releases. The server takes a database and MinIO backup, fast-forwards to the tested SHA, builds, migrates, recreates the stack, installs Nginx and the backup timer, and verifies internal, origin, and public health.
 
+The deployment builds the new images and runs additive migrations while the previous web container keeps serving. It completes the workspace image maintenance, then stops the previous web container, writes a final database and MinIO backup, and runs the idempotent visual-wall backfill with concurrency two. The new web image is started only after the backfill reports zero structural failures and zero pending card previews. If the backfill fails, the previous container is restarted. If the new image fails health checks, its rollback image is restored. The log audit covers canvas and visual-wall routes without printing scenes, image content, URLs, cookies, or authorization headers.
+
 If `main` advances while an older workflow is running, the older revision exits without deployment. A release lock prevents manual and automatic deployments from overlapping.
 
 ## GitHub production environment
@@ -30,7 +32,7 @@ curl --fail --show-error --silent https://work.imanleads.com/api/v1/health
 
 Production rollback is a forward-fix or revert commit on `main`. Once a workspace whiteboard has more than 50 images or 20 MiB of optimized images, the rollback commit must preserve the current workspace-canvas readers, list batching, and byte-budget validation. A literal revert to an older image-limit implementation would leave valid canvases visible but unable to save or restore.
 
-Before the first workspace-image backfill, deployment copies `minio-current` into an immutable SHA-named release snapshot. The snapshot is idempotent for a retry of the same release and must remain available until the backfill and its recovery window are closed.
+Before any service is recreated, deployment writes a PostgreSQL dump and mirrors MinIO. Before the first workspace-image backfill, it also copies `minio-current` into an immutable SHA-named release snapshot. The snapshot is idempotent for a retry of the same release and must remain available until the image and visual-wall backfills and their recovery window are closed. Legacy canvas tables and objects remain untouched by the visual-wall backfill, so rollback can restore the last native whiteboard while the new additive tables are ignored.
 
 ## Attachment limits and cleanup
 

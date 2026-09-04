@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 lock_file="/home/ubuntu/.cache/kan-deploy.lock"
@@ -57,6 +57,15 @@ set +a
 KAN_IMAGE_TAG="$(git rev-parse --short=12 HEAD)"
 export KAN_IMAGE_TAG
 compose=(docker compose --env-file "$repo_dir/.env" -f "$repo_dir/deploy/imanleads/compose.yaml")
+wait_for_web_health() {
+  for attempt in $(seq 1 90); do
+    if curl -fsS http://127.0.0.1:3900/api/v1/health | grep -q '"status":"ok"'; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
 
 mkdir -p /home/ubuntu/.local/bin
 install -m 755 "$repo_dir/deploy/imanleads/ci-deploy-entrypoint.sh" /home/ubuntu/.local/bin/kan-ci-deploy
@@ -68,19 +77,41 @@ if [[ -n "$("${compose[@]}" ps -q postgres 2>/dev/null)" ]]; then
 fi
 
 "${compose[@]}" config --quiet
-"${compose[@]}" up -d --build --remove-orphans
+old_web_container_id="$("${compose[@]}" ps -q web 2>/dev/null || true)"
+old_web_image_id=""
+rollback_image="imanleads/kan-web:rollback-$KAN_IMAGE_TAG"
+old_web_stopped=0
+new_web_activated=0
+deployment_succeeded=0
 
-for attempt in $(seq 1 90); do
-  if curl -fsS http://127.0.0.1:3900/api/v1/health | grep -q '"status":"ok"'; then
-    break
+rollback_on_error() {
+  status=$1
+  trap - ERR
+  set +e
+  if (( deployment_succeeded == 0 && new_web_activated == 1 )) && [[ -n "$old_web_image_id" ]]; then
+    "${compose[@]}" stop -t 30 web
+    docker image tag "$rollback_image" "imanleads/kan-web:$KAN_IMAGE_TAG"
+    "${compose[@]}" up -d --no-deps --force-recreate web
+    wait_for_web_health
+  elif (( deployment_succeeded == 0 && old_web_stopped == 1 )) && [[ -n "$old_web_container_id" ]]; then
+    "${compose[@]}" start web
+    wait_for_web_health
   fi
-  if [[ "$attempt" == "90" ]]; then
-    "${compose[@]}" ps
-    "${compose[@]}" logs --tail 200 web migrate minio-init workspace-canvas-image-backfill
-    exit 1
-  fi
-  sleep 2
-done
+  exit "$status"
+}
+
+trap 'rollback_on_error $?' ERR
+
+if [[ -n "$old_web_container_id" ]]; then
+  old_web_image_id="$(docker inspect --format '{{.Image}}' "$old_web_container_id")"
+  docker image tag "$old_web_image_id" "$rollback_image"
+fi
+
+"${compose[@]}" up -d --wait postgres redis minio
+"${compose[@]}" run --rm --no-deps minio-init
+"${compose[@]}" --profile maintenance build \
+  migrate web workspace-canvas-image-backfill visual-wall-backfill
+"${compose[@]}" run --rm --no-deps migrate
 
 legacy_workspace_canvas_images="$(
   "${compose[@]}" exec -T postgres psql \
@@ -99,12 +130,45 @@ if (( legacy_workspace_canvas_images > 0 )); then
 fi
 
 set +e
-"${compose[@]}" --profile maintenance run --rm --build --no-deps \
+"${compose[@]}" --profile maintenance run --rm --no-deps \
   workspace-canvas-image-backfill
-backfill_status=$?
+workspace_backfill_status=$?
 set -e
 
-curl -fsS http://127.0.0.1:3900/api/v1/health | grep -q '"status":"ok"'
+if (( workspace_backfill_status != 0 )); then
+  "${compose[@]}" logs --tail 200 workspace-canvas-image-backfill
+  printf '%s\n' "Workspace canvas image backfill failed with status $workspace_backfill_status" >&2
+  exit "$workspace_backfill_status"
+fi
+
+if [[ -n "$old_web_container_id" ]]; then
+  old_web_stopped=1
+  "${compose[@]}" stop -t 30 web
+fi
+
+"$repo_dir/deploy/imanleads/backup.sh"
+"$repo_dir/deploy/imanleads/snapshot-minio-backup.sh" "$deployed_sha"
+
+set +e
+"${compose[@]}" --profile maintenance run --rm --no-deps \
+  visual-wall-backfill
+visual_wall_backfill_status=$?
+set -e
+
+if (( visual_wall_backfill_status != 0 )); then
+  "${compose[@]}" logs --tail 200 visual-wall-backfill
+  printf '%s\n' "Visual wall backfill failed with status $visual_wall_backfill_status" >&2
+  rollback_on_error "$visual_wall_backfill_status"
+fi
+
+new_web_activated=1
+"${compose[@]}" up -d --no-deps --force-recreate web
+if ! wait_for_web_health; then
+  "${compose[@]}" ps
+  "${compose[@]}" logs --tail 200 web
+  printf '%s\n' "New web image failed health validation" >&2
+  rollback_on_error 1
+fi
 
 "$repo_dir/deploy/imanleads/install-nginx.sh"
 sudo install -m 644 "$repo_dir/deploy/imanleads/kan-backup.service" /etc/systemd/system/kan-backup.service
@@ -118,10 +182,9 @@ curl -kfsS --resolve work.imanleads.com:443:127.0.0.1 \
 "${compose[@]}" logs --since 30m --no-color web 2>&1 | \
   "$repo_dir/deploy/imanleads/audit-workspace-canvas-logs.sh"
 
+deployment_succeeded=1
+trap - ERR
+docker image rm "$rollback_image" >/dev/null 2>&1 || true
+
 git rev-parse HEAD
 "${compose[@]}" ps
-
-if (( backfill_status != 0 )); then
-  printf '%s\n' "Workspace canvas image backfill failed with status $backfill_status" >&2
-  exit "$backfill_status"
-fi

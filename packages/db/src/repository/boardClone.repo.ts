@@ -18,7 +18,10 @@ import type { WorkspaceBoundaryTransaction } from "./workspace-boundary";
 import { cloneCardCanvasHeadTx } from "./cardCanvasClone.repo";
 import { clonePipelineForCardTx } from "./cardPipeline.repo";
 import { cloneCardResourcesTx } from "./cardResourceClone.repo";
+import { cloneCardVisualWallTx } from "./cardVisualWallClone.repo";
+import type { PreparedCardVisualWallUploadClone } from "./cardVisualWallClone.repo";
 import {
+  assertWorkspacePermissionTx,
   lockBoardTreeInWorkspace,
   WorkspaceChangedError,
 } from "./workspace-boundary";
@@ -221,6 +224,10 @@ export const createFromSnapshot = async (
     name?: string;
     type: "regular" | "template";
     sourceBoardId?: number;
+    visualWallUploadClonesBySourceCardId?: ReadonlyMap<
+      number,
+      readonly PreparedCardVisualWallUploadClone[]
+    >;
   },
 ) =>
   db.transaction(async (tx) => {
@@ -242,8 +249,22 @@ export const createFromSnapshot = async (
         tx,
         args.sourceBoardId,
         args.expectedSourceWorkspaceId,
-        { cardLock: "update", boardLock: "update" },
+        {
+          cardLock: "update",
+          boardLock: "update",
+          workspaceLock: "update",
+        },
       );
+      await assertWorkspacePermissionTx(tx, {
+        workspaceId: args.expectedSourceWorkspaceId,
+        userId: args.createdBy,
+        permission: "board:view",
+      });
+      await assertWorkspacePermissionTx(tx, {
+        workspaceId: args.workspaceId,
+        userId: args.createdBy,
+        permission: "board:create",
+      });
       cloneSource = await getLiveSource(tx, args.sourceBoardId);
       if (!cloneSource) throw new WorkspaceChangedError();
       sourceCardRows =
@@ -374,11 +395,14 @@ export const createFromSnapshot = async (
           const clonedResources = await cloneCardResourcesTx(tx, {
             sourceCardId,
             destinationCardId: createdCard.id,
+            expectedWorkspaceId: args.workspaceId,
             createdBy: args.createdBy,
             subtaskBySourceId:
               cloneResult.status === "cloned"
                 ? cloneResult.subtaskBySourceId
                 : undefined,
+            visualWallUploadClones:
+              args.visualWallUploadClonesBySourceCardId?.get(sourceCardId),
           });
           skippedResourceCount += clonedResources.skippedUploadCount;
           await cloneCardCanvasHeadTx(tx, {
@@ -393,6 +417,13 @@ export const createFromSnapshot = async (
               cloneResult.status === "cloned"
                 ? cloneResult.subtaskPublicIdBySourcePublicId
                 : undefined,
+            resourcePublicIdBySourcePublicId:
+              clonedResources.resourcePublicIdBySourcePublicId,
+          });
+          await cloneCardVisualWallTx(tx, {
+            sourceCardId,
+            destinationCardId: createdCard.id,
+            createdBy: args.createdBy,
             resourcePublicIdBySourcePublicId:
               clonedResources.resourcePublicIdBySourcePublicId,
           });

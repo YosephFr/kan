@@ -344,6 +344,41 @@
       "when": 1788185651684,
       "tag": "20260831141411_TrackWorkspaceCanvasImageStorageUsage",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1788536575325,
+      "tag": "20260904154255_VisualWalls",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1788537688133,
+      "tag": "20260904160128_VisualWallPreviewCleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1788538391486,
+      "tag": "20260904161311_VisualWallItemTombstones",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1788539400000,
+      "tag": "20260904163000_ReactivateVisualWallCleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1788540300000,
+      "tag": "20260904164500_PruneCompletedVisualWallCleanup",
+      "breakpoints": true
     }
   ]
 }

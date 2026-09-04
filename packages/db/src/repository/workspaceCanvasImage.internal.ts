@@ -19,6 +19,7 @@ import {
   workspaceCanvases,
   workspaceCanvasImageReferences,
   workspaceCanvasImages,
+  workspaceVisualWallItems,
   workspaceCanvasImageStorageDeletions,
   workspaceCanvasImageUploadSessions,
   workspaceCanvasRevisions,
@@ -95,6 +96,17 @@ export const getActiveImageUsage = async (
         eq(workspaceCanvasImageReferences.imageId, workspaceCanvasImages.id),
       ),
   );
+  const referencedByWall = exists(
+    tx
+      .select({ id: workspaceVisualWallItems.id })
+      .from(workspaceVisualWallItems)
+      .where(
+        and(
+          eq(workspaceVisualWallItems.imageId, workspaceCanvasImages.id),
+          isNull(workspaceVisualWallItems.deletedAt),
+        ),
+      ),
+  );
   const [usage] = await tx
     .select({
       count: count(),
@@ -105,7 +117,11 @@ export const getActiveImageUsage = async (
       and(
         eq(workspaceCanvasImages.workspaceId, workspaceId),
         isNull(workspaceCanvasImages.deletedAt),
-        or(referencedByHead, isNull(workspaceCanvasImages.sharedAt)),
+        or(
+          referencedByHead,
+          referencedByWall,
+          isNull(workspaceCanvasImages.sharedAt),
+        ),
       ),
     );
   return {
@@ -248,9 +264,40 @@ export const hasHeadReference = async (tx: DbTransaction, imageId: number) =>
   Boolean(
     (
       await tx
-        .select({ id: workspaceCanvasImageReferences.id })
-        .from(workspaceCanvasImageReferences)
-        .where(eq(workspaceCanvasImageReferences.imageId, imageId))
+        .select({ id: workspaceCanvasImages.id })
+        .from(workspaceCanvasImages)
+        .where(
+          and(
+            eq(workspaceCanvasImages.id, imageId),
+            or(
+              exists(
+                tx
+                  .select({ id: workspaceCanvasImageReferences.id })
+                  .from(workspaceCanvasImageReferences)
+                  .where(
+                    eq(
+                      workspaceCanvasImageReferences.imageId,
+                      workspaceCanvasImages.id,
+                    ),
+                  ),
+              ),
+              exists(
+                tx
+                  .select({ id: workspaceVisualWallItems.id })
+                  .from(workspaceVisualWallItems)
+                  .where(
+                    and(
+                      eq(
+                        workspaceVisualWallItems.imageId,
+                        workspaceCanvasImages.id,
+                      ),
+                      isNull(workspaceVisualWallItems.deletedAt),
+                    ),
+                  ),
+              ),
+            ),
+          ),
+        )
         .limit(1)
     )[0],
   );
@@ -353,6 +400,15 @@ export const reclaimWorkspaceCanvasImagesTx = async (
       .where(
         eq(workspaceCanvasImageReferences.imageId, workspaceCanvasImages.id),
       );
+    const wallReferenceQuery = tx
+      .select({ id: workspaceVisualWallItems.id })
+      .from(workspaceVisualWallItems)
+      .where(
+        and(
+          eq(workspaceVisualWallItems.imageId, workspaceCanvasImages.id),
+          isNull(workspaceVisualWallItems.deletedAt),
+        ),
+      );
     const candidates = await tx
       .select({
         id: workspaceCanvasImages.id,
@@ -368,6 +424,7 @@ export const reclaimWorkspaceCanvasImagesTx = async (
           isNull(workspaceCanvasImages.deletedAt),
           isNull(workspaceCanvasImages.storageDeletedAt),
           notExists(headReferenceQuery),
+          notExists(wallReferenceQuery),
           or(
             and(
               isNotNull(workspaceCanvasImages.sharedAt),

@@ -12,6 +12,9 @@ import {
   cards,
   cardSubtaskResources,
   cardSubtasks,
+  cardVisualWallItems,
+  cardVisualWallPreviews,
+  cardVisualWallPreviewStorageDeletions,
   lists,
   workspaces,
 } from "@kan/db/schema";
@@ -601,7 +604,18 @@ export const softDeleteWithWorkspaceGuard = async (
         ),
       );
     const referenceCount = usage?.count ?? 0;
+    const [wallUsage] = await tx
+      .select({ count: sql<number>`count(*)`.mapWith(Number) })
+      .from(cardVisualWallItems)
+      .where(
+        and(
+          eq(cardVisualWallItems.resourceId, row.id),
+          isNull(cardVisualWallItems.deletedAt),
+        ),
+      );
+    const visualWallReferenceCount = wallUsage?.count ?? 0;
     if (
+      visualWallReferenceCount > 0 ||
       (referenceCount > 0 && !input.removeReferences) ||
       (canvasReferenceCount > 0 && !input.canvasAction)
     ) {
@@ -613,7 +627,11 @@ export const softDeleteWithWorkspaceGuard = async (
           canvasVersion: canvasHead.version,
         };
       }
-      return { status: "in_use" as const, referenceCount };
+      return {
+        status: "in_use" as const,
+        referenceCount,
+        visualWallReferenceCount,
+      };
     }
 
     let uploadAttachmentId: number | null = null;
@@ -684,6 +702,37 @@ export const softDeleteWithWorkspaceGuard = async (
     }
 
     const deletedAt = new Date();
+    const [orphanedPreview] = await tx
+      .update(cardVisualWallPreviews)
+      .set({ deletedAt })
+      .where(
+        and(
+          eq(cardVisualWallPreviews.resourceId, row.id),
+          isNull(cardVisualWallPreviews.deletedAt),
+        ),
+      )
+      .returning({
+        s3Key: cardVisualWallPreviews.s3Key,
+        size: cardVisualWallPreviews.size,
+      });
+    if (orphanedPreview) {
+      await tx
+        .insert(cardVisualWallPreviewStorageDeletions)
+        .values({
+          s3Key: orphanedPreview.s3Key,
+          size: orphanedPreview.size,
+        })
+        .onConflictDoUpdate({
+          target: cardVisualWallPreviewStorageDeletions.s3Key,
+          set: {
+            size: orphanedPreview.size,
+            attempts: 0,
+            lastAttemptAt: null,
+            availableAt: deletedAt,
+            completedAt: null,
+          },
+        });
+    }
     if (referenceCount > 0) {
       await tx
         .update(cardSubtaskResources)

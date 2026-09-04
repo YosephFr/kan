@@ -76,7 +76,16 @@ ENV NODE_ENV=production
 CMD ["pnpm", "--filter", "@kan/api", "backfill:workspace-canvas-images"]
 
 # ============================================
-# Stage 6: Migration image (run-once container)
+# Stage 6: Visual wall backfill
+# ============================================
+FROM builder AS visual-wall-backfill
+
+ENV NODE_ENV=production
+
+CMD ["pnpm", "--filter", "@kan/api", "backfill:visual-walls"]
+
+# ============================================
+# Stage 7: Migration image (run-once container)
 # ============================================
 FROM node:${NODE_VERSION}-alpine AS migrate
 WORKDIR /db
@@ -107,7 +116,7 @@ RUN npm init -y && \
 CMD ["npx", "drizzle-kit", "migrate"]
 
 # ============================================
-# Stage 7: Production web image (distroless)
+# Stage 8: Production web image (distroless)
 # ============================================
 FROM ${DISTROLESS_NODE_IMAGE} AS web
 WORKDIR /app
