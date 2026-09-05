@@ -90,15 +90,32 @@ describe("visual wall interactions", () => {
 
   it("promotes a selected item above the current top layer", () => {
     expect(promoteVisualWallItem(item, 7)).toMatchObject({ zIndex: 8 });
-    expect(promoteVisualWallItem({ ...item, zIndex: 7 }, 7)).toMatchObject({
-      zIndex: 8,
-    });
     expect(
       promoteVisualWallItem(
         { ...item, zIndex: MAX_VISUAL_WALL_Z_INDEX - 1 },
         MAX_VISUAL_WALL_Z_INDEX,
       ),
     ).toMatchObject({ zIndex: MAX_VISUAL_WALL_Z_INDEX });
+  });
+
+  it("keeps an already-frontmost image unchanged when it is selected again", () => {
+    expect(promoteVisualWallItem(item, item.zIndex)).toBe(item);
+  });
+
+  it("keeps a panorama proportional when its Pencil handle reaches minimum size", () => {
+    const panorama = { ...item, width: 704, height: 44 };
+    const { patch, moved } = getVisualWallPointerPatch({
+      item: panorama,
+      kind: "resize",
+      startClientX: 200,
+      startClientY: 200,
+      clientX: 20,
+      clientY: 100,
+      scale: 0.25,
+    });
+    expect(moved).toBe(true);
+    expect(patch.width).toBe(704);
+    expect(patch.height).toBe(44);
   });
 
   it("assigns new items distinct layers above the current wall", () => {

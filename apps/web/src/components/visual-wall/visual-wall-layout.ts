@@ -12,21 +12,50 @@ export interface VisualWallRect {
   height: number;
 }
 
+export const getVisualWallImageDimensions = (
+  item: Pick<VisualWallRect, "width" | "height"> & {
+    widthPx?: number | null;
+    heightPx?: number | null;
+  },
+) => {
+  const width = item.widthPx ?? 0;
+  const height = item.heightPx ?? 0;
+  const hasNaturalDimensions =
+    Number.isFinite(width) &&
+    Number.isFinite(height) &&
+    width > 0 &&
+    height > 0;
+  return {
+    width: Math.max(1, Math.round(hasNaturalDimensions ? width : item.width)),
+    height: Math.max(
+      1,
+      Math.round(hasNaturalDimensions ? height : item.height),
+    ),
+  };
+};
+
 const finiteOr = (value: number, fallback: number) =>
   Number.isFinite(value) ? value : fallback;
+
+const positiveOr = (value: number, fallback: number) =>
+  Number.isFinite(value) && value > 0 ? value : fallback;
 
 export const clampVisualWallRect = (
   rect: VisualWallRect,
   logicalWidth = VISUAL_WALL_LOGICAL_WIDTH,
 ): VisualWallRect => {
-  const safeWidth = Math.min(
-    logicalWidth,
-    Math.max(VISUAL_WALL_MIN_ITEM_WIDTH, finiteOr(rect.width, 320)),
+  const width = positiveOr(rect.width, 320);
+  const height = positiveOr(rect.height, 240);
+  const ratio = positiveOr(width / height, 4 / 3);
+  const maxWidth = Math.max(
+    VISUAL_WALL_MIN_ITEM_HEIGHT,
+    Math.min(logicalWidth, VISUAL_WALL_MAX_LOGICAL_HEIGHT * ratio),
   );
-  const ratio = Math.max(
-    0.01,
-    finiteOr(rect.width, 320) / Math.max(1, finiteOr(rect.height, 240)),
+  const minWidth = Math.min(
+    maxWidth,
+    Math.max(VISUAL_WALL_MIN_ITEM_WIDTH, VISUAL_WALL_MIN_ITEM_HEIGHT * ratio),
   );
+  const safeWidth = Math.min(maxWidth, Math.max(minWidth, width));
   const safeHeight = Math.min(
     VISUAL_WALL_MAX_LOGICAL_HEIGHT,
     Math.max(VISUAL_WALL_MIN_ITEM_HEIGHT, safeWidth / ratio),
@@ -47,21 +76,24 @@ export const resizeVisualWallRect = (
   deltaX: number,
   deltaY: number,
 ): VisualWallRect => {
-  const ratio = rect.width / Math.max(1, rect.height);
+  const bounded = clampVisualWallRect(rect);
+  const ratio = bounded.width / bounded.height;
   const projectedWidthDelta = (deltaX + deltaY / ratio) / (1 + 1 / ratio ** 2);
+  const width = Math.max(1, bounded.width + projectedWidthDelta);
   return clampVisualWallRect({
-    ...rect,
-    width: rect.width + projectedWidthDelta,
-    height: (rect.width + projectedWidthDelta) / ratio,
+    ...bounded,
+    width,
+    height: width / ratio,
   });
 };
 
 export const getVisualWallLogicalHeight = (
   items: readonly Pick<VisualWallRect, "y" | "height">[],
 ) =>
-  Math.max(
+  items.reduce(
+    (height, item) =>
+      Math.max(height, item.y + item.height + VISUAL_WALL_BOTTOM_PADDING),
     VISUAL_WALL_MIN_HEIGHT,
-    ...items.map((item) => item.y + item.height + VISUAL_WALL_BOTTOM_PADDING),
   );
 
 export const getVisualWallScale = (renderedWidth: number) =>
@@ -100,24 +132,27 @@ export const placeVisualWallImages = (
   let y =
     existing.length === 0
       ? gap
-      : Math.max(...existing.map((item) => item.y + item.height)) + gap * 2;
+      : existing.reduce(
+          (bottom, item) => Math.max(bottom, item.y + item.height),
+          0,
+        ) +
+        gap * 2;
   let rowHeight = 0;
 
   return images.map((image) => {
-    const ratio = Math.max(0.01, image.width / Math.max(1, image.height));
-    const rect = clampVisualWallRect({
-      x,
-      y,
+    const ratio = positiveOr(image.width, 320) / positiveOr(image.height, 240);
+    const size = clampVisualWallRect({
+      x: 0,
+      y: 0,
       width: displayWidth,
       height: displayWidth / ratio,
     });
-    if (x > gap && x + rect.width > VISUAL_WALL_LOGICAL_WIDTH - gap) {
+    if (x > gap && x + size.width > VISUAL_WALL_LOGICAL_WIDTH - gap) {
       x = gap;
       y += rowHeight + gap;
       rowHeight = 0;
-      rect.x = x;
-      rect.y = y;
     }
+    const rect = normalizeVisualWallRect({ ...size, x, y });
     x += rect.width + gap;
     rowHeight = Math.max(rowHeight, rect.height);
     return rect;

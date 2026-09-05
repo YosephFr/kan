@@ -11,6 +11,7 @@ export const promoteVisualWallItem = (
   item: VisualWallItem,
   maxZIndex: number,
 ) => {
+  if (item.zIndex >= maxZIndex) return item;
   if (maxZIndex < MAX_VISUAL_WALL_Z_INDEX) {
     return { ...item, zIndex: maxZIndex + 1 };
   }
@@ -26,7 +27,7 @@ export const getNextVisualWallZIndex = (
 ) =>
   Math.min(
     MAX_VISUAL_WALL_Z_INDEX,
-    Math.max(0, ...items.map((item) => item.zIndex)) + offset,
+    items.reduce((max, item) => Math.max(max, item.zIndex), 0) + offset,
   );
 
 export const getVisualWallPointerPatch = (input: {

@@ -9,12 +9,23 @@ import Button from "~/components/Button";
 export function CardVisualWallResourceDialog({
   open,
   resources,
+  existingPreviews,
   busy,
   onClose,
   onAdd,
 }: {
   open: boolean;
   resources: UploadCardResource[];
+  existingPreviews?: Readonly<
+    Record<
+      string,
+      {
+        viewUrl: string;
+        widthPx: number | null;
+        heightPx: number | null;
+      }
+    >
+  >;
   busy: boolean;
   onClose: () => void;
   onAdd: (resource: UploadCardResource) => void | Promise<void>;
@@ -73,12 +84,17 @@ export function CardVisualWallResourceDialog({
                       <span className="relative block aspect-[4/3] overflow-hidden">
                         {resource.viewUrl && (
                           <Image
-                            src={resource.viewUrl}
+                            src={
+                              existingPreviews?.[resource.publicId]?.viewUrl ??
+                              resource.viewUrl
+                            }
                             alt=""
                             fill
                             sizes="(max-width: 640px) 50vw, 220px"
                             unoptimized
-                            className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                            loading="lazy"
+                            decoding="async"
+                            className="object-contain"
                           />
                         )}
                       </span>

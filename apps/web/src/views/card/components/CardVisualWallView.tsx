@@ -11,15 +11,16 @@ import { usePopup } from "~/providers/popup";
 import { api } from "~/utils/api";
 import { isPublicVisibilityAcknowledgementError } from "~/utils/card-workspace";
 import { invalidateCard } from "~/utils/cardInvalidation";
+import { applySavedVisualWallChange } from "../../../components/visual-wall/visual-wall-cache";
 import { getNextVisualWallZIndex } from "../../../components/visual-wall/visual-wall-interactions";
-import { normalizeVisualWallRect } from "../../../components/visual-wall/visual-wall-layout";
+import {
+  normalizeVisualWallRect,
+  placeVisualWallImages,
+} from "../../../components/visual-wall/visual-wall-layout";
 import { validateAttachmentFile } from "./attachment-upload";
 import { CardVisualWallResourceDialog } from "./CardVisualWallResourceDialog";
 import { hashResourceFile, uploadResourceFile } from "./resource-upload-queue";
 
-const WALL_ITEM_WIDTH = 352;
-const WALL_ITEM_GAP = 24;
-const WALL_COLUMNS = 3;
 const SUPPORTED_IMAGE_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -87,31 +88,19 @@ export const getAppendPosition = (
   index: number,
   ratios: readonly number[],
 ) => {
-  const baseY =
-    items.length === 0
-      ? WALL_ITEM_GAP
-      : Math.max(...items.map((item) => item.y + item.height)) + WALL_ITEM_GAP;
-  const row = Math.floor(index / WALL_COLUMNS);
-  let rowOffset = 0;
-  for (let precedingRow = 0; precedingRow < row; precedingRow += 1) {
-    const start = precedingRow * WALL_COLUMNS;
-    const heights = ratios
-      .slice(start, start + WALL_COLUMNS)
-      .map((ratio) => WALL_ITEM_WIDTH / Math.max(0.2, ratio));
-    rowOffset += Math.max(...heights, 0) + WALL_ITEM_GAP;
-  }
-  return {
-    ...normalizeVisualWallRect({
-      x: Math.round(
-        WALL_ITEM_GAP +
-          (index % WALL_COLUMNS) * (WALL_ITEM_WIDTH + WALL_ITEM_GAP),
-      ),
-      y: Math.round(baseY + rowOffset),
-      width: WALL_ITEM_WIDTH,
-      height: Math.round(
-        WALL_ITEM_WIDTH / Math.max(0.2, ratios[index] ?? 4 / 3),
-      ),
+  const placement = placeVisualWallImages(
+    items,
+    Array.from({ length: index + 1 }, (_, imageIndex) => {
+      const ratio = ratios[imageIndex];
+      return {
+        width: ratio && Number.isFinite(ratio) && ratio > 0 ? ratio : 4 / 3,
+        height: 1,
+      };
     }),
+  )[index];
+  if (!placement) throw new Error("VISUAL_WALL_IMAGE_PLACEMENT_MISSING");
+  return {
+    ...normalizeVisualWallRect(placement),
     zIndex: getNextVisualWallZIndex(items, index + 1),
   };
 };
@@ -153,6 +142,11 @@ export function CardVisualWallView({
 
   const wall = wallQuery.data;
   const items = useMemo(() => wall?.items ?? [], [wall?.items]);
+  const existingPreviews = useMemo(
+    () =>
+      Object.fromEntries(items.map((item) => [item.resourcePublicId, item])),
+    [items],
+  );
   const effectiveCanEdit = canEdit && wall?.viewModeEnabled !== true;
   const controlsEnabled =
     effectiveCanEdit && (!isPublicBoard || publicVisibilityAcknowledged);
@@ -166,13 +160,33 @@ export function CardVisualWallView({
   useEffect(() => {
     if (!wall) return;
     onContentChange?.(wall.items.length > 0 || Boolean(wall.freeformUrl));
-  }, [onContentChange, wall?.freeformUrl, wall?.items.length]);
+  }, [onContentChange, wall]);
 
   const refreshWall = useCallback(async () => {
     const result = await wallQuery.refetch();
     if (result.data) versionRef.current = result.data.version;
     return result.data;
   }, [wallQuery]);
+
+  type WallSnapshot = NonNullable<typeof wallQuery.data>;
+
+  const acceptSavedSnapshot = useCallback(
+    async (
+      saved: { version: number; updatedAt: Date },
+      update: (snapshot: WallSnapshot) => WallSnapshot,
+    ) => {
+      await utils.cardVisualWall.get.cancel({ cardPublicId });
+      const cache = { accepted: false };
+      utils.cardVisualWall.get.setData({ cardPublicId }, (current) => {
+        const next = applySavedVisualWallChange(current, saved, update);
+        cache.accepted = next !== undefined;
+        versionRef.current = Math.max(versionRef.current, next?.version ?? 0);
+        return next ?? current;
+      });
+      if (!cache.accepted) await refreshWall();
+    },
+    [cardPublicId, refreshWall, utils.cardVisualWall.get],
+  );
 
   const handleMutationError = useCallback(
     (error: unknown) => {
@@ -197,7 +211,8 @@ export function CardVisualWallView({
   const enqueueMutation = useCallback(
     (
       run: (expectedVersion: number) => Promise<WallMutationResult>,
-      afterSave?: () => void | Promise<void>,
+      updateSnapshot?: (snapshot: WallSnapshot) => WallSnapshot,
+      refreshCard = true,
     ) => {
       setPendingCount((current) => current + 1);
       const task = mutationQueueRef.current
@@ -229,13 +244,16 @@ export function CardVisualWallView({
             await refreshWall();
             throw new Error(WALL_MUTATION_ABORTED);
           }
-          versionRef.current = result.version;
-          await afterSave?.();
-          await Promise.all([
-            refreshWall(),
-            invalidateCard(utils, cardPublicId),
-            utils.board.byId.invalidate(),
-          ]);
+          versionRef.current = Math.max(versionRef.current, result.version);
+          await (updateSnapshot
+            ? acceptSavedSnapshot(result, updateSnapshot)
+            : refreshWall());
+          if (refreshCard) {
+            await Promise.all([
+              invalidateCard(utils, cardPublicId),
+              utils.board.byId.invalidate(),
+            ]);
+          }
         })
         .catch((error: unknown) => {
           if (!isWallMutationAborted(error)) handleMutationError(error);
@@ -247,8 +265,8 @@ export function CardVisualWallView({
     },
     [
       cardPublicId,
+      acceptSavedSnapshot,
       handleMutationError,
-      onContentChange,
       refreshWall,
       showPopup,
       utils,
@@ -258,9 +276,12 @@ export function CardVisualWallView({
   const addStoredResource = useCallback(
     async (resource: UploadCardResource, position?: VisualWallItemPatch) => {
       if (!resource.viewUrl || !controlsEnabled) return;
+      const preview = existingPreviews[resource.publicId];
       const ratio = position
         ? position.width / Math.max(1, position.height)
-        : await getResourceAspectRatio(resource.viewUrl);
+        : preview?.widthPx && preview.heightPx
+          ? preview.widthPx / preview.heightPx
+          : await getResourceAspectRatio(preview?.viewUrl ?? resource.viewUrl);
       const placement = position ?? getAppendPosition(items, 0, [ratio]);
       await enqueueMutation((expectedVersion) =>
         addResource.mutateAsync({
@@ -278,6 +299,7 @@ export function CardVisualWallView({
       cardPublicId,
       controlsEnabled,
       enqueueMutation,
+      existingPreviews,
       items,
       visibilityAcknowledgement,
     ],
@@ -467,38 +489,58 @@ export function CardVisualWallView({
         onFiles={uploadFiles}
         onAddFromResources={() => setResourceDialogOpen(true)}
         onUpdate={(itemPublicId, patch: VisualWallItemPatch) =>
-          enqueueMutation((expectedVersion) =>
-            updateItem.mutateAsync({
-              cardPublicId,
-              itemPublicId,
-              expectedVersion,
-              ...roundWallPatch(patch),
+          enqueueMutation(
+            (expectedVersion) =>
+              updateItem.mutateAsync({
+                cardPublicId,
+                itemPublicId,
+                expectedVersion,
+                ...roundWallPatch(patch),
+              }),
+            (snapshot) => ({
+              ...snapshot,
+              items: snapshot.items.map((item) =>
+                item.publicId === itemPublicId
+                  ? { ...item, ...roundWallPatch(patch) }
+                  : item,
+              ),
             }),
+            false,
           )
         }
         onRemove={(itemPublicId) =>
-          enqueueMutation((expectedVersion) =>
-            removeItem.mutateAsync({
-              cardPublicId,
-              itemPublicId,
-              expectedVersion,
+          enqueueMutation(
+            (expectedVersion) =>
+              removeItem.mutateAsync({
+                cardPublicId,
+                itemPublicId,
+                expectedVersion,
+              }),
+            (snapshot) => ({
+              ...snapshot,
+              items: snapshot.items.filter(
+                (item) => item.publicId !== itemPublicId,
+              ),
             }),
           )
         }
         onSetFreeformUrl={(freeformUrl) =>
-          enqueueMutation((expectedVersion) =>
-            setFreeformLink.mutateAsync({
-              cardPublicId,
-              expectedVersion,
-              freeformUrl,
-              publicVisibilityAcknowledged: visibilityAcknowledgement,
-            }),
+          enqueueMutation(
+            (expectedVersion) =>
+              setFreeformLink.mutateAsync({
+                cardPublicId,
+                expectedVersion,
+                freeformUrl,
+                publicVisibilityAcknowledged: visibilityAcknowledgement,
+              }),
+            (snapshot) => ({ ...snapshot, freeformUrl }),
           )
         }
       />
       <CardVisualWallResourceDialog
         open={resourceDialogOpen}
         resources={availableResources}
+        existingPreviews={existingPreviews}
         busy={pendingCount > 0 || resourcesQuery.isLoading}
         onClose={() => setResourceDialogOpen(false)}
         onAdd={addStoredResource}

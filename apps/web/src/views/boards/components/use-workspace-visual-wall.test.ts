@@ -3,10 +3,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useWorkspaceVisualWall } from "./use-workspace-visual-wall";
 
 interface MockWallData {
+  exists?: boolean;
   version: number;
+  updatedAt?: Date | null;
   freeformUrl: string | null;
   viewModeEnabled: boolean;
-  items: { zIndex: number }[];
+  items: {
+    publicId: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    zIndex: number;
+  }[];
 }
 
 type EffectCleanup = void | (() => void);
@@ -57,6 +66,14 @@ const mocks = vi.hoisted(() => ({
   deleteImage: vi.fn<(input: Record<string, unknown>) => Promise<void>>(),
   hashResourceFile: vi.fn<(file: File) => Promise<string>>(),
   invalidate: vi.fn<(input: Record<string, unknown>) => Promise<void>>(),
+  cancel: vi.fn<(input: Record<string, unknown>) => Promise<void>>(),
+  setData:
+    vi.fn<
+      (
+        input: Record<string, unknown>,
+        update: (current: MockWallData | undefined) => MockWallData | undefined,
+      ) => void
+    >(),
   refetch: vi.fn<() => Promise<unknown>>(),
   removeItem:
     vi.fn<
@@ -132,7 +149,13 @@ vi.mock("~/providers/popup", () => ({
 vi.mock("~/utils/api", () => ({
   api: {
     useUtils: () => ({
-      workspaceVisualWall: { get: { invalidate: mocks.invalidate } },
+      workspaceVisualWall: {
+        get: {
+          invalidate: mocks.invalidate,
+          cancel: mocks.cancel,
+          setData: mocks.setData,
+        },
+      },
     }),
     workspaceCanvas: {
       confirmImageUpload: {
@@ -299,12 +322,109 @@ beforeEach(() => {
   mocks.hashResourceFile.mockResolvedValue("sha256");
   mocks.deleteImage.mockResolvedValue(undefined);
   mocks.invalidate.mockResolvedValue(undefined);
+  mocks.cancel.mockResolvedValue(undefined);
+  mocks.setData.mockImplementation((_input, update) => {
+    mocks.wallQuery.data = update(mocks.wallQuery.data);
+  });
   mocks.refetch.mockResolvedValue(undefined);
   mocks.uploadResourceFile.mockResolvedValue(undefined);
   mocks.validateImage.mockReturnValue("image/png");
 });
 
 describe("useWorkspaceVisualWall", () => {
+  it("saves repeated moves locally after acknowledgement with no redundant wall reads", async () => {
+    const runtime = createHookRuntime();
+    const hook = loadWall(runtime, "workspace-a", 4);
+    const item = {
+      publicId: "item-1",
+      x: 24,
+      y: 24,
+      width: 320,
+      height: 240,
+      zIndex: 1,
+    };
+    if (mocks.wallQuery.data) mocks.wallQuery.data.items = [item];
+    mocks.updateItem
+      .mockResolvedValueOnce({ status: "saved", version: 5 })
+      .mockResolvedValueOnce({ status: "saved", version: 6 });
+    const patch = { x: 120, y: 240, width: 320, height: 240, zIndex: 2 };
+
+    await hook.onUpdate("item-1", patch);
+    await hook.onUpdate("item-1", { ...patch, x: 144 });
+
+    expect(mocks.wallQuery.data?.version).toBe(6);
+    expect(mocks.wallQuery.data?.items[0]).toEqual({
+      ...item,
+      ...patch,
+      x: 144,
+    });
+    expect(
+      mocks.updateItem.mock.calls.map(([input]) => input.expectedVersion),
+    ).toEqual([4, 5]);
+    expect(mocks.cancel).toHaveBeenCalledTimes(2);
+    expect(mocks.invalidate).not.toHaveBeenCalled();
+    expect(mocks.refetch).not.toHaveBeenCalled();
+    runtime.dispose();
+  });
+
+  it("never applies a failed permission mutation to the cached wall", async () => {
+    const runtime = createHookRuntime();
+    const hook = loadWall(runtime, "workspace-a", 4);
+    mocks.updateItem.mockRejectedValue(new Error("FORBIDDEN"));
+
+    await expect(
+      hook.onUpdate("item-1", {
+        x: 120,
+        y: 240,
+        width: 320,
+        height: 240,
+        zIndex: 2,
+      }),
+    ).rejects.toThrow("FORBIDDEN");
+
+    expect(mocks.setData).not.toHaveBeenCalled();
+    expect(mocks.wallQuery.data?.version).toBe(4);
+    expect(mocks.invalidate).toHaveBeenCalledWith({
+      workspacePublicId: "workspace-a",
+    });
+    runtime.dispose();
+  });
+
+  it("does not replay acknowledged edits over a newer remote snapshot", async () => {
+    const runtime = createHookRuntime();
+    const hook = loadWall(runtime, "workspace-a", 4);
+    const remoteItem = {
+      publicId: "item-1",
+      x: 999,
+      y: 24,
+      width: 120,
+      height: 120,
+      zIndex: 2,
+    };
+    mocks.updateItem.mockImplementation(() => {
+      mocks.wallQuery.data = {
+        version: 6,
+        freeformUrl: null,
+        viewModeEnabled: false,
+        items: [remoteItem],
+      };
+      return Promise.resolve({ status: "saved", version: 5 });
+    });
+
+    await hook.onUpdate("item-1", {
+      x: 120,
+      y: 240,
+      width: 320,
+      height: 240,
+      zIndex: 2,
+    });
+
+    expect(mocks.wallQuery.data?.version).toBe(6);
+    expect(mocks.wallQuery.data?.items[0]).toEqual(remoteItem);
+    expect(mocks.invalidate).not.toHaveBeenCalled();
+    runtime.dispose();
+  });
+
   it("uses a cached wall version on the first mutation after mount", async () => {
     const runtime = createHookRuntime();
     mocks.wallQuery.data = {

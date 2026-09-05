@@ -5,6 +5,8 @@ export interface VisualWallItem {
   y: number;
   width: number;
   height: number;
+  widthPx?: number | null;
+  heightPx?: number | null;
   zIndex: number;
   title: string;
   viewUrl: string;

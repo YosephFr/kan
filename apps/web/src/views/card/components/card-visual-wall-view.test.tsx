@@ -11,6 +11,7 @@ import {
   vi,
 } from "vitest";
 
+import type { VisualWallProps } from "../../../components/visual-wall/visual-wall-types";
 import {
   CardVisualWallView,
   getAppendPosition,
@@ -23,6 +24,11 @@ const mocks = vi.hoisted(() => ({
   mutation: vi.fn(),
   useUtils: vi.fn(),
   showPopup: vi.fn(),
+  wallRender: vi.fn(),
+  cancel: vi.fn(),
+  setData: vi.fn(),
+  invalidateCard: vi.fn(),
+  invalidateBoard: vi.fn(),
 }));
 
 vi.mock("@lingui/core/macro", () => ({
@@ -35,22 +41,18 @@ vi.mock("@lingui/core/macro", () => ({
 }));
 
 vi.mock("~/components/visual-wall/VisualWall", () => ({
-  VisualWall: ({
-    items,
-    canEdit,
-    freeformUrl,
-  }: {
-    items: unknown[];
-    canEdit: boolean;
-    freeformUrl: string | null;
-  }) => (
-    <div
-      data-visual-wall="true"
-      data-items={items.length}
-      data-can-edit={String(canEdit)}
-      data-freeform-url={freeformUrl ?? ""}
-    />
-  ),
+  VisualWall: (props: VisualWallProps) => {
+    mocks.wallRender(props);
+    const { items, canEdit, freeformUrl } = props;
+    return (
+      <div
+        data-visual-wall="true"
+        data-items={items.length}
+        data-can-edit={String(canEdit)}
+        data-freeform-url={freeformUrl ?? ""}
+      />
+    );
+  },
 }));
 
 vi.mock("./CardVisualWallResourceDialog", () => ({
@@ -90,7 +92,7 @@ vi.mock("~/utils/api", () => ({
 }));
 
 vi.mock("~/utils/cardInvalidation", () => ({
-  invalidateCard: vi.fn(),
+  invalidateCard: mocks.invalidateCard,
 }));
 
 vi.mock("~/utils/card-workspace", () => ({
@@ -126,7 +128,8 @@ afterAll(() => vi.unstubAllGlobals());
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.useUtils.mockReturnValue({
-    board: { byId: { invalidate: vi.fn() } },
+    board: { byId: { invalidate: mocks.invalidateBoard } },
+    cardVisualWall: { get: { cancel: mocks.cancel, setData: mocks.setData } },
     cardResource: { list: { invalidate: vi.fn() } },
   });
   mocks.wallQuery.mockReturnValue({
@@ -143,6 +146,134 @@ beforeEach(() => {
 });
 
 describe("CardVisualWallView", () => {
+  it("acknowledges moves without refetching the wall, card, activities or board", async () => {
+    let cached = { ...wallData, version: 0 };
+    const refetch = vi.fn();
+    const mutateAsync = vi.fn().mockResolvedValue({
+      status: "saved",
+      version: 1,
+      updatedAt: new Date(),
+    });
+    mocks.wallQuery.mockReturnValue({
+      data: cached,
+      isLoading: false,
+      isError: false,
+      refetch,
+    });
+    mocks.mutation.mockReturnValue({ mutateAsync });
+    mocks.setData.mockImplementation(
+      (_input, update: (current: typeof cached) => typeof cached) => {
+        cached = update(cached);
+      },
+    );
+    renderToStaticMarkup(
+      <CardVisualWallView
+        cardPublicId="cardpublic01"
+        canEdit
+        isPublicBoard={false}
+      />,
+    );
+    const props = mocks.wallRender.mock.calls[0]?.[0] as VisualWallProps;
+    const patch = { x: 128, y: 64, width: 352, height: 264, zIndex: 2 };
+
+    await props.onUpdate("wallitem0001", patch);
+
+    expect(cached.version).toBe(1);
+    expect(cached.items[0]).toEqual({ ...wallData.items[0], ...patch });
+    expect(mocks.cancel).toHaveBeenCalledWith({ cardPublicId: "cardpublic01" });
+    expect(refetch).not.toHaveBeenCalled();
+    expect(mocks.invalidateCard).not.toHaveBeenCalled();
+    expect(mocks.invalidateBoard).not.toHaveBeenCalled();
+  });
+
+  it("does not update the cache when the server rejects editing permission", async () => {
+    mocks.mutation.mockReturnValue({
+      mutateAsync: vi.fn().mockRejectedValue(new Error("FORBIDDEN")),
+    });
+    renderToStaticMarkup(
+      <CardVisualWallView
+        cardPublicId="cardpublic01"
+        canEdit
+        isPublicBoard={false}
+      />,
+    );
+    const props = mocks.wallRender.mock.calls[0]?.[0] as VisualWallProps;
+
+    await expect(
+      props.onUpdate("wallitem0001", {
+        x: 128,
+        y: 64,
+        width: 352,
+        height: 264,
+        zIndex: 2,
+      }),
+    ).rejects.toThrow("FORBIDDEN");
+
+    expect(mocks.setData).not.toHaveBeenCalled();
+    expect(mocks.showPopup).toHaveBeenCalled();
+  });
+
+  it("loads a conflict once and applies the retry without discarding remote images", async () => {
+    let cached = { ...wallData, version: 0 };
+    const originalItem = wallData.items[0];
+    if (!originalItem) throw new Error("Missing wall fixture");
+    const remoteItem = { ...originalItem, publicId: "wallitem0002", x: 480 };
+    const refetch = vi.fn().mockImplementation(() => {
+      cached = {
+        ...wallData,
+        version: 4,
+        items: [...wallData.items, remoteItem],
+      };
+      return Promise.resolve({ data: cached });
+    });
+    const mutateAsync = vi
+      .fn()
+      .mockResolvedValueOnce({ status: "conflict", remoteVersion: 4 })
+      .mockResolvedValueOnce({
+        status: "saved",
+        version: 5,
+        updatedAt: new Date(),
+      });
+    mocks.wallQuery.mockReturnValue({
+      data: cached,
+      isLoading: false,
+      isError: false,
+      refetch,
+    });
+    mocks.mutation.mockReturnValue({ mutateAsync });
+    mocks.setData.mockImplementation(
+      (_input, update: (current: typeof cached) => typeof cached) => {
+        cached = update(cached);
+      },
+    );
+    renderToStaticMarkup(
+      <CardVisualWallView
+        cardPublicId="cardpublic01"
+        canEdit
+        isPublicBoard={false}
+      />,
+    );
+    const props = mocks.wallRender.mock.calls[0]?.[0] as VisualWallProps;
+
+    await props.onUpdate("wallitem0001", {
+      x: 128,
+      y: 64,
+      width: 352,
+      height: 264,
+      zIndex: 2,
+    });
+
+    expect(
+      mutateAsync.mock.calls.map(
+        ([input]) => (input as { expectedVersion: number }).expectedVersion,
+      ),
+    ).toEqual([0, 4]);
+    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(cached.version).toBe(5);
+    expect(cached.items[1]).toEqual(remoteItem);
+    expect(mocks.invalidateBoard).not.toHaveBeenCalled();
+  });
+
   it("renders public wall images and the Freeform link read-only", () => {
     const markup = renderToStaticMarkup(
       <CardVisualWallView
@@ -248,6 +379,14 @@ describe("roundWallPatch", () => {
 });
 
 describe("getAppendPosition", () => {
+  it("preserves the proportions of long screenshots when adding them", () => {
+    const position = getAppendPosition([], 0, [0.1]);
+
+    expect(position.width / position.height).toBeCloseTo(0.1, 3);
+    expect(getAppendPosition([], 3, [0.1, 1, 1, 1]).y).toBeGreaterThan(
+      position.y + position.height,
+    );
+  });
   it("keeps panoramic images inside the API placement bounds", () => {
     const position = getAppendPosition([], 0, [40]);
 

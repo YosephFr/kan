@@ -76,6 +76,8 @@ export const workspaceVisualWallItemSchema = visualWallBaseItemSchema.extend({
 
 export const cardVisualWallItemSchema = visualWallBaseItemSchema.extend({
   resourcePublicId: visualWallPublicIdSchema,
+  widthPx: z.number().int().positive(),
+  heightPx: z.number().int().positive(),
 });
 
 const visualWallSnapshotBaseSchema = z.object({

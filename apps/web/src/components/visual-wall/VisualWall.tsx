@@ -1,14 +1,11 @@
-import Image from "next/image";
 import { t } from "@lingui/core/macro";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   HiOutlineArrowTopRightOnSquare,
   HiOutlineClipboard,
-  HiOutlineEye,
   HiOutlineLink,
   HiOutlinePhoto,
   HiOutlinePlus,
-  HiOutlineTrash,
 } from "react-icons/hi2";
 
 import type {
@@ -18,10 +15,10 @@ import type {
 } from "./visual-wall-types";
 import { usePopup } from "../../providers/popup";
 import Button from "../Button";
+import { createVisualWallFrame } from "./visual-wall-frame";
 import {
   getVisualWallImageFiles,
   getVisualWallKeyboardAction,
-  getVisualWallKeyboardResize,
   getVisualWallPointerPatch,
   MAX_VISUAL_WALL_Z_INDEX,
   promoteVisualWallItem,
@@ -31,11 +28,13 @@ import {
   getVisualWallLogicalHeight,
   getVisualWallScale,
   normalizeVisualWallRect,
+  VISUAL_WALL_LOGICAL_WIDTH,
 } from "./visual-wall-layout";
 import {
   VisualWallFreeformDialog,
   VisualWallPreviewDialog,
 } from "./VisualWallDialogs";
+import { VisualWallImage } from "./VisualWallImage";
 
 interface PointerOperation {
   publicId: string;
@@ -46,6 +45,8 @@ interface PointerOperation {
   item: VisualWallItem;
   current: VisualWallItemPatch;
   moved: boolean;
+  originalZIndex: number;
+  scale: number;
 }
 
 const patchMatches = (item: VisualWallItem, patch: VisualWallItemPatch) =>
@@ -112,7 +113,6 @@ export function VisualWall({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const operationRef = useRef<PointerOperation | null>(null);
   const draggedItemRef = useRef<string | null>(null);
-  const [renderedWidth, setRenderedWidth] = useState(1_200);
   const [selectedPublicId, setSelectedPublicId] = useState<string | null>(null);
   const [previewItem, setPreviewItem] = useState<VisualWallItem | null>(null);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
@@ -120,15 +120,17 @@ export function VisualWall({
     Record<string, VisualWallItemPatch>
   >({});
 
-  useEffect(() => {
-    const wall = wallRef.current;
-    if (!wall) return;
-    const update = () => setRenderedWidth(wall.getBoundingClientRect().width);
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(wall);
-    return () => observer.disconnect();
-  }, []);
+  const pointerFrame = useMemo(
+    () =>
+      createVisualWallFrame<{ publicId: string; patch: VisualWallItemPatch }>(
+        ({ publicId, patch }) =>
+          setOptimistic((current) => ({ ...current, [publicId]: patch })),
+        (callback) => requestAnimationFrame(callback),
+        (id) => cancelAnimationFrame(id),
+      ),
+    [],
+  );
+  useEffect(() => () => pointerFrame.cancel(), [pointerFrame]);
 
   useEffect(() => {
     setOptimistic((current) => {
@@ -154,9 +156,14 @@ export function VisualWall({
       ),
     [items, optimistic],
   );
-  const scale = getVisualWallScale(renderedWidth);
-  const logicalHeight = getVisualWallLogicalHeight(displayedItems);
-  const maxZIndex = Math.max(0, ...displayedItems.map((item) => item.zIndex));
+  const logicalHeight = useMemo(
+    () => getVisualWallLogicalHeight(displayedItems),
+    [displayedItems],
+  );
+  const maxZIndex = useMemo(
+    () => Math.max(0, ...displayedItems.map((item) => item.zIndex)),
+    [displayedItems],
+  );
 
   const persist = useCallback(
     (item: VisualWallItem) => {
@@ -179,68 +186,88 @@ export function VisualWall({
     [onUpdate],
   );
 
-  const startPointerOperation = (
-    event: React.PointerEvent<HTMLElement>,
-    item: VisualWallItem,
-    kind: PointerOperation["kind"],
-  ) => {
-    if (!canEdit || event.button !== 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    const promoted = promoteVisualWallItem(item, maxZIndex);
-    setSelectedPublicId(item.publicId);
-    setOptimistic((current) => ({
-      ...current,
-      [item.publicId]: toVisualWallItemPatch(promoted),
-    }));
-    operationRef.current = {
-      publicId: item.publicId,
-      pointerId: event.pointerId,
-      kind,
-      clientX: event.clientX,
-      clientY: event.clientY,
-      item: promoted,
-      current: toVisualWallItemPatch(promoted),
-      moved: false,
-    };
-  };
+  const startPointerOperation = useCallback(
+    (
+      event: React.PointerEvent<HTMLElement>,
+      item: VisualWallItem,
+      kind: PointerOperation["kind"],
+    ) => {
+      if (!canEdit || event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      const promoted = promoteVisualWallItem(item, maxZIndex);
+      setSelectedPublicId(item.publicId);
+      if (promoted !== item) {
+        setOptimistic((current) => ({
+          ...current,
+          [item.publicId]: toVisualWallItemPatch(promoted),
+        }));
+      }
+      operationRef.current = {
+        publicId: item.publicId,
+        pointerId: event.pointerId,
+        kind,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        item: promoted,
+        current: toVisualWallItemPatch(promoted),
+        moved: false,
+        originalZIndex: item.zIndex,
+        scale: getVisualWallScale(
+          wallRef.current?.getBoundingClientRect().width ??
+            VISUAL_WALL_LOGICAL_WIDTH,
+        ),
+      };
+    },
+    [canEdit, maxZIndex],
+  );
 
-  const movePointerOperation = (event: React.PointerEvent<HTMLElement>) => {
-    const operation = operationRef.current;
-    if (!operation || operation.pointerId !== event.pointerId) return;
-    event.preventDefault();
-    const { patch, moved } = getVisualWallPointerPatch({
-      item: operation.item,
-      kind: operation.kind,
-      startClientX: operation.clientX,
-      startClientY: operation.clientY,
-      clientX: event.clientX,
-      clientY: event.clientY,
-      scale,
-    });
-    if (moved) operation.moved = true;
-    operation.current = patch;
-    setOptimistic((current) => ({
-      ...current,
-      [operation.publicId]: patch,
-    }));
-  };
+  const movePointerOperation = useCallback(
+    (event: React.PointerEvent<HTMLElement>) => {
+      const operation = operationRef.current;
+      if (!operation || operation.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      const { patch, moved } = getVisualWallPointerPatch({
+        item: operation.item,
+        kind: operation.kind,
+        startClientX: operation.clientX,
+        startClientY: operation.clientY,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        scale: operation.scale,
+      });
+      if (!moved && !operation.moved) return;
+      if (moved) operation.moved = true;
+      operation.current = patch;
+      pointerFrame.schedule({ publicId: operation.publicId, patch });
+    },
+    [pointerFrame],
+  );
 
-  const finishPointerOperation = (event: React.PointerEvent<HTMLElement>) => {
-    const operation = operationRef.current;
-    if (!operation || operation.pointerId !== event.pointerId) return;
-    operationRef.current = null;
-    if (operation.moved && event.type === "pointerup") {
-      draggedItemRef.current = operation.publicId;
-      window.setTimeout(() => {
-        if (draggedItemRef.current === operation.publicId) {
-          draggedItemRef.current = null;
-        }
-      }, 0);
-    }
-    persist({ ...operation.item, ...operation.current });
-  };
+  const finishPointerOperation = useCallback(
+    (event: React.PointerEvent<HTMLElement>) => {
+      const operation = operationRef.current;
+      if (!operation || operation.pointerId !== event.pointerId) return;
+      operationRef.current = null;
+      pointerFrame.cancel();
+      if (operation.moved && event.type === "pointerup") {
+        draggedItemRef.current = operation.publicId;
+        window.setTimeout(() => {
+          if (draggedItemRef.current === operation.publicId) {
+            draggedItemRef.current = null;
+          }
+        }, 0);
+      }
+      if (
+        operation.moved ||
+        operation.item.zIndex !== operation.originalZIndex
+      ) {
+        persist({ ...operation.item, ...operation.current });
+      }
+    },
+    [persist, pointerFrame],
+  );
 
   const handleFiles = (files: File[]) => {
     const images = getVisualWallImageFiles(files);
@@ -249,32 +276,50 @@ export function VisualWall({
     }
   };
 
-  const removeItem = (publicId: string) => {
-    void Promise.resolve(onRemove(publicId)).catch(() => undefined);
-  };
+  const removeItem = useCallback(
+    (publicId: string) => {
+      void Promise.resolve(onRemove(publicId)).catch(() => undefined);
+    },
+    [onRemove],
+  );
 
-  const handleKeyboard = (event: React.KeyboardEvent, item: VisualWallItem) => {
-    const action = getVisualWallKeyboardAction({
-      item,
-      key: event.key,
-      shiftKey: event.shiftKey,
-      canEdit,
-    });
-    if (action.type === "none") return;
-    if (action.type === "preview") {
+  const handleKeyboard = useCallback(
+    (event: React.KeyboardEvent, item: VisualWallItem) => {
+      const action = getVisualWallKeyboardAction({
+        item,
+        key: event.key,
+        shiftKey: event.shiftKey,
+        canEdit,
+      });
+      if (action.type === "none") return;
+      if (action.type === "preview") {
+        setPreviewItem(item);
+        return;
+      }
+      event.preventDefault();
+      if (action.type === "remove") {
+        removeItem(item.publicId);
+        return;
+      }
+      persist(action.item);
+    },
+    [canEdit, persist, removeItem],
+  );
+
+  const openItem = useCallback(
+    (item: VisualWallItem) => {
+      if (draggedItemRef.current === item.publicId) {
+        draggedItemRef.current = null;
+        return;
+      }
+      if (canEdit) setSelectedPublicId(item.publicId);
       setPreviewItem(item);
-      return;
-    }
-    event.preventDefault();
-    if (action.type === "remove") {
-      removeItem(item.publicId);
-      return;
-    }
-    persist(action.item);
-  };
+    },
+    [canEdit],
+  );
 
   return (
-    <div className="min-w-0">
+    <div className="min-w-0" style={{ containerType: "inline-size" }}>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {canEdit && (
           <>
@@ -385,7 +430,9 @@ export function VisualWall({
         aria-label={label}
         aria-busy={isBusy}
         className="relative isolate w-full min-w-0 overflow-hidden border-y border-light-300 bg-light-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-800 dark:border-dark-300 dark:bg-dark-50 dark:focus-visible:ring-dark-800"
-        style={{ height: Math.max(480, logicalHeight * scale) }}
+        style={{
+          height: `max(480px, ${(logicalHeight / VISUAL_WALL_LOGICAL_WIDTH) * 100}cqw)`,
+        }}
         tabIndex={canEdit ? 0 : undefined}
         onClick={() => setSelectedPublicId(null)}
         onPaste={(event) => {
@@ -419,111 +466,22 @@ export function VisualWall({
             {emptyMessage}
           </div>
         )}
-        {displayedItems.map((item) => {
-          const selected = selectedPublicId === item.publicId;
-          return (
-            <div
-              key={item.publicId}
-              role="group"
-              tabIndex={0}
-              aria-label={item.title}
-              className={`group absolute select-none outline-none ${selected ? "ring-2 ring-light-1000 ring-offset-2 dark:ring-dark-1000 dark:ring-offset-dark-50" : "focus-visible:ring-2 focus-visible:ring-light-900 dark:focus-visible:ring-dark-900"}`}
-              style={{
-                left: item.x * scale,
-                top: item.y * scale,
-                width: item.width * scale,
-                height: item.height * scale,
-                zIndex: item.zIndex,
-                touchAction: canEdit ? "none" : "auto",
-                cursor: canEdit ? "move" : "zoom-in",
-              }}
-              onClick={(event) => {
-                event.stopPropagation();
-                if (draggedItemRef.current === item.publicId) {
-                  draggedItemRef.current = null;
-                  return;
-                }
-                if (canEdit) setSelectedPublicId(item.publicId);
-                setPreviewItem(item);
-              }}
-              onDoubleClick={() => setPreviewItem(item)}
-              onKeyDown={(event) => handleKeyboard(event, item)}
-              onPointerDown={(event) =>
-                startPointerOperation(event, item, "move")
-              }
-              onPointerMove={movePointerOperation}
-              onPointerUp={finishPointerOperation}
-              onPointerCancel={finishPointerOperation}
-            >
-              <Image
-                src={item.viewUrl}
-                alt=""
-                width={Math.max(1, Math.round(item.width))}
-                height={Math.max(1, Math.round(item.height))}
-                unoptimized
-                loading="lazy"
-                decoding="async"
-                draggable={false}
-                className="h-full w-full bg-light-100 object-contain shadow-sm dark:bg-dark-100"
-              />
-              {selected && canEdit && (
-                <div className="absolute right-2 top-2 flex h-11 items-center overflow-hidden rounded-md border border-light-500 bg-light-50 shadow-lg dark:border-dark-500 dark:bg-dark-100">
-                  <button
-                    type="button"
-                    className="flex h-11 w-11 items-center justify-center hover:bg-light-300 dark:hover:bg-dark-300"
-                    onPointerDown={(event) => event.stopPropagation()}
-                    onKeyDown={(event) => event.stopPropagation()}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setPreviewItem(item);
-                    }}
-                    aria-label={t`Preview image`}
-                  >
-                    <HiOutlineEye className="h-5 w-5" />
-                  </button>
-                  <button
-                    type="button"
-                    className="flex h-11 w-11 items-center justify-center text-red-800 hover:bg-red-200 dark:text-red-800 dark:hover:bg-red-300"
-                    onPointerDown={(event) => event.stopPropagation()}
-                    onKeyDown={(event) => event.stopPropagation()}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      removeItem(item.publicId);
-                    }}
-                    aria-label={t`Remove image from wall`}
-                  >
-                    <HiOutlineTrash className="h-5 w-5" />
-                  </button>
-                </div>
-              )}
-              {selected && canEdit && (
-                <button
-                  type="button"
-                  aria-label={t`Resize image`}
-                  className="absolute bottom-2 right-2 h-11 w-11 cursor-nwse-resize touch-none rounded-full border-2 border-light-1000 bg-light-50 shadow-md dark:border-dark-1000 dark:bg-dark-50"
-                  onKeyDown={(event) => {
-                    event.stopPropagation();
-                    const resized = getVisualWallKeyboardResize({
-                      item,
-                      key: event.key,
-                      shiftKey: event.shiftKey,
-                    });
-                    if (!resized) return;
-                    event.preventDefault();
-                    persist(resized);
-                  }}
-                  onClick={(event) => event.stopPropagation()}
-                  onPointerDown={(event) =>
-                    startPointerOperation(event, item, "resize")
-                  }
-                  onPointerMove={movePointerOperation}
-                  onPointerUp={finishPointerOperation}
-                  onPointerCancel={finishPointerOperation}
-                />
-              )}
-            </div>
-          );
-        })}
+        {displayedItems.map((item) => (
+          <VisualWallImage
+            key={item.publicId}
+            item={item}
+            selected={selectedPublicId === item.publicId}
+            canEdit={canEdit}
+            onOpen={openItem}
+            onPreview={setPreviewItem}
+            onRemove={removeItem}
+            onPersist={persist}
+            onKeyboard={handleKeyboard}
+            onStart={startPointerOperation}
+            onMove={movePointerOperation}
+            onFinish={finishPointerOperation}
+          />
+        ))}
       </div>
 
       <VisualWallPreviewDialog

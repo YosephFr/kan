@@ -431,6 +431,36 @@ describe("visual wall repositories", () => {
     expect(await db.select().from(cardVisualWallItems)).toHaveLength(2);
   });
 
+  it("returns optimized image dimensions without exposing storage data", async () => {
+    const { resource } = await createCardUpload("dimension001");
+    await cardVisualWallRepo.addResource(db, {
+      cardId: seeded.card.id,
+      expectedWorkspaceId: seeded.workspace.id,
+      expectedVersion: 0,
+      actorId: seeded.user.id,
+      resourcePublicId: resource.publicId,
+      placement: placement(),
+      publicVisibilityAcknowledged: true,
+    });
+
+    const snapshot = await cardVisualWallRouter
+      .createCaller({ db, user: seeded.user } as never)
+      .get({ cardPublicId: seeded.card.publicId });
+
+    expect(snapshot.items[0]?.publicId).toMatch(/^[a-z0-9]{12}$/);
+    expect(snapshot.items).toEqual([
+      {
+        ...placement(),
+        publicId: snapshot.items[0]?.publicId,
+        resourcePublicId: resource.publicId,
+        title: "visual.png",
+        widthPx: 100,
+        heightPx: 60,
+        viewUrl: `/api/visual-wall-resources/${resource.publicId}`,
+      },
+    ]);
+  });
+
   it("requires public acknowledgement for Freeform and enforces public versus private reads", async () => {
     await db
       .update(boards)

@@ -245,6 +245,8 @@ export const getSnapshot = (
         publicId: cardVisualWallItems.publicId,
         resourcePublicId: cardResources.publicId,
         title: cardResources.title,
+        widthPx: cardVisualWallPreviews.width,
+        heightPx: cardVisualWallPreviews.height,
         x: cardVisualWallItems.x,
         y: cardVisualWallItems.y,
         width: cardVisualWallItems.width,

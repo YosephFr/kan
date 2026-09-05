@@ -15,6 +15,8 @@ describe("workspace visual wall adapter", () => {
           y: 48,
           width: 320,
           height: 180,
+          widthPx: 960,
+          heightPx: 640,
           zIndex: 2,
         },
       ]),
@@ -28,6 +30,8 @@ describe("workspace visual wall adapter", () => {
         y: 48,
         width: 320,
         height: 180,
+        widthPx: 960,
+        heightPx: 640,
         zIndex: 2,
       },
     ]);

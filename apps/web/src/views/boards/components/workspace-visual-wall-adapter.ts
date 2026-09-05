@@ -10,6 +10,8 @@ export const toWorkspaceVisualWallItems = (
     y: number;
     width: number;
     height: number;
+    widthPx?: number | null;
+    heightPx?: number | null;
     zIndex: number;
   }[],
 ): VisualWallItem[] =>
@@ -22,5 +24,7 @@ export const toWorkspaceVisualWallItems = (
     y: item.y,
     width: item.width,
     height: item.height,
+    widthPx: item.widthPx,
+    heightPx: item.heightPx,
     zIndex: item.zIndex,
   }));

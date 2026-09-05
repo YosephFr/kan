@@ -7,7 +7,10 @@ import { HiOutlineXMark } from "react-icons/hi2";
 import type { VisualWallItem } from "./visual-wall-types";
 import Button from "../Button";
 import Input from "../Input";
-import { isFreeformShareUrl } from "./visual-wall-layout";
+import {
+  getVisualWallImageDimensions,
+  isFreeformShareUrl,
+} from "./visual-wall-layout";
 
 export function VisualWallPreviewDialog({
   item,
@@ -38,10 +41,10 @@ export function VisualWallPreviewDialog({
             <Image
               src={item.viewUrl}
               alt={item.title}
-              width={Math.max(1, Math.round(item.width))}
-              height={Math.max(1, Math.round(item.height))}
+              {...getVisualWallImageDimensions(item)}
               unoptimized
-              className="max-h-[calc(100dvh-8rem)] min-h-0 w-full object-contain"
+              decoding="async"
+              className="mx-auto h-auto max-h-[calc(100dvh-8rem)] min-h-0 w-auto max-w-full object-contain"
             />
           )}
         </DialogPanel>

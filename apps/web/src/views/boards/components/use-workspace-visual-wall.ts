@@ -9,6 +9,7 @@ import {
   hashResourceFile,
   uploadResourceFile,
 } from "~/views/card/components/resource-upload-queue";
+import { applySavedVisualWallChange } from "../../../components/visual-wall/visual-wall-cache";
 import { getNextVisualWallZIndex } from "../../../components/visual-wall/visual-wall-interactions";
 import { toWorkspaceVisualWallItems } from "./workspace-visual-wall-adapter";
 import { validateWorkspaceVisualWallImageFile } from "./workspace-visual-wall-image";
@@ -117,16 +118,41 @@ export function useWorkspaceVisualWall({
     );
   }, []);
 
+  type WallSnapshot = NonNullable<typeof wallQuery.data>;
+
   const acceptCasResult = useCallback(
     async (
       result:
-        | { status: "saved"; version: number }
+        | { status: "saved"; version: number; updatedAt: Date }
         | { status: "conflict"; remoteVersion: number },
+      updateSnapshot?: (snapshot: WallSnapshot) => WallSnapshot,
     ) => {
       if (!isCurrentWorkspace()) return false;
       if (result.status === "saved") {
-        versionRef.current = result.version;
-        await refresh();
+        versionRef.current = Math.max(versionRef.current, result.version);
+        const cache = { accepted: false };
+        if (updateSnapshot) {
+          await utils.workspaceVisualWall.get.cancel({ workspacePublicId });
+          if (!isCurrentWorkspace()) return false;
+          utils.workspaceVisualWall.get.setData(
+            { workspacePublicId },
+            (current) => {
+              const next = applySavedVisualWallChange(
+                current,
+                result,
+                updateSnapshot,
+              );
+              cache.accepted = next !== undefined;
+              versionRef.current = Math.max(
+                versionRef.current,
+                next?.version ?? 0,
+              );
+              snapshotRef.current = next ?? current;
+              return next ?? current;
+            },
+          );
+        }
+        if (!cache.accepted) await refresh();
         return isCurrentWorkspace();
       }
       versionRef.current = result.remoteVersion;
@@ -139,7 +165,13 @@ export function useWorkspaceVisualWall({
       });
       return false;
     },
-    [isCurrentWorkspace, refresh, showPopup],
+    [
+      isCurrentWorkspace,
+      refresh,
+      showPopup,
+      utils.workspaceVisualWall.get,
+      workspacePublicId,
+    ],
   );
 
   const uploadWorkspaceImage = useCallback(
@@ -337,13 +369,20 @@ export function useWorkspaceVisualWall({
         if (!isCurrentWorkspace()) {
           throw new Error(WORKSPACE_VISUAL_WALL_STALE);
         }
-        if (!(await acceptCasResult(result))) {
+        if (
+          !(await acceptCasResult(result, (snapshot) => ({
+            ...snapshot,
+            items: snapshot.items.map((item) =>
+              item.publicId === itemPublicId ? { ...item, ...patch } : item,
+            ),
+          })))
+        ) {
           throw new Error("VISUAL_WALL_CONFLICT");
         }
       }).catch((error: unknown) => {
         if (isStaleWorkspaceOperation(error) || !isCurrentWorkspace()) return;
-        void refresh();
         if (!isVisualWallConflict(error)) {
+          void refresh();
           showPopup({
             header: t`The image could not be moved`,
             message: t`Its last saved position was restored. Try again.`,
@@ -376,13 +415,20 @@ export function useWorkspaceVisualWall({
         if (!isCurrentWorkspace()) {
           throw new Error(WORKSPACE_VISUAL_WALL_STALE);
         }
-        if (!(await acceptCasResult(result))) {
+        if (
+          !(await acceptCasResult(result, (snapshot) => ({
+            ...snapshot,
+            items: snapshot.items.filter(
+              (item) => item.publicId !== itemPublicId,
+            ),
+          })))
+        ) {
           throw new Error("VISUAL_WALL_CONFLICT");
         }
       }).catch((error: unknown) => {
         if (isStaleWorkspaceOperation(error) || !isCurrentWorkspace()) return;
-        void refresh();
         if (!isVisualWallConflict(error)) {
+          void refresh();
           showPopup({
             header: t`The image could not be removed`,
             message: t`The wall was not changed. Try again.`,
@@ -415,7 +461,12 @@ export function useWorkspaceVisualWall({
         if (!isCurrentWorkspace()) {
           throw new Error(WORKSPACE_VISUAL_WALL_STALE);
         }
-        if (!(await acceptCasResult(result))) {
+        if (
+          !(await acceptCasResult(result, (snapshot) => ({
+            ...snapshot,
+            freeformUrl,
+          })))
+        ) {
           throw new Error("VISUAL_WALL_CONFLICT");
         }
       }),
